@@ -89,13 +89,20 @@ namespace HintOverlay
             {
                 _uia.CreatePropertyCondition(30010, true), // UIA_IsEnabledPropertyId
                 _uia.CreatePropertyCondition(30022, false), // UIA_IsOffscreenPropertyId
-                _uia.CreatePropertyCondition(30009, true) // UIA_IsKeyboardFocusablePropertyId
+                //_uia.CreatePropertyCondition(30009, true) // UIA_IsKeyboardFocusablePropertyId
+            };
+
+
+            var status2 = new List<IUIAutomationCondition>()
+            {
+                _uia.CreatePropertyCondition(30010, true), // UIA_IsEnabledPropertyId
+                _uia.CreatePropertyCondition(30022, false), // UIA_IsOffscreenPropertyId
+                //_uia.CreatePropertyCondition(30009, false) // UIA_IsKeyboardFocusablePropertyId
             };
 
 
             var invokeCond = _uia.CreateOrConditionFromArray(patterns.ToArray());
             var statusCond = _uia.CreateAndConditionFromArray(status.ToArray());
-
 
             var clickableTypes = new int[]
             {
@@ -109,7 +116,8 @@ namespace HintOverlay
                 50031, // SplitButton
                 50007, // ListItem (includes ListViewItem)
                 50009, // Menu
-                50011  // MenuItem
+                50011, // MenuItem
+                50013, // RadioButton
             };
 
             var typeConditions = clickableTypes
@@ -127,8 +135,8 @@ namespace HintOverlay
             //cache.AddProperty(30010); // UIA_IsEnabledPropertyId
             //cache.AddProperty(30022); // UIA_IsOffscreenPropertyId
             cache.AddProperty(30003); // UIA_ControlTypePropertyId
-            //cache.AddProperty(30041); // UIA_IsTogglePatternAvailablePropertyId
-            //cache.AddProperty(30031); // UIA_IsInvokePatternAvailablePropertyId
+            cache.AddProperty(30041); // UIA_IsTogglePatternAvailablePropertyId
+            cache.AddProperty(30031); // UIA_IsInvokePatternAvailablePropertyId
 
             //cache.AddProperty(30109); // UIA_IsVirtualizedItemPatternAvailablePropertyId
 
