@@ -44,20 +44,19 @@ namespace HintOverlay
             lock (_gate)
             {
                 _enabled = !_enabled;
-                Overlay.SetEnabled(_enabled);
+                Debug.WriteLine(string.Format("Toggle {0}", _enabled));
 
                 if (_enabled)
                 {
-                    InstallKeyboardHook();
-
                     Measure("UIA", Refresh);
                 }
                 else
                 {
-                    RemoveKeyboardHook();
                     _typed = "";
                     Overlay.SetHints(new List<HintItem>());
                 }
+
+                Overlay.SetEnabled(_enabled);
             }
         }
 

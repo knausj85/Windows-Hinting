@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
@@ -42,11 +43,9 @@ namespace HintOverlay
 
         public void SetEnabled(bool enabled)
         {
+            Debug.WriteLine(string.Format("SetEnabled {0}", enabled));
+
             _enabled = enabled;
-            if (enabled) 
-                Show();
-            else 
-                Hide();
 
             if (!enabled) _hints.Clear();
             Invalidate();
@@ -54,6 +53,8 @@ namespace HintOverlay
 
         public void SetHints(List<HintItem> hints)
         {
+            Debug.WriteLine(string.Format("SetHints {0}", hints.Count));
+
             _hints = hints;
             Invalidate();
         }
@@ -76,7 +77,7 @@ namespace HintOverlay
 
             foreach (var h in _hints)
             {
-                g.DrawRectangle(_pen, h.Rect);
+                //g.DrawRectangle(_pen, h.Rect);
                 var size = g.MeasureString(h.Label, _font);
                 var bg = new RectangleF(h.Rect.Left, h.Rect.Top, size.Width + 6, size.Height + 2);
                 g.FillRectangle(_labelBg, bg);
