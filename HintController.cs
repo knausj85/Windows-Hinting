@@ -39,8 +39,17 @@ namespace HintOverlay
             Debug.WriteLine($"{name}: {sw.Elapsed.TotalMilliseconds:F3} ms");
         }
 
+        private long _lastToggleTicks = 0;
+
         public void Toggle()
         {
+            long now = Stopwatch.GetTimestamp();
+
+            if (now - _lastToggleTicks < Stopwatch.Frequency / 5) // 200ms
+                return;
+
+            _lastToggleTicks = now;
+
             lock (_gate)
             {
                 _enabled = !_enabled;
@@ -57,6 +66,15 @@ namespace HintOverlay
                 }
 
                 Overlay.SetEnabled(_enabled);
+
+                if(_enabled)
+                {
+                    InstallKeyboardHook();
+                }
+                else
+                {
+                    RemoveKeyboardHook();
+                }
             }
         }
 
@@ -67,87 +85,142 @@ namespace HintOverlay
 
             var root = _uia.ElementFromHandle(hwnd);
 
-            //UIA_IsTogglePatternAvailablePropertyId = 30041
-            //UIA_IsSelectionItemPatternAvailablePropertyId = 30036
-            //UIA_IsInvokePatternAvailablePropertyId = 30031
-            // UIA_IsVirtualizedItemPatternAvailablePropertyId 30109
-            var invoke_pattern = _uia.CreatePropertyCondition(30031, true);
-            var selection_pattern = _uia.CreatePropertyCondition(30036, true);
-            var toggle_pattern = _uia.CreatePropertyCondition(30041, true);
-            //var virtualized_pattern = _uia.CreatePropertyCondition(30109, true);
-
-            var patterns = new List<IUIAutomationCondition>()
+            var clickableControlTypes = new int[]
             {
-                invoke_pattern,
-                selection_pattern,
-                toggle_pattern,
-                //virtualized_pattern
+               50000, // Button
+               50002, // CheckBox
+               50003, // ComboBox
+               50004, // Edit
+               50005, // Hyperlink
+               50007, // ListItem (includes ListViewItem)
+               50009, // Menu
+               50011, // MenuItem
+               50013, // RadioButton
+               50019, // TabItem
+               50024, // TreeItem
+               50031, // SplitButton
             };
 
-            var status = new List<IUIAutomationCondition>()
+            var statusAndConditionList = new List<IUIAutomationCondition>()
             {
-                _uia.CreatePropertyCondition(30010, true), // UIA_IsEnabledPropertyId
-                _uia.CreatePropertyCondition(30022, false), // UIA_IsOffscreenPropertyId
-                //_uia.CreatePropertyCondition(30009, true) // UIA_IsKeyboardFocusablePropertyId
+               _uia.CreatePropertyCondition(30010, true), // UIA_IsEnabledPropertyId
+               _uia.CreatePropertyCondition(30022, false), // UIA_IsOffscreenPropertyId
+	   
+	           // UIA_IsKeyboardFocusablePropertyId notes
+	           // including will exclude e.g. minimize/maximize/close buttons
+	           // excluding will create a bunch of extra hints in e.g. windows explorer 
+               //_uia.CreatePropertyCondition(30009, false) // UIA_IsKeyboardFocusablePropertyId
             };
 
+            var statusAndCondition = _uia.CreateAndConditionFromArray(statusAndConditionList.ToArray());
 
-            var status2 = new List<IUIAutomationCondition>()
-            {
-                _uia.CreatePropertyCondition(30010, true), // UIA_IsEnabledPropertyId
-                _uia.CreatePropertyCondition(30022, false), // UIA_IsOffscreenPropertyId
-                //_uia.CreatePropertyCondition(30009, false) // UIA_IsKeyboardFocusablePropertyId
-            };
-
-
-            var invokeCond = _uia.CreateOrConditionFromArray(patterns.ToArray());
-            var statusCond = _uia.CreateAndConditionFromArray(status.ToArray());
-
-            var clickableTypes = new int[]
-            {
-                50000, // Button
-                50003, // ComboBox
-                50002, // CheckBox
-                50004, // Edit
-                50005, // Hyperlink
-                50024, // TreeItem
-                50019, // TabItem
-                50031, // SplitButton
-                50007, // ListItem (includes ListViewItem)
-                50009, // Menu
-                50011, // MenuItem
-                50013, // RadioButton
-            };
-
-            var typeConditions = clickableTypes
+            var controlTypeConditionList = clickableControlTypes
                 .Select(t => _uia.CreatePropertyCondition(30003, t))
                 .ToArray();
 
-            var controlTypeCondition =
-                _uia.CreateOrConditionFromArray(typeConditions);
+            var controlTypeOrCondition =
+                _uia.CreateOrConditionFromArray(controlTypeConditionList);
 
-            var cond = _uia.CreateAndCondition(statusCond, controlTypeCondition);
+            // filter based on the status AND the control type
+            // basically, agressively prune the tree via
+            // (IsEnabled AND not offscreen) AND (control type OR control type 2...)
+            var combinedStatusAndTypeCondition = _uia.CreateAndCondition(statusAndCondition, controlTypeOrCondition);
 
-            var cache = _uia.CreateCacheRequest();  
+            var cache = _uia.CreateCacheRequest();
             cache.TreeScope = TreeScope.TreeScope_Element;
             cache.AddProperty(30001); // UIA_BoundingRectanglePropertyId
-            //cache.AddProperty(30010); // UIA_IsEnabledPropertyId
-            //cache.AddProperty(30022); // UIA_IsOffscreenPropertyId
             cache.AddProperty(30003); // UIA_ControlTypePropertyId
             cache.AddProperty(30041); // UIA_IsTogglePatternAvailablePropertyId
             cache.AddProperty(30031); // UIA_IsInvokePatternAvailablePropertyId
+            cache.AddProperty(30028); // UIA_IsExpandCollapsePatternAvailablePropertyId
+            cache.AddProperty(30036); // UIA_IsSelectionItemPatternAvailablePropertyId
+            cache.AddPattern(10000);   
+            cache.AddPattern(10005);
+            cache.AddPattern(10010);
+            cache.AddPattern(10015);
 
-            //cache.AddProperty(30109); // UIA_IsVirtualizedItemPatternAvailablePropertyId
+            var elems = root.FindAllBuildCache(TreeScope.TreeScope_Descendants, combinedStatusAndTypeCondition, cache);
+
+            ////UIA_IsTogglePatternAvailablePropertyId = 30041
+            ////UIA_IsSelectionItemPatternAvailablePropertyId = 30036
+            ////UIA_IsInvokePatternAvailablePropertyId = 30031
+            //// UIA_IsVirtualizedItemPatternAvailablePropertyId 30109
+            //var invoke_pattern = _uia.CreatePropertyCondition(30031, true);
+            //var selection_pattern = _uia.CreatePropertyCondition(30036, true);
+            //var toggle_pattern = _uia.CreatePropertyCondition(30041, true);
+            ////var virtualized_pattern = _uia.CreatePropertyCondition(30109, true);
+
+            //var patterns = new List<IUIAutomationCondition>()
+            //{
+            //    invoke_pattern,
+            //    selection_pattern,
+            //    toggle_pattern,
+            //    //virtualized_pattern
+            //};
+
+            //var status = new List<IUIAutomationCondition>()
+            //{
+            //    _uia.CreatePropertyCondition(30010, true), // UIA_IsEnabledPropertyId
+            //    _uia.CreatePropertyCondition(30022, false), // UIA_IsOffscreenPropertyId
+            //    //_uia.CreatePropertyCondition(30009, true) // UIA_IsKeyboardFocusablePropertyId
+            //};
+
+
+            //var status2 = new List<IUIAutomationCondition>()
+            //{
+            //    _uia.CreatePropertyCondition(30010, true), // UIA_IsEnabledPropertyId
+            //    _uia.CreatePropertyCondition(30022, false), // UIA_IsOffscreenPropertyId
+            //    //_uia.CreatePropertyCondition(30009, false) // UIA_IsKeyboardFocusablePropertyId
+            //};
+
+
+            //var invokeCond = _uia.CreateOrConditionFromArray(patterns.ToArray());
+            //var statusCond = _uia.CreateAndConditionFromArray(status.ToArray());
+
+            //var clickableTypes = new int[]
+            //{
+            //    50000, // Button
+            //    50003, // ComboBox
+            //    50002, // CheckBox
+            //    50004, // Edit
+            //    50005, // Hyperlink
+            //    50024, // TreeItem
+            //    50019, // TabItem
+            //    50031, // SplitButton
+            //    50007, // ListItem (includes ListViewItem)
+            //    50009, // Menu
+            //    50011, // MenuItem
+            //    50013, // RadioButton
+            //};
+
+            //var typeConditions = clickableTypes
+            //    .Select(t => _uia.CreatePropertyCondition(30003, t))
+            //    .ToArray();
+
+            //var controlTypeCondition =
+            //    _uia.CreateOrConditionFromArray(typeConditions);
+
+            //var cond = _uia.CreateAndCondition(statusCond, controlTypeCondition);
+
+            //var cache = _uia.CreateCacheRequest();  
+            //cache.TreeScope = TreeScope.TreeScope_Element;
+            //cache.AddProperty(30001); // UIA_BoundingRectanglePropertyId
+            ////cache.AddProperty(30010); // UIA_IsEnabledPropertyId
+            ////cache.AddProperty(30022); // UIA_IsOffscreenPropertyId
+            //cache.AddProperty(30003); // UIA_ControlTypePropertyId
+            //cache.AddProperty(30041); // UIA_IsTogglePatternAvailablePropertyId
+            //cache.AddProperty(30031); // UIA_IsInvokePatternAvailablePropertyId
+
+            ////cache.AddProperty(30109); // UIA_IsVirtualizedItemPatternAvailablePropertyId
 
             //IUIAutomationTreeWalker walker = _uia.CreateTreeWalker(cond);
-            var elems = root.FindAllBuildCache(TreeScope.TreeScope_Descendants, cond, cache);
             var list = new List<HintItem>();
 
             for (int i = 0; i < elems.Length; i++)
             {
                 var e = elems.GetElement(i);
                 tagRECT rect = e.CachedBoundingRectangle;
-                bool shouldProcess = clickableTypes.Contains(e.CachedControlType);
+                bool shouldProcess = clickableControlTypes.Contains(e.CachedControlType);
                 
                 if (shouldProcess && (rect.right > rect.left && rect.bottom > rect.top))
                 {
@@ -201,7 +274,14 @@ namespace HintOverlay
         {
             if (nCode >= 0 && _enabled)
             {
+                bool ctrlDown = (GetAsyncKeyState(0x11) & 0x8000) != 0;
+                bool altDown = (GetAsyncKeyState(0x12) & 0x8000) != 0;
+
+                if (altDown || ctrlDown)
+                    return CallNextHookEx(_kbHook, nCode, wParam, lParam); // ignore when Alt or Ctrl is held
+
                 int vkCode = Marshal.ReadInt32(lParam);
+
 
                 if (vkCode >= 0x41 && vkCode <= 0x5A) // A-Z
                 {
@@ -232,12 +312,74 @@ namespace HintOverlay
                 {
                     try
                     {
+                        var el = h.Element;
+                        //Debug.WriteLine(string.Format("{}", el.CachedName));
                         // Use 10000 directly instead of UIA_PatternIds.UIA_InvokePatternId
-                        var patternObj = h.Element.GetCurrentPattern(10000);
-                        if (patternObj is IUIAutomationInvokePattern pattern)
+                        //cache.AddProperty(30001); // UIA_BoundingRectanglePropertyId
+                        //cache.AddProperty(30003); // UIA_ControlTypePropertyId
+                        //cache.AddProperty(30041); // UIA_IsTogglePatternAvailablePropertyId
+                        //cache.AddProperty(30031); // UIA_IsInvokePatternAvailablePropertyId
+                        //cache.AddProperty(30028); // UIA_IsExpandCollapsePatternAvailablePropertyId
+                        //cache.AddProperty(30036); // UIA_IsSelectionItemPatternAvailablePropertyId
+
+                        //el.GetCachedPropertyValue()
+
+                        //cache.AddPattern(10000);
+                        //cache.AddPattern(10005); // UIA_ExpandCollapsePatternId
+                        //cache.AddPattern(10010); // UIA_SelectionItemPatternId 
+                        //cache.AddPattern(10015); // UIA_TogglePatternId
+
+                        if (el.GetCachedPattern(10000) is IUIAutomationInvokePattern invokePattern)
                         {
-                            pattern.Invoke();
+                            invokePattern.Invoke();
                         }
+                        else if (el.GetCachedPattern(10005) is IUIAutomationExpandCollapsePattern expandPattern)
+                        {
+                            expandPattern.Expand();
+                        }
+                        else if(el.GetCachedPattern(10010) is IUIAutomationSelectionItemPattern selectionPattern)
+                        {
+                            selectionPattern.Select();
+                        }
+                        else if(el.GetCachedPattern(10015) is IUIAutomationTogglePattern togglePattern)
+                        {
+                            togglePattern.Toggle();
+                            return;
+                        }
+                        //var patternObj = h.Element.GetCurrentPattern(10000);
+                        //if (patternObj is IUIAutomationInvokePattern pattern)
+                        //{
+                        //    pattern.Invoke();
+                        //    return;
+                        //}
+
+                        //// Use 10006 directly instead of UIA_PatternIds.UIA_InvokePatternId
+                        //patternObj = h.Element.GetCurrentPattern(10005);
+
+                        //// UIA_ExpandCollapsePatternId
+                        //if (patternObj is IUIAutomationInvokePattern expandPattern)
+                        //{
+                        //    expandPattern.Invoke();
+                        //    return;
+                        //}
+
+                        //// UIA_SelectionItemPatternId
+                        //patternObj = h.Element.GetCurrentPattern(10010);
+
+                        //if (patternObj is IUIAutomationInvokePattern selectionPattern)
+                        //{
+                        //    selectionPattern.Invoke();
+                        //    return;
+                        //}
+
+                        //// UIA_TogglePatternId
+                        //patternObj = h.Element.GetCurrentPattern(10015);
+
+                        //if (patternObj is IUIAutomationInvokePattern togglePattern)
+                        //{
+                        //    togglePattern.Invoke();
+                        //    return;
+                        //}
                     }
                     catch { }
 
@@ -273,6 +415,9 @@ namespace HintOverlay
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
     }
 
     // If 'IUIAutomationInvokePattern' is not available in your referenced UIAutomationClient,
