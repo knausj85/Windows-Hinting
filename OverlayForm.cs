@@ -1,28 +1,28 @@
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography.X509Certificates;
-using System.Windows.Forms;
 
 namespace HintOverlay
 {
+
     internal sealed class OverlayForm : Form
     {
         private List<HintItem> _hints = new();
         private bool _enabled;
+        private string _filterPrefix = "";
 
         private const int HOTKEY_ID = 1;
         private const int MOD_CONTROL = 0x0002;
         private const int MOD_ALT = 0x0001;
         private const int VK_H = 0x48;
 
-        private readonly Pen _pen = new(Color.Yellow, 2);
-        private readonly Brush _labelBg = new SolidBrush(Color.FromArgb(170, 0, 0, 0));
-        private readonly Brush _labelFg = new SolidBrush(Color.Yellow);
         private readonly Font _font = new("Segoe UI", 9, FontStyle.Bold);
+
+        // animation
+        private readonly System.Windows.Forms.Timer _animTimer;
+        private const float FadeLerp = 0.22f; // easing factor per frame (16ms)
 
         public event EventHandler? ToggleRequested;
 
@@ -39,24 +39,84 @@ namespace HintOverlay
 
             BackColor = Color.LimeGreen;
             TransparencyKey = Color.LimeGreen;
+
+            _animTimer = new System.Windows.Forms.Timer { Interval = 16 };
+            _animTimer.Tick += (_, __) => AnimateStep();
         }
 
         public void SetEnabled(bool enabled)
         {
-            Debug.WriteLine(string.Format("SetEnabled {0}", enabled));
-
+            Debug.WriteLine($"SetEnabled {enabled}");
             _enabled = enabled;
 
-            if (!enabled) _hints.Clear();
+            if (!enabled)
+            {
+                _filterPrefix = "";
+                _hints.Clear();
+                _animTimer.Stop();
+            }
+
             Invalidate();
         }
 
         public void SetHints(List<HintItem> hints)
         {
-            Debug.WriteLine(string.Format("SetHints {0}", hints.Count));
-
+            Debug.WriteLine($"SetHints {hints.Count}");
             _hints = hints;
+
+            // ensure animation progresses toward current targets
+            StartAnimationIfNeeded();
             Invalidate();
+        }
+
+        public void SetFilterPrefix(string prefix)
+        {
+            Debug.WriteLine($"SetFilterPrefix '{prefix}'");
+            if (string.IsNullOrEmpty(prefix))
+            {
+                _filterPrefix = string.Empty;
+            }
+            else
+            {
+                _filterPrefix = prefix;
+            }
+
+            Invalidate(); // redraw text highlight immediately
+        }
+
+        public void StartAnimationIfNeeded()
+        {
+            if (!_enabled || _hints.Count == 0) return;
+            _animTimer.Start();
+        }
+
+        private void AnimateStep()
+        {
+            if (!_enabled || _hints.Count == 0)
+            {
+                _animTimer.Stop();
+                return;
+            }
+
+            bool anyAnimating = false;
+            foreach (var h in _hints)
+            {
+                var diff = h.TargetOpacity - h.CurrentOpacity;
+                if (Math.Abs(diff) > 0.01f)
+                {
+                    h.CurrentOpacity += diff * FadeLerp;
+                    anyAnimating = true;
+                }
+                else
+                {
+                    h.CurrentOpacity = h.TargetOpacity;
+                }
+            }
+
+            Invalidate();
+
+            if (!anyAnimating)
+                _animTimer.Stop();
         }
 
         public void RegisterGlobalHotkey()
@@ -77,11 +137,43 @@ namespace HintOverlay
 
             foreach (var h in _hints)
             {
-                //g.DrawRectangle(_pen, h.Rect);
+                int alpha = (int)(255 * Math.Clamp(h.CurrentOpacity, 0f, 1f));
+
+                using var pen = new Pen(Color.FromArgb(alpha, 255, 255, 0), 2);
+                using var labelBg = new SolidBrush(Color.FromArgb((int)(170 * Math.Clamp(h.CurrentOpacity, 0f, 1f)), 0, 0, 0));
+                using var labelFg = new SolidBrush(Color.FromArgb(alpha, 255, 255, 0));
+                using var labelHi = new SolidBrush(Color.FromArgb(alpha, 0, 255, 255)); // highlight
+
+                // rectangle outline
+                g.DrawRectangle(pen, h.Rect);
+
+                // label background size based on full label
                 var size = g.MeasureString(h.Label, _font);
                 var bg = new RectangleF(h.Rect.Left, h.Rect.Top, size.Width + 6, size.Height + 2);
-                g.FillRectangle(_labelBg, bg);
-                g.DrawString(h.Label, _font, _labelFg, h.Rect.Left + 3, h.Rect.Top + 1);
+                g.FillRectangle(labelBg, bg);
+
+                // draw label with highlighted matching prefix
+                float x = h.Rect.Left + 3;
+                float y = h.Rect.Top + 1;
+
+                string match = "";
+                string suffix = h.Label;
+
+                if (!string.IsNullOrEmpty(_filterPrefix) &&
+                    h.Label.StartsWith(_filterPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    int n = Math.Min(_filterPrefix.Length, h.Label.Length);
+                    match = h.Label.Substring(0, n);
+                    suffix = h.Label.Substring(n);
+                }
+
+                if (!string.IsNullOrEmpty(match))
+                {
+                    g.DrawString(match, _font, labelHi, x, y);
+                    x += g.MeasureString(match, _font).Width;
+                }
+
+                g.DrawString(suffix, _font, labelFg, x, y);
             }
         }
 
