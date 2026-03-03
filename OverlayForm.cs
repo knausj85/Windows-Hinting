@@ -170,9 +170,16 @@ namespace HintOverlay
                 if (!string.IsNullOrEmpty(match))
                 {
                     g.DrawString(match, _font, labelHi, x, y);
-                    x += g.MeasureString(match, _font).Width;
+                    //x += g.MeasureString(match, _font).Width;
                 }
 
+                var matchSize = TextRenderer.MeasureText(
+                match,
+                _font,
+                Size.Empty,
+                TextFormatFlags.NoPadding);
+
+                x += matchSize.Width;
                 g.DrawString(suffix, _font, labelFg, x, y);
             }
         }
