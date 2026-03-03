@@ -326,12 +326,12 @@ namespace HintOverlay
                 bool match = string.IsNullOrEmpty(_typed) ||
                              h.Label.StartsWith(_typed, StringComparison.OrdinalIgnoreCase);
 
-                h.TargetOpacity = match ? 1.0f : 0.5f;
+                h.TargetOpacity = match ? 1.0f : 0.0f;
             }
 
             // Kick animation + repaint
             Overlay.SetHints(_currentHints);
-            Overlay.StartAnimationIfNeeded();
+            //Overlay.StartAnimationIfNeeded();
         }
 
         private void CommitSelection()

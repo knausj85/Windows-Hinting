@@ -137,6 +137,11 @@ namespace HintOverlay
 
             foreach (var h in _hints)
             {
+                if (h.TargetOpacity == 0f)
+                {
+                    continue;
+                }
+
                 int alpha = (int)(255 * Math.Clamp(h.CurrentOpacity, 0f, 1f));
 
                 using var pen = new Pen(Color.FromArgb(alpha, 255, 255, 0), 2);
