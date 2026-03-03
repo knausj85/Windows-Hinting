@@ -287,7 +287,19 @@ namespace HintOverlay
                 // process application keys when hinting enabled
                 if (vkCode >= 0x41 && vkCode <= 0x5A) // A-Z
                 {
-                    _typed += ((char)vkCode).ToString();
+                    var candidate = _typed + ((char)vkCode).ToString();
+                    //_typed += ((char)vkCode).ToString();
+
+                    bool anyMatch = _currentHints.Any(h =>
+                           h.Label.StartsWith(candidate, StringComparison.OrdinalIgnoreCase));
+
+                    if (!anyMatch)
+                    {
+                        System.Media.SystemSounds.Beep.Play(); // invalid input sound
+                        return (IntPtr)1; // consume but do not change state
+                    }
+
+                    _typed = candidate;
                     UpdateMatchesAndAnimate();
                     return (IntPtr)1; // consume ONLY when hinting is enabled
                 }
