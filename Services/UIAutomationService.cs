@@ -1,120 +1,175 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
 using UIAutomationClient;
 
 namespace HintOverlay.Services
-{   
+{
     internal sealed class UIAutomationService : IUIAutomationService
     {
         private readonly IUIAutomation _automation;
-        
+
         public UIAutomationService()
         {
-            _automation = new CUIAutomation();
+            using (PerformanceMetrics.Start("UIAutomationService.Constructor", LogLevel.Debug))
+            {
+                _automation = new CUIAutomation();
+            }
         }
 
         public IReadOnlyList<ClickableElement> FindClickableElements(IntPtr windowHandle)
         {
-            try
+            using (PerformanceMetrics.Start("UIAutomationService.FindClickableElements", LogLevel.Info))
             {
-                return FindClickableElementsCore(windowHandle);
-            }
-            catch (COMException ex)
-            {
-                Debug.WriteLine($"UIA COM exception: {ex.Message}");
-                return Array.Empty<ClickableElement>();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Unexpected error: {ex.Message}");
-                return Array.Empty<ClickableElement>();
+                try
+                {
+                    return FindClickableElementsCore(windowHandle);
+                }
+                catch (COMException ex)
+                {
+                    Logger.Error($"UIA COM exception: {ex.Message}");
+                    return Array.Empty<ClickableElement>();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Unexpected error in FindClickableElements", ex);
+                    return Array.Empty<ClickableElement>();
+                }
             }
         }
 
         private IReadOnlyList<ClickableElement> FindClickableElementsCore(IntPtr windowHandle)
         {
             if (windowHandle == IntPtr.Zero)
-                return Array.Empty<ClickableElement>();
-
-            var root = _automation.ElementFromHandle(windowHandle);
-            if (root == null)
-                return Array.Empty<ClickableElement>();
-
-            var clickableControlTypes = new int[]
             {
-                50000, // Button
-                50002, // CheckBox
-                50003, // ComboBox
-                50004, // Edit
-                50005, // Hyperlink
-                50007, // ListItem
-                50009, // Menu
-                50011, // MenuItem
-                50013, // RadioButton
-                50019, // TabItem
-                50024, // TreeItem
-                50031, // SplitButton
-            };
-
-            var statusConditions = new List<IUIAutomationCondition>
-            {
-                _automation.CreatePropertyCondition(30010, true),  // UIA_IsEnabledPropertyId
-                _automation.CreatePropertyCondition(30022, false), // UIA_IsOffscreenPropertyId
-            };
-
-            var statusAndCondition = _automation.CreateAndConditionFromArray(statusConditions.ToArray());
-
-            var controlTypeConditions = clickableControlTypes
-                .Select(t => _automation.CreatePropertyCondition(30003, t))
-                .ToArray();
-
-            var controlTypeOrCondition = _automation.CreateOrConditionFromArray(controlTypeConditions);
-            var combinedCondition = _automation.CreateAndCondition(statusAndCondition, controlTypeOrCondition);
-
-            var cache = _automation.CreateCacheRequest();
-            cache.TreeScope = TreeScope.TreeScope_Element;
-            cache.AddProperty(30001); // UIA_BoundingRectanglePropertyId
-            cache.AddProperty(30003); // UIA_ControlTypePropertyId
-            cache.AddProperty(30041); // UIA_IsTogglePatternAvailablePropertyId
-            cache.AddProperty(30031); // UIA_IsInvokePatternAvailablePropertyId
-            cache.AddProperty(30028); // UIA_IsExpandCollapsePatternAvailablePropertyId
-            cache.AddProperty(30036); // UIA_IsSelectionItemPatternAvailablePropertyId
-            cache.AddPattern(10000);  // Toggle
-            cache.AddPattern(10005);  // ExpandCollapse
-            cache.AddPattern(10010);  // SelectionItem
-            cache.AddPattern(10015);  // Invoke
-
-            var elements = root.FindAllBuildCache(TreeScope.TreeScope_Descendants, combinedCondition, cache);
-            if (elements == null)
+                Logger.Debug("Window handle is zero");
                 return Array.Empty<ClickableElement>();
+            }
 
-            var result = new List<ClickableElement>();
-
-            for (int i = 0; i < elements.Length; i++)
+            IUIAutomationElement root;
+            using (PerformanceMetrics.Start("ElementFromHandle", LogLevel.Debug))
             {
-                var element = elements.GetElement(i);
-                if (element == null)
-                    continue;
-
-                tagRECT rect = element.CachedBoundingRectangle;
-
-                if (rect.right > rect.left && rect.bottom > rect.top)
+                root = _automation.ElementFromHandle(windowHandle);
+                if (root == null)
                 {
-                    result.Add(new ClickableElement(
-                        new Rectangle(
-                            (int)rect.left,
-                            (int)rect.top,
-                            (int)(rect.right - rect.left),
-                            (int)(rect.bottom - rect.top)),
-                        element));
+                    Logger.Warning("Failed to get root element from window handle");
+                    return Array.Empty<ClickableElement>();
                 }
             }
 
-            return result;
+            var clickableControlTypes = new int[]
+            {
+                UIA_ControlTypeIds.UIA_ButtonControlTypeId,
+                UIA_ControlTypeIds.UIA_CheckBoxControlTypeId,
+                UIA_ControlTypeIds.UIA_ComboBoxControlTypeId,
+                UIA_ControlTypeIds.UIA_EditControlTypeId,
+                UIA_ControlTypeIds.UIA_HyperlinkControlTypeId,
+                UIA_ControlTypeIds.UIA_ListItemControlTypeId,
+                UIA_ControlTypeIds.UIA_MenuControlTypeId,
+                UIA_ControlTypeIds.UIA_MenuItemControlTypeId,
+                UIA_ControlTypeIds.UIA_RadioButtonControlTypeId,
+                UIA_ControlTypeIds.UIA_TabItemControlTypeId,
+                UIA_ControlTypeIds.UIA_TreeItemControlTypeId,
+                UIA_ControlTypeIds.UIA_SplitButtonControlTypeId,
+            };
+
+            IUIAutomationCondition combinedCondition;
+            using (PerformanceMetrics.Start("BuildSearchConditions", LogLevel.Debug))
+            {
+                var statusConditions = new List<IUIAutomationCondition>
+                {
+                    _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsEnabledPropertyId, true),
+                    _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false),
+                };
+
+                var statusAndCondition = _automation.CreateAndConditionFromArray(statusConditions.ToArray());
+
+                var controlTypeConditions = clickableControlTypes
+                    .Select(t => _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_ControlTypePropertyId, t))
+                    .ToArray();
+
+                var controlTypeOrCondition = _automation.CreateOrConditionFromArray(controlTypeConditions);
+                combinedCondition = _automation.CreateAndCondition(statusAndCondition, controlTypeOrCondition);
+            }
+
+            IUIAutomationCacheRequest cache;
+            using (PerformanceMetrics.Start("CreateCacheRequest", LogLevel.Debug))
+            {
+                cache = _automation.CreateCacheRequest();
+                cache.TreeScope = TreeScope.TreeScope_Element;
+                cache.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+                cache.AddProperty(UIA_PropertyIds.UIA_ControlTypePropertyId);
+                cache.AddProperty(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
+                cache.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
+                cache.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
+                cache.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
+                cache.AddPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
+                cache.AddPattern(UIA_PatternIds.UIA_TogglePatternId);
+            }
+
+            IUIAutomationElementArray foundElements;
+            using (PerformanceMetrics.Start("FindAllBuildCache", LogLevel.Info))
+            {
+                foundElements = root.FindAllBuildCache(TreeScope.TreeScope_Descendants, combinedCondition, cache);
+                if (foundElements == null)
+                {
+                    Logger.Debug("FindAllBuildCache returned null");
+                    return Array.Empty<ClickableElement>();
+                }
+            }
+
+            var results = new List<ClickableElement>();
+            int elementCount = foundElements.Length;
+            Logger.Debug($"Processing {elementCount} found elements");
+
+            using (PerformanceMetrics.Start($"ProcessElements({elementCount})", LogLevel.Debug))
+            {
+                for (int i = 0; i < elementCount; i++)
+                {
+                    try
+                    {
+                        var element = foundElements.GetElement(i);
+                        if (element == null)
+                            continue;
+
+                        var rectObj = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+                        if (rectObj == null)
+                            continue;
+
+                        if (rectObj is double[] rectArray && rectArray.Length == 4)
+                        {
+                            var rect = new Rectangle(
+                                (int)rectArray[0],
+                                (int)rectArray[1],
+                                (int)rectArray[2],
+                                (int)rectArray[3]
+                            );
+
+                            if (rect.Width > 0 && rect.Height > 0)
+                            {
+                                results.Add(new ClickableElement
+                                {
+                                    Element = element,
+                                    Bounds = rect
+                                });
+                            }
+                        }
+                    }
+                    catch (COMException ex)
+                    {
+                        Logger.Debug($"COM exception processing element {i}: {ex.Message}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"Exception processing element {i}: {ex.Message}");
+                    }
+                }
+            }
+
+            Logger.Info($"Found {results.Count} valid clickable elements");
+            return results;
         }
     }
 }

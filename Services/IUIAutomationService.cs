@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using UIAutomationClient;
 using HintOverlay.Models;
 
 namespace HintOverlay.Services
@@ -5,6 +9,12 @@ namespace HintOverlay.Services
     internal interface IUIAutomationService
     {
         IReadOnlyList<ClickableElement> FindClickableElements(IntPtr windowHandle);
+    }
+
+    public class ClickableElement
+    {
+        public IUIAutomationElement Element { get; set; } = null!;
+        public Rectangle Bounds { get; set; }
     }
     
     internal interface IKeyboardHookService

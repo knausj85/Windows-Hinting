@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using HintOverlay.Models;
@@ -30,114 +32,153 @@ namespace HintOverlay
             IPreferencesService preferencesService,
             TrayIconManager trayIcon)
         {
-            _overlay = overlay ?? throw new ArgumentNullException(nameof(overlay));
-            _uiaService = uiaService ?? throw new ArgumentNullException(nameof(uiaService));
-            _keyboardService = keyboardService ?? throw new ArgumentNullException(nameof(keyboardService));
-            _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
-            _trayIcon = trayIcon ?? throw new ArgumentNullException(nameof(trayIcon));
-            
-            _stateManager = new HintStateManager();
-            _inputHandler = new HintInputHandler(_stateManager);
-            
-            // Load preferences
-            _options = _preferencesService.Load();
-            ApplyOptions();
-            
-            // Wire up events
-            _overlay.ToggleRequested += (s, e) => Toggle();
-            _trayIcon.ToggleRequested += (s, e) => Toggle();
-            _trayIcon.PreferencesRequested += OnPreferencesRequested;
-            _trayIcon.ExitRequested += (s, e) => Application.Exit();
-            
-            _stateManager.ModeChanged += OnModeChanged;
-            _stateManager.HintsChanged += OnHintsChanged;
-            _stateManager.FilterChanged += OnFilterChanged;
-            
-            _inputHandler.SelectionCommitted += OnSelectionCommitted;
-            
-            _keyboardService.KeyPressed += OnKeyPressed;
-            _keyboardService.KeyReleased += OnKeyReleased;
-            
-            // Show overlay
-            _overlay.Show();
+            using (PerformanceMetrics.Start("HintController.Constructor", LogLevel.Info))
+            {
+                Logger.Info("Initializing HintController");
+                
+                _overlay = overlay ?? throw new ArgumentNullException(nameof(overlay));
+                _uiaService = uiaService ?? throw new ArgumentNullException(nameof(uiaService));
+                _keyboardService = keyboardService ?? throw new ArgumentNullException(nameof(keyboardService));
+                _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
+                _trayIcon = trayIcon ?? throw new ArgumentNullException(nameof(trayIcon));
+                
+                _stateManager = new HintStateManager();
+                _inputHandler = new HintInputHandler(_stateManager);
+                
+                // Load preferences
+                Logger.Debug("Loading preferences");
+                _options = PerformanceMetricsExtensions.MeasureExecution(
+                    "LoadPreferences",
+                    () => _preferencesService.Load(),
+                    LogLevel.Debug);
+                ApplyOptions();
+                
+                // Wire up events
+                Logger.Debug("Wiring up event handlers");
+                _overlay.ToggleRequested += (s, e) => Toggle();
+                _trayIcon.ToggleRequested += (s, e) => Toggle();
+                _trayIcon.PreferencesRequested += OnPreferencesRequested;
+                _trayIcon.ExitRequested += (s, e) => Application.Exit();
+                
+                _stateManager.ModeChanged += OnModeChanged;
+                _stateManager.HintsChanged += OnHintsChanged;
+                _stateManager.FilterChanged += OnFilterChanged;
+                
+                _inputHandler.SelectionCommitted += OnSelectionCommitted;
+                
+                _keyboardService.KeyPressed += OnKeyPressed;
+                _keyboardService.KeyReleased += OnKeyReleased;
+                
+                // Show overlay
+                Logger.Debug("Showing overlay");
+                _overlay.Show();
+                
+                Logger.Info("HintController initialized successfully");
+            }
         }
 
         private void ApplyOptions()
         {
+            Logger.Debug($"Applying options - ShowRectangles: {_options.ShowRectangles}, Hotkey: {_options.Hotkey.Modifiers}+{_options.Hotkey.VirtualKey}");
             _overlay.ShowRectangles = _options.ShowRectangles;
             _overlay.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
         }
 
         public void Toggle()
         {
-            long now = Stopwatch.GetTimestamp();
-            long elapsedMs = (now - _lastToggleTicks) * 1000 / Stopwatch.Frequency;
-            
-            if (elapsedMs < ToggleDebounceMs)
-                return;
+            using (PerformanceMetrics.Start("Toggle", LogLevel.Debug))
+            {
+                long now = Stopwatch.GetTimestamp();
+                long elapsedMs = (now - _lastToggleTicks) * 1000 / Stopwatch.Frequency;
                 
-            _lastToggleTicks = now;
-            
-            if (_stateManager.CurrentMode == HintMode.Inactive)
-            {
-                _stateManager.Activate();
-                ScanForHints();
-            }
-            else
-            {
-                _stateManager.Deactivate();
+                if (elapsedMs < ToggleDebounceMs)
+                {
+                    Logger.Debug($"Toggle debounced - only {elapsedMs}ms since last toggle");
+                    return;
+                }
+                    
+                _lastToggleTicks = now;
+                
+                if (_stateManager.CurrentMode == HintMode.Inactive)
+                {
+                    Logger.Info("Activating hint mode");
+                    _stateManager.Activate();
+                    ScanForHints();
+                }
+                else
+                {
+                    Logger.Info("Deactivating hint mode");
+                    _stateManager.Deactivate();
+                }
             }
         }
 
         private void ScanForHints()
         {
-            var sw = Stopwatch.StartNew();
-            
-            var hwnd = GetForegroundWindow();
-            if (hwnd == IntPtr.Zero)
+            using (PerformanceMetrics.Start("ScanForHints", LogLevel.Info))
             {
-                Debug.WriteLine("No foreground window");
-                return;
+                var hwnd = GetForegroundWindow();
+                if (hwnd == IntPtr.Zero)
+                {
+                    Logger.Warning("No foreground window found");
+                    return;
+                }
+                
+                Logger.Debug($"Scanning window: {hwnd}");
+                
+                var elements = PerformanceMetricsExtensions.MeasureExecution(
+                    "FindClickableElements",
+                    () => _uiaService.FindClickableElements(hwnd),
+                    LogLevel.Info);
+                
+                Logger.Info($"Found {elements.Count} clickable elements");
+                
+                if (elements.Count == 0)
+                {
+                    Logger.Info("No clickable elements found, deactivating");
+                    _stateManager.Deactivate();
+                    return;
+                }
+                
+                // Generate labels
+                var labels = PerformanceMetricsExtensions.MeasureExecution(
+                    "GenerateLabels",
+                    () => LabelGenerator.Generate(elements.Count),
+                    LogLevel.Debug);
+                
+                // Create hint items
+                var hints = PerformanceMetricsExtensions.MeasureExecution(
+                    "CreateHintItems",
+                    () => elements.Select((e, i) => new HintItem
+                    {
+                        Rect = e.Bounds,
+                        Element = e.Element,
+                        Label = labels[i],
+                        CurrentOpacity = 1.0f,
+                        TargetOpacity = 1.0f
+                    }).ToList(),
+                    LogLevel.Debug);
+                
+                Logger.Debug($"Created {hints.Count} hint items");
+                _stateManager.SetHints(hints);
             }
-            
-            var elements = _uiaService.FindClickableElements(hwnd);
-            Debug.WriteLine($"Found {elements.Count} clickable elements in {sw.ElapsedMilliseconds}ms");
-            
-            if (elements.Count == 0)
-            {
-                _stateManager.Deactivate();
-                return;
-            }
-            
-            // Generate labels
-            var labels = LabelGenerator.Generate(elements.Count);
-            
-            // Create hint items
-            var hints = elements.Select((e, i) => new HintItem
-            {
-                Rect = e.Bounds,
-                Element = e.Element,
-                Label = labels[i],
-                CurrentOpacity = 1.0f,
-                TargetOpacity = 1.0f
-            }).ToList();
-            
-            _stateManager.SetHints(hints);
         }
 
         private void OnModeChanged(object? sender, HintMode mode)
         {
-            Debug.WriteLine($"Mode changed: {mode}");
+            Logger.Info($"Mode changed: {mode}");
             
             bool enabled = mode != HintMode.Inactive;
             _overlay.SetEnabled(enabled);
             
             if (enabled)
             {
+                Logger.Debug("Starting keyboard service");
                 _keyboardService.Start();
             }
             else
             {
+                Logger.Debug("Stopping keyboard service");
                 _keyboardService.Stop();
                 _inputHandler.Reset();
             }
@@ -145,11 +186,13 @@ namespace HintOverlay
 
         private void OnHintsChanged(object? sender, System.Collections.Generic.IReadOnlyList<HintItem> hints)
         {
+            Logger.Debug($"Hints changed - count: {hints.Count}");
             _overlay.SetHints(hints.ToList());
         }
 
         private void OnFilterChanged(object? sender, string filter)
         {
+            Logger.Debug($"Filter changed: '{filter}'");
             _overlay.SetFilterPrefix(filter);
         }
 
@@ -167,17 +210,19 @@ namespace HintOverlay
             
             if (hotkeyMatches)
             {
-                // Don't consume the hotkey
+                Logger.Debug("Hotkey pressed, not consuming");
                 return;
             }
             
             // Let the input handler process it
             bool handled = _inputHandler.ProcessKeyDown(e.VirtualKeyCode, e.Modifiers);
+            Logger.Debug($"Key pressed: VK={e.VirtualKeyCode}, Mods={e.Modifiers}, Handled={handled}");
             e.Handled = handled;
         }
 
         private void OnKeyReleased(object? sender, KeyboardEventArgs e)
         {
+            Logger.Debug($"Key released: VK={e.VirtualKeyCode}");
             _inputHandler.ProcessKeyUp(e.VirtualKeyCode);
         }
 
@@ -200,40 +245,53 @@ namespace HintOverlay
 
         private void OnSelectionCommitted(object? sender, EventArgs e)
         {
-            var match = _stateManager.GetExactMatch();
-            if (match == null)
-                return;
-            
-            try
+            using (PerformanceMetrics.Start("OnSelectionCommitted", LogLevel.Info))
             {
-                var element = match.Element;
+                var match = _stateManager.GetExactMatch();
+                if (match == null)
+                {
+                    Logger.Warning("Selection committed but no exact match found");
+                    return;
+                }
                 
-                // Try different interaction patterns in priority order
-                if (TryInvokePattern(element))
+                Logger.Info($"Activating element with label: {match.Label}");
+                
+                try
                 {
-                    Debug.WriteLine("Invoked element");
+                    var element = match.Element;
+                    
+                    // Try different interaction patterns in priority order
+                    if (TryInvokePattern(element))
+                    {
+                        Logger.Info("Successfully invoked element");
+                    }
+                    else if (TryExpandCollapsePattern(element))
+                    {
+                        Logger.Info("Successfully expanded/collapsed element");
+                    }
+                    else if (TrySelectionItemPattern(element))
+                    {
+                        Logger.Info("Successfully selected element");
+                    }
+                    else if (TryTogglePattern(element))
+                    {
+                        Logger.Info("Successfully toggled element");
+                    }
+                    else
+                    {
+                        Logger.Warning("No interaction pattern succeeded for element");
+                    }
                 }
-                else if (TryExpandCollapsePattern(element))
+                catch (Exception ex)
                 {
-                    Debug.WriteLine("Expanded/collapsed element");
+                    Logger.Error("Error activating element", ex);
                 }
-                else if (TrySelectionItemPattern(element))
+                finally
                 {
-                    Debug.WriteLine("Selected element");
+                    // Hide hints after activation
+                    Logger.Debug("Deactivating hints after element activation");
+                    _stateManager.Deactivate();
                 }
-                else if (TryTogglePattern(element))
-                {
-                    Debug.WriteLine("Toggled element");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error activating element: {ex.Message}");
-            }
-            finally
-            {
-                // Hide hints after activation
-                _stateManager.Deactivate();
             }
         }
 
@@ -241,13 +299,16 @@ namespace HintOverlay
         {
             try
             {
-                if (element.GetCachedPattern(10000) is IUIAutomationInvokePattern pattern)
+                if (element.GetCachedPattern(UIA_PatternIds.UIA_InvokePatternId) is IUIAutomationInvokePattern pattern)
                 {
                     pattern.Invoke();
                     return true;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.Debug($"InvokePattern failed: {ex.Message}");
+            }
             return false;
         }
 
@@ -255,13 +316,16 @@ namespace HintOverlay
         {
             try
             {
-                if (element.GetCachedPattern(10005) is IUIAutomationExpandCollapsePattern pattern)
+                if (element.GetCachedPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId) is IUIAutomationExpandCollapsePattern pattern)
                 {
                     pattern.Expand();
                     return true;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.Debug($"ExpandCollapsePattern failed: {ex.Message}");
+            }
             return false;
         }
 
@@ -269,13 +333,16 @@ namespace HintOverlay
         {
             try
             {
-                if (element.GetCachedPattern(10010) is IUIAutomationSelectionItemPattern pattern)
+                if (element.GetCachedPattern(UIA_PatternIds.UIA_SelectionItemPatternId) is IUIAutomationSelectionItemPattern pattern)
                 {
                     pattern.Select();
                     return true;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.Debug($"SelectionItemPattern failed: {ex.Message}");
+            }
             return false;
         }
 
@@ -283,36 +350,98 @@ namespace HintOverlay
         {
             try
             {
-                if (element.GetCachedPattern(10015) is IUIAutomationTogglePattern pattern)
+                if (element.GetCachedPattern(UIA_PatternIds.UIA_TogglePatternId) is IUIAutomationTogglePattern pattern)
                 {
                     pattern.Toggle();
                     return true;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.Debug($"TogglePattern failed: {ex.Message}");
+            }
             return false;
         }
 
         private void OnPreferencesRequested(object? sender, EventArgs e)
         {
-            var dialog = new PreferencesDialog(_options);
-            if (dialog.ShowDialog() == DialogResult.OK)
+            using (PerformanceMetrics.Start("ShowPreferencesDialog", LogLevel.Info))
             {
-                // Reload and apply
-                _options = _preferencesService.Load();
-                ApplyOptions();
-                _overlay.Invalidate();
+                Logger.Info("Opening preferences dialog");
+                var dialog = new PreferencesDialog(_options);
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    Logger.Info("Preferences saved, reloading and applying");
+                    // Reload and apply
+                    _options = _preferencesService.Load();
+                    ApplyOptions();
+                    _overlay.Invalidate();
+                }
+                else
+                {
+                    Logger.Debug("Preferences dialog cancelled");
+                }
             }
         }
 
         public void Dispose()
         {
+            Logger.Info("Disposing HintController");
             _keyboardService.Stop();
             _trayIcon.Dispose();
             _overlay.Dispose();
+            Logger.Info("HintController disposed");
         }
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
+    }
+
+    internal static class Logger
+    {
+        private static LogLevel _minLevel = LogLevel.Debug;
+        private static readonly object _lock = new object();
+
+        public static LogLevel MinimumLevel
+        {
+            get => _minLevel;
+            set => _minLevel = value;
+        }
+
+        public static void Debug(string message, [CallerMemberName] string memberName = "", [CallerFilePath] string filePath = "")
+        {
+            Log(LogLevel.Debug, message, memberName, filePath);
+        }
+
+        public static void Info(string message, [CallerMemberName] string memberName = "", [CallerFilePath] string filePath = "")
+        {
+            Log(LogLevel.Info, message, memberName, filePath);
+        }
+
+        public static void Warning(string message, [CallerMemberName] string memberName = "", [CallerFilePath] string filePath = "")
+        {
+            Log(LogLevel.Warning, message, memberName, filePath);
+        }
+
+        public static void Error(string message, Exception? ex = null, [CallerMemberName] string memberName = "", [CallerFilePath] string filePath = "")
+        {
+            var fullMessage = ex != null ? $"{message} - Exception: {ex.Message}\n{ex.StackTrace}" : message;
+            Log(LogLevel.Error, fullMessage, memberName, filePath);
+        }
+
+        private static void Log(LogLevel level, string message, string memberName, string filePath)
+        {
+            if (level < _minLevel)
+                return;
+
+            var fileName = Path.GetFileNameWithoutExtension(filePath);
+            var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+            var logMessage = $"[{timestamp}] [{level}] [{fileName}.{memberName}] {message}";
+
+            lock (_lock)
+            {
+                System.Diagnostics.Debug.WriteLine(logMessage);
+            }
+        }
     }
 }
