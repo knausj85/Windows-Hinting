@@ -1,0 +1,205 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  release:
+    types: [ published ]
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  PROJECT_PATH: 'HintOverlay.csproj'
+  SOLUTION_PATH: 'HintOverlay.sln'
+  BUILD_CONFIGURATION: 'Release'
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for versioning
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_PATH }}
+    
+    - name: Build
+      run: dotnet build ${{ env.SOLUTION_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
+    
+    - name: Run tests
+      run: dotnet test ${{ env.SOLUTION_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+      continue-on-error: true
+    
+    - name: Publish test results
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Test Results
+        path: '**/test-results.trx'
+        reporter: dotnet-trx
+        fail-on-error: false
+    
+    - name: Code analysis
+      run: dotnet build ${{ env.SOLUTION_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore /p:RunAnalyzersDuringBuild=true /p:TreatWarningsAsErrors=false
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: |
+          **/bin/${{ env.BUILD_CONFIGURATION }}/**
+          !**/bin/${{ env.BUILD_CONFIGURATION }}/**/ref/**
+          !**/bin/${{ env.BUILD_CONFIGURATION }}/**/*.pdb
+        retention-days: 7
+
+  publish:
+    name: Publish Application
+    runs-on: windows-latest
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    strategy:
+      matrix:
+        runtime: [ 'win-x64', 'win-x86' ]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.PROJECT_PATH }}
+    
+    - name: Publish self-contained
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} `
+          --configuration ${{ env.BUILD_CONFIGURATION }} `
+          --runtime ${{ matrix.runtime }} `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:PublishReadyToRun=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:EnableCompressionInSingleFile=true `
+          --output ./publish/${{ matrix.runtime }}
+    
+    - name: Create version file
+      run: |
+        $version = "1.0.${{ github.run_number }}"
+        $versionInfo = @{
+          Version = $version
+          BuildNumber = "${{ github.run_number }}"
+          CommitSha = "${{ github.sha }}"
+          BuildDate = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+          Runtime = "${{ matrix.runtime }}"
+        }
+        $versionInfo | ConvertTo-Json | Out-File -FilePath ./publish/${{ matrix.runtime }}/version.json -Encoding UTF8
+      shell: pwsh
+    
+    - name: Create archive
+      run: |
+        Compress-Archive -Path ./publish/${{ matrix.runtime }}/* -DestinationPath HintOverlay-${{ matrix.runtime }}.zip
+      shell: pwsh
+    
+    - name: Upload published artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: HintOverlay-${{ matrix.runtime }}
+        path: HintOverlay-${{ matrix.runtime }}.zip
+        retention-days: 30
+
+  release:
+    name: Create Release
+    runs-on: windows-latest
+    needs: publish
+    if: github.event_name == 'release'
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+    
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ./artifacts/**/*.zip
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_PATH }}
+    
+    - name: Build for analysis
+      run: dotnet build ${{ env.SOLUTION_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
+    
+    - name: Run code analysis
+      run: |
+        dotnet build ${{ env.SOLUTION_PATH }} `
+          --configuration ${{ env.BUILD_CONFIGURATION }} `
+          --no-restore `
+          /p:RunAnalyzersDuringBuild=true `
+          /p:AnalysisMode=All `
+          /p:CodeAnalysisTreatWarningsAsErrors=false
+      continue-on-error: true
+    
+    - name: Generate code metrics
+      run: |
+        dotnet tool install -g dotnet-reportgenerator-globaltool
+        # Add your preferred code metrics tool here
+      continue-on-error: true
+
+  security-scan:
+    name: Security Scan
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_PATH }}
+    
+    - name: Run security scan
+      run: |
+        dotnet list ${{ env.SOLUTION_PATH }} package --vulnerable --include-transitive
+      continue-on-error: true
+    
+    - name: Dependency review
+      uses: actions/dependency-review-action@v4
+      if: github.event_name == 'pull_request'

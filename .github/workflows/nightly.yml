@@ -1,0 +1,55 @@
+name: Nightly Build
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Run at 2 AM UTC daily
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  PROJECT_PATH: 'HintOverlay.csproj'
+  BUILD_CONFIGURATION: 'Release'
+
+jobs:
+  nightly-build:
+    name: Nightly Build
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.PROJECT_PATH }}
+    
+    - name: Build
+      run: dotnet build ${{ env.PROJECT_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
+    
+    - name: Publish (win-x64)
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} `
+          --configuration ${{ env.BUILD_CONFIGURATION }} `
+          --runtime win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          --output ./publish/nightly-win-x64
+    
+    - name: Create nightly archive
+      run: |
+        $date = Get-Date -Format "yyyy-MM-dd"
+        Compress-Archive -Path ./publish/nightly-win-x64/* -DestinationPath HintOverlay-nightly-$date.zip
+      shell: pwsh
+    
+    - name: Upload nightly build
+      uses: actions/upload-artifact@v4
+      with:
+        name: nightly-build
+        path: HintOverlay-nightly-*.zip
+        retention-days: 7
