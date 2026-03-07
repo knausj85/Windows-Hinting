@@ -1,12 +1,13 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using HintOverlay.Models;
 
 namespace HintOverlay
 {
     internal sealed class PreferencesDialog : Form
     {
-        private readonly Preferences _prefs;
+        private readonly HintOverlayOptions _options;
         private CheckBox _chkShowRectangles = null!;
         private CheckBox _chkCtrl = null!;
         private CheckBox _chkAlt = null!;
@@ -15,9 +16,9 @@ namespace HintOverlay
         private Button _btnOk = null!;
         private Button _btnCancel = null!;
 
-        public PreferencesDialog(Preferences prefs)
+        public PreferencesDialog(HintOverlayOptions options)
         {
-            _prefs = prefs;
+            _options = options;
 
             // Enable automatic DPI scaling
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -218,25 +219,25 @@ namespace HintOverlay
 
         private void LoadPreferences()
         {
-            _chkShowRectangles.Checked = _prefs.ShowRectangles;
+            _chkShowRectangles.Checked = _options.ShowRectangles;
 
             const int MOD_CONTROL = 0x0002;
             const int MOD_ALT = 0x0001;
             const int MOD_SHIFT = 0x0004;
 
-            _chkCtrl.Checked = (_prefs.HotkeyModifiers & MOD_CONTROL) != 0;
-            _chkAlt.Checked = (_prefs.HotkeyModifiers & MOD_ALT) != 0;
-            _chkShift.Checked = (_prefs.HotkeyModifiers & MOD_SHIFT) != 0;
+            _chkCtrl.Checked = (_options.Hotkey.Modifiers & MOD_CONTROL) != 0;
+            _chkAlt.Checked = (_options.Hotkey.Modifiers & MOD_ALT) != 0;
+            _chkShift.Checked = (_options.Hotkey.Modifiers & MOD_SHIFT) != 0;
 
             // Map virtual key code to character
-            if (_prefs.HotkeyVirtualKey >= 0x41 && _prefs.HotkeyVirtualKey <= 0x5A)
+            if (_options.Hotkey.VirtualKey >= 0x41 && _options.Hotkey.VirtualKey <= 0x5A)
             {
-                char keyChar = (char)_prefs.HotkeyVirtualKey;
+                char keyChar = (char)_options.Hotkey.VirtualKey;
                 _cmbKey.SelectedItem = keyChar.ToString();
             }
-            else if (_prefs.HotkeyVirtualKey >= 0x30 && _prefs.HotkeyVirtualKey <= 0x39)
+            else if (_options.Hotkey.VirtualKey >= 0x30 && _options.Hotkey.VirtualKey <= 0x39)
             {
-                char keyChar = (char)_prefs.HotkeyVirtualKey;
+                char keyChar = (char)_options.Hotkey.VirtualKey;
                 _cmbKey.SelectedItem = keyChar.ToString();
             }
             else
@@ -251,21 +252,22 @@ namespace HintOverlay
             const int MOD_ALT = 0x0001;
             const int MOD_SHIFT = 0x0004;
 
-            _prefs.ShowRectangles = _chkShowRectangles.Checked;
+            _options.ShowRectangles = _chkShowRectangles.Checked;
 
             int modifiers = 0;
             if (_chkCtrl.Checked) modifiers |= MOD_CONTROL;
             if (_chkAlt.Checked) modifiers |= MOD_ALT;
             if (_chkShift.Checked) modifiers |= MOD_SHIFT;
-            _prefs.HotkeyModifiers = modifiers;
+            _options.Hotkey.Modifiers = modifiers;
 
             if (_cmbKey.SelectedItem != null)
             {
                 string keyStr = _cmbKey.SelectedItem.ToString() ?? "H";
-                _prefs.HotkeyVirtualKey = keyStr[0];
+                _options.Hotkey.VirtualKey = keyStr[0];
             }
 
-            _prefs.Save();
+            var prefsService = new Services.PreferencesService();
+            prefsService.Save(_options);
         }
     }
 }

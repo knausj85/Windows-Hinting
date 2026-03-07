@@ -1,510 +1,318 @@
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Diagnostics;
-using System.Drawing;
+using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Windows.Forms;
+using HintOverlay.Models;
+using HintOverlay.Services;
 using UIAutomationClient;
 
 namespace HintOverlay
 {
     internal sealed class HintController : IDisposable
     {
-        private const int WM_INPUT = 0x00FF;
-        private const int RIM_TYPEKEYBOARD = 1;
-        private const int RID_INPUT = 0x10000003;
+        private readonly OverlayForm _overlay;
+        private readonly IUIAutomationService _uiaService;
+        private readonly IKeyboardHookService _keyboardService;
+        private readonly IPreferencesService _preferencesService;
+        private readonly HintStateManager _stateManager;
+        private readonly HintInputHandler _inputHandler;
+        private readonly TrayIconManager _trayIcon;
+        
+        private HintOverlayOptions _options;
+        private long _lastToggleTicks;
+        private const long ToggleDebounceMs = 200;
 
-        [StructLayout(LayoutKind.Sequential)]
-        private struct RAWINPUTDEVICE
+        public HintController(
+            OverlayForm overlay,
+            IUIAutomationService uiaService,
+            IKeyboardHookService keyboardService,
+            IPreferencesService preferencesService,
+            TrayIconManager trayIcon)
         {
-            public ushort usUsagePage;
-            public ushort usUsage;
-            public int dwFlags;
-            public IntPtr hwndTarget;
+            _overlay = overlay ?? throw new ArgumentNullException(nameof(overlay));
+            _uiaService = uiaService ?? throw new ArgumentNullException(nameof(uiaService));
+            _keyboardService = keyboardService ?? throw new ArgumentNullException(nameof(keyboardService));
+            _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
+            _trayIcon = trayIcon ?? throw new ArgumentNullException(nameof(trayIcon));
+            
+            _stateManager = new HintStateManager();
+            _inputHandler = new HintInputHandler(_stateManager);
+            
+            // Load preferences
+            _options = _preferencesService.Load();
+            ApplyOptions();
+            
+            // Wire up events
+            _overlay.ToggleRequested += (s, e) => Toggle();
+            _trayIcon.ToggleRequested += (s, e) => Toggle();
+            _trayIcon.PreferencesRequested += OnPreferencesRequested;
+            _trayIcon.ExitRequested += (s, e) => Application.Exit();
+            
+            _stateManager.ModeChanged += OnModeChanged;
+            _stateManager.HintsChanged += OnHintsChanged;
+            _stateManager.FilterChanged += OnFilterChanged;
+            
+            _inputHandler.SelectionCommitted += OnSelectionCommitted;
+            
+            _keyboardService.KeyPressed += OnKeyPressed;
+            _keyboardService.KeyReleased += OnKeyReleased;
+            
+            // Show overlay
+            _overlay.Show();
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        private struct RAWINPUTHEADER
+        private void ApplyOptions()
         {
-            public int dwType;
-            public int dwSize;
-            public IntPtr hDevice;
-            public IntPtr wParam;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct RAWKEYBOARD
-        {
-            public ushort MakeCode;
-            public ushort Flags;
-            public ushort Reserved;
-            public ushort VKey;
-            public uint Message;
-            public uint ExtraInformation;
-        }
-
-        [StructLayout(LayoutKind.Explicit)]
-        private struct RAWINPUT
-        {
-            [FieldOffset(0)] public RAWINPUTHEADER header;
-            [FieldOffset(16)] public RAWKEYBOARD keyboard;
-        }
-
-        public OverlayForm Overlay { get; }
-
-        private readonly IUIAutomation _uia = new CUIAutomation();
-        private bool _enabled;
-        private readonly object _gate = new();
-
-        private List<HintItem> _currentHints = new();
-        private string _typed = "";
-
-        // pressed key set to suppress auto-repeat
-        private readonly HashSet<int> _pressedKeys = new();
-
-        private long _lastToggleTicks = 0;
-        private IntPtr _kbHook = IntPtr.Zero;
-        private LowLevelKeyboardProc? _kbProc;
-
-        private NotifyIcon? _trayIcon;
-        private Preferences _preferences;
-
-        public HintController()
-        {
-            _preferences = Preferences.Load();
-
-            Overlay = new OverlayForm();
-            Overlay.ShowRectangles = _preferences.ShowRectangles;
-            Overlay.Show();
-            Overlay.RegisterGlobalHotkey(_preferences.HotkeyModifiers, _preferences.HotkeyVirtualKey);
-            Overlay.ToggleRequested += (_, __) => Toggle();
-
-            InitializeTrayIcon();
-        }
-
-        private void InitializeTrayIcon()
-        {
-            _trayIcon = new NotifyIcon
-            {
-                Text = "HintOverlay",
-                Visible = true
-            };
-
-            // Create a simple icon (you can replace this with a custom icon file)
-            _trayIcon.Icon = CreateTrayIcon();
-
-            var contextMenu = new ContextMenuStrip();
-            contextMenu.Items.Add("Preferences...", null, OnPreferences);
-            contextMenu.Items.Add("-");
-            contextMenu.Items.Add("Exit", null, OnExit);
-
-            _trayIcon.ContextMenuStrip = contextMenu;
-            _trayIcon.DoubleClick += (_, __) => Toggle();
-        }
-
-        private Icon CreateTrayIcon()
-        {
-            // Create a simple 16x16 icon with a yellow 'H' on transparent background
-            var bmp = new Bitmap(16, 16);
-            using (var g = Graphics.FromImage(bmp))
-            {
-                g.Clear(Color.Transparent);
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using (var font = new Font("Segoe UI", 10, FontStyle.Bold))
-                using (var brush = new SolidBrush(Color.Yellow))
-                {
-                    g.DrawString("H", font, brush, -2, -2);
-                }
-            }
-            return Icon.FromHandle(bmp.GetHicon());
-        }
-
-        private void OnPreferences(object? sender, EventArgs e)
-        {
-            var dialog = new PreferencesDialog(_preferences);
-            if (dialog.ShowDialog() == DialogResult.OK)
-            {
-                // Reload preferences and apply
-                _preferences = Preferences.Load();
-                Overlay.ShowRectangles = _preferences.ShowRectangles;
-                Overlay.RegisterGlobalHotkey(_preferences.HotkeyModifiers, _preferences.HotkeyVirtualKey);
-                Overlay.Invalidate();
-            }
-        }
-
-        private void OnExit(object? sender, EventArgs e)
-        {
-            Application.Exit();
-        }
-
-        static void Measure(string name, Action func)
-        {
-            var sw = Stopwatch.StartNew();
-            func();
-            sw.Stop();
-            Debug.WriteLine($"{name}: {sw.Elapsed.TotalMilliseconds:F3} ms");
+            _overlay.ShowRectangles = _options.ShowRectangles;
+            _overlay.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
         }
 
         public void Toggle()
         {
             long now = Stopwatch.GetTimestamp();
-
-            if (now - _lastToggleTicks < Stopwatch.Frequency / 5) // 200ms
+            long elapsedMs = (now - _lastToggleTicks) * 1000 / Stopwatch.Frequency;
+            
+            if (elapsedMs < ToggleDebounceMs)
                 return;
-
-            _lastToggleTicks = now;
-
-            lock (_gate)
-            {
-                _enabled = !_enabled;
-                Debug.WriteLine(string.Format("Toggle {0}", _enabled));
-
-                if (_enabled)
-                {
-                    _typed = "";
-                    Overlay.SetFilterPrefix(""); 
-                    Measure("UIA", Refresh);
-
-                    foreach (var h in _currentHints)
-                    {
-                        h.TargetOpacity = 1.0f;
-                        h.CurrentOpacity = 1.0f;
-                    }
-                    Overlay.SetHints(_currentHints);
-
-                    InstallKeyboardHook();
-                }
-                else
-                {
-                    _typed = "";
-                    Overlay.SetFilterPrefix(""); 
-                    Overlay.SetHints(new List<HintItem>());
-                    RemoveKeyboardHook();
-                    _pressedKeys.Clear();
-                }
-
-                Overlay.SetEnabled(_enabled);
-            }
-        }
-
-        private void Refresh()
-        {
-            var hwnd = GetForegroundWindow();
-            if (hwnd == IntPtr.Zero) return;
-
-            var root = _uia.ElementFromHandle(hwnd);
-
-            var clickableControlTypes = new int[]
-            {
-               50000, // Button
-               50002, // CheckBox
-               50003, // ComboBox
-               50004, // Edit
-               50005, // Hyperlink
-               50007, // ListItem (includes ListViewItem)
-               50009, // Menu
-               50011, // MenuItem
-               50013, // RadioButton
-               50019, // TabItem
-               50024, // TreeItem
-               50031, // SplitButton
-            };
-
-            var statusAndConditionList = new List<IUIAutomationCondition>()
-            {
-               _uia.CreatePropertyCondition(30010, true), // UIA_IsEnabledPropertyId
-               _uia.CreatePropertyCondition(30022, false), // UIA_IsOffscreenPropertyId
-            };
-
-            var statusAndCondition = _uia.CreateAndConditionFromArray(statusAndConditionList.ToArray());
-
-            var controlTypeConditionList = clickableControlTypes
-                .Select(t => _uia.CreatePropertyCondition(30003, t))
-                .ToArray();
-
-            var controlTypeOrCondition =
-                _uia.CreateOrConditionFromArray(controlTypeConditionList);
-
-            var combinedStatusAndTypeCondition = _uia.CreateAndCondition(statusAndCondition, controlTypeOrCondition);
-
-            var cache = _uia.CreateCacheRequest();
-            cache.TreeScope = TreeScope.TreeScope_Element;
-            cache.AddProperty(30001); // UIA_BoundingRectanglePropertyId
-            cache.AddProperty(30003); // UIA_ControlTypePropertyId
-            cache.AddProperty(30041); // UIA_IsTogglePatternAvailablePropertyId
-            cache.AddProperty(30031); // UIA_IsInvokePatternAvailablePropertyId
-            cache.AddProperty(30028); // UIA_IsExpandCollapsePatternAvailablePropertyId
-            cache.AddProperty(30036); // UIA_IsSelectionItemPatternAvailablePropertyId
-            cache.AddPattern(10000);
-            cache.AddPattern(10005);
-            cache.AddPattern(10010);
-            cache.AddPattern(10015);
-
-            var elems = root.FindAllBuildCache(TreeScope.TreeScope_Descendants, combinedStatusAndTypeCondition, cache);
-
-            var list = new List<HintItem>();
-
-            for (int i = 0; i < elems.Length; i++)
-            {
-                var e = elems.GetElement(i);
-                tagRECT rect = e.CachedBoundingRectangle;
-                bool shouldProcess = clickableControlTypes.Contains(e.CachedControlType);
-
-                if (shouldProcess && (rect.right > rect.left && rect.bottom > rect.top))
-                {
-                    list.Add(new HintItem
-                    {
-                        Rect = new Rectangle(
-                        (int)rect.left,
-                        (int)rect.top,
-                        (int)(rect.right - rect.left),
-                        (int)(rect.bottom - rect.top)),
-                        Element = e
-                    });
-                }
-            }
-
-            var labels = LabelGenerator.Generate(list.Count);
-            for (int i = 0; i < list.Count; i++)
-            {
-                list[i] = new HintItem
-                {
-                    Rect = list[i].Rect,
-                    Element = list[i].Element,
-                    Label = labels[i],
-                    CurrentOpacity = 1.0f,
-                    TargetOpacity = 1.0f
-                };
-            }
-
-            _currentHints = list;
-            Overlay.SetHints(list);
-        }
-
-        // ================= Keyboard Hook =================
-
-        private void InstallKeyboardHook()
-        {
-            if (_kbHook != IntPtr.Zero) return;
-
-            _kbProc = HookCallback;
-            _kbHook = SetWindowsHookEx(WH_KEYBOARD_LL, _kbProc, GetModuleHandle(null), 0);
-        }
-
-        private void RemoveKeyboardHook()
-        {
-            if (_kbHook != IntPtr.Zero)
-            {
-                UnhookWindowsHookEx(_kbHook);
-                _kbHook = IntPtr.Zero;
-            }
-        }
-
-        private const int WM_KEYDOWN = 0x0100;
-        private const int WM_KEYUP = 0x0101;
-        private const int WM_SYSKEYDOWN = 0x0104;
-        private const int WM_SYSKEYUP = 0x0105;
-
-        private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
-        {
-            if (nCode >= 0 && _enabled)
-            {
-                // read vk code (first field of KBDLLHOOKSTRUCT)
-                int vkCode = Marshal.ReadInt32(lParam);
-
-                bool isKeyDown = (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN);
-                bool isKeyUp = (wParam == (IntPtr)WM_KEYUP || wParam == (IntPtr)WM_SYSKEYUP);
-
-                // handle key releases: clear pressed set and return
-                if (isKeyUp)
-                {
-                    _pressedKeys.Remove(vkCode);
-                    // always pass along key-up events
-                    return CallNextHookEx(_kbHook, nCode, wParam, lParam);
-                }
-
-                // ignore repeats: if already pressed, skip processing but pass through
-                if (!isKeyDown) // only process keydown messages here
-                    return CallNextHookEx(_kbHook, nCode, wParam, lParam);
-
-                if (_pressedKeys.Contains(vkCode))
-                {
-                    // it's an auto-repeat; don't process but let other hooks/apps see it
-                    return CallNextHookEx(_kbHook, nCode, wParam, lParam);
-                }
-
-                // mark as pressed to suppress further repeats until key up
-                _pressedKeys.Add(vkCode);
-
-                // don't intercept hotkey - check against current preferences
-                bool ctrlDown = (GetAsyncKeyState(0x11) & 0x8000) != 0;
-                bool altDown = (GetAsyncKeyState(0x12) & 0x8000) != 0;
-                bool shiftDown = (GetAsyncKeyState(0x10) & 0x8000) != 0;
                 
-                const int MOD_CONTROL = 0x0002;
-                const int MOD_ALT = 0x0001;
-                const int MOD_SHIFT = 0x0004;
-
-                bool hotkeyCtrl = (_preferences.HotkeyModifiers & MOD_CONTROL) != 0;
-                bool hotkeyAlt = (_preferences.HotkeyModifiers & MOD_ALT) != 0;
-                bool hotkeyShift = (_preferences.HotkeyModifiers & MOD_SHIFT) != 0;
-
-                if (vkCode == _preferences.HotkeyVirtualKey &&
-                    ctrlDown == hotkeyCtrl &&
-                    altDown == hotkeyAlt &&
-                    shiftDown == hotkeyShift)
-                {
-                    return CallNextHookEx(_kbHook, nCode, wParam, lParam);
-                }
-
-                // ignore when Alt or Ctrl are held (except hotkey above)
-                if (altDown || ctrlDown)
-                    return CallNextHookEx(_kbHook, nCode, wParam, lParam);
-
-                // process application keys when hinting enabled
-                if (vkCode >= 0x41 && vkCode <= 0x5A) // A-Z
-                {
-                    var candidate = _typed + ((char)vkCode).ToString();
-
-                    bool anyMatch = _currentHints.Any(h =>
-                           h.Label.StartsWith(candidate, StringComparison.OrdinalIgnoreCase));
-
-                    if (!anyMatch)
-                    {
-                        System.Media.SystemSounds.Beep.Play(); // invalid input sound
-                        return (IntPtr)1; // consume but do not change state
-                    }
-
-                    _typed = candidate;
-                    UpdateMatchesAndAnimate();
-                    return (IntPtr)1; // consume ONLY when hinting is enabled
-                }
-                if (vkCode == 0x08) // backspace
-                {
-                    if (_typed.Length > 0)
-                        _typed = _typed[..^1];
-
-                    UpdateMatchesAndAnimate();
-                    return (IntPtr)1;
-                }
-                if (vkCode == 0x1B) // escape clears typed buffer (keeps hints up)
-                {
-                    _typed = "";
-                    UpdateMatchesAndAnimate();
-                    return (IntPtr)1;
-                }
-                if (vkCode == 0x20 || vkCode == 0x0D) // SPACE or ENTER commits selection
-                {
-                    CommitSelection();
-                    return (IntPtr)1;
-                }
+            _lastToggleTicks = now;
+            
+            if (_stateManager.CurrentMode == HintMode.Inactive)
+            {
+                _stateManager.Activate();
+                ScanForHints();
             }
-
-            return CallNextHookEx(_kbHook, nCode, wParam, lParam);
+            else
+            {
+                _stateManager.Deactivate();
+            }
         }
 
-        private void UpdateMatchesAndAnimate()
+        private void ScanForHints()
         {
-            // Update overlay prefix highlight
-            Overlay.SetFilterPrefix(_typed);
-
-            // Animate fade: non-matching hints fade to 50%
-            foreach (var h in _currentHints)
+            var sw = Stopwatch.StartNew();
+            
+            var hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero)
             {
-                bool match = string.IsNullOrEmpty(_typed) ||
-                             h.Label.StartsWith(_typed, StringComparison.OrdinalIgnoreCase);
-
-                h.TargetOpacity = match ? 1.0f : 0.0f;
+                Debug.WriteLine("No foreground window");
+                return;
             }
-
-            // Kick animation + repaint
-            Overlay.SetHints(_currentHints);
+            
+            var elements = _uiaService.FindClickableElements(hwnd);
+            Debug.WriteLine($"Found {elements.Count} clickable elements in {sw.ElapsedMilliseconds}ms");
+            
+            if (elements.Count == 0)
+            {
+                _stateManager.Deactivate();
+                return;
+            }
+            
+            // Generate labels
+            var labels = LabelGenerator.Generate(elements.Count);
+            
+            // Create hint items
+            var hints = elements.Select((e, i) => new HintItem
+            {
+                Rect = e.Bounds,
+                Element = e.Element,
+                Label = labels[i],
+                CurrentOpacity = 1.0f,
+                TargetOpacity = 1.0f
+            }).ToList();
+            
+            _stateManager.SetHints(hints);
         }
 
-        private void CommitSelection()
+        private void OnModeChanged(object? sender, HintMode mode)
         {
-            if (string.IsNullOrEmpty(_typed))
-                return;
-
-            foreach (var h in _currentHints)
+            Debug.WriteLine($"Mode changed: {mode}");
+            
+            bool enabled = mode != HintMode.Inactive;
+            _overlay.SetEnabled(enabled);
+            
+            if (enabled)
             {
-                if (!h.Label.Equals(_typed, StringComparison.OrdinalIgnoreCase))
-                    continue;
+                _keyboardService.Start();
+            }
+            else
+            {
+                _keyboardService.Stop();
+                _inputHandler.Reset();
+            }
+        }
 
-                try
-                {
-                    var el = h.Element;
+        private void OnHintsChanged(object? sender, System.Collections.Generic.IReadOnlyList<HintItem> hints)
+        {
+            _overlay.SetHints(hints.ToList());
+        }
 
-                    // Prefer Invoke, then Expand/Collapse, then SelectionItem, then Toggle.
-                    if (el.GetCachedPattern(10000) is IUIAutomationInvokePattern invokePattern)
-                    {
-                        invokePattern.Invoke();
-                    }
-                    else if (el.GetCachedPattern(10005) is IUIAutomationExpandCollapsePattern expandPattern)
-                    {
-                        expandPattern.Expand();
-                    }
-                    else if (el.GetCachedPattern(10010) is IUIAutomationSelectionItemPattern selectionPattern)
-                    {
-                        selectionPattern.Select();
-                    }
-                    else if (el.GetCachedPattern(10015) is IUIAutomationTogglePattern togglePattern)
-                    {
-                        togglePattern.Toggle();
-                    }
-                }
-                catch { }
+        private void OnFilterChanged(object? sender, string filter)
+        {
+            _overlay.SetFilterPrefix(filter);
+        }
 
-                // hide hints after commit
-                Toggle();
+        private void OnKeyPressed(object? sender, KeyboardEventArgs e)
+        {
+            if (_stateManager.CurrentMode == HintMode.Inactive)
                 return;
+            
+            // Check if this is the hotkey
+            int expectedModifiers = _options.Hotkey.Modifiers;
+            KeyModifiers actualMods = e.Modifiers;
+            
+            bool hotkeyMatches = e.VirtualKeyCode == _options.Hotkey.VirtualKey &&
+                                CheckModifiersMatch(expectedModifiers, actualMods);
+            
+            if (hotkeyMatches)
+            {
+                // Don't consume the hotkey
+                return;
+            }
+            
+            // Let the input handler process it
+            bool handled = _inputHandler.ProcessKeyDown(e.VirtualKeyCode, e.Modifiers);
+            e.Handled = handled;
+        }
+
+        private void OnKeyReleased(object? sender, KeyboardEventArgs e)
+        {
+            _inputHandler.ProcessKeyUp(e.VirtualKeyCode);
+        }
+
+        private bool CheckModifiersMatch(int expectedWin32Mods, KeyModifiers actualMods)
+        {
+            const int MOD_CONTROL = 0x0002;
+            const int MOD_ALT = 0x0001;
+            const int MOD_SHIFT = 0x0004;
+            
+            bool expectCtrl = (expectedWin32Mods & MOD_CONTROL) != 0;
+            bool expectAlt = (expectedWin32Mods & MOD_ALT) != 0;
+            bool expectShift = (expectedWin32Mods & MOD_SHIFT) != 0;
+            
+            bool hasCtrl = (actualMods & KeyModifiers.Control) != 0;
+            bool hasAlt = (actualMods & KeyModifiers.Alt) != 0;
+            bool hasShift = (actualMods & KeyModifiers.Shift) != 0;
+            
+            return expectCtrl == hasCtrl && expectAlt == hasAlt && expectShift == hasShift;
+        }
+
+        private void OnSelectionCommitted(object? sender, EventArgs e)
+        {
+            var match = _stateManager.GetExactMatch();
+            if (match == null)
+                return;
+            
+            try
+            {
+                var element = match.Element;
+                
+                // Try different interaction patterns in priority order
+                if (TryInvokePattern(element))
+                {
+                    Debug.WriteLine("Invoked element");
+                }
+                else if (TryExpandCollapsePattern(element))
+                {
+                    Debug.WriteLine("Expanded/collapsed element");
+                }
+                else if (TrySelectionItemPattern(element))
+                {
+                    Debug.WriteLine("Selected element");
+                }
+                else if (TryTogglePattern(element))
+                {
+                    Debug.WriteLine("Toggled element");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error activating element: {ex.Message}");
+            }
+            finally
+            {
+                // Hide hints after activation
+                _stateManager.Deactivate();
+            }
+        }
+
+        private bool TryInvokePattern(IUIAutomationElement element)
+        {
+            try
+            {
+                if (element.GetCachedPattern(10000) is IUIAutomationInvokePattern pattern)
+                {
+                    pattern.Invoke();
+                    return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private bool TryExpandCollapsePattern(IUIAutomationElement element)
+        {
+            try
+            {
+                if (element.GetCachedPattern(10005) is IUIAutomationExpandCollapsePattern pattern)
+                {
+                    pattern.Expand();
+                    return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private bool TrySelectionItemPattern(IUIAutomationElement element)
+        {
+            try
+            {
+                if (element.GetCachedPattern(10010) is IUIAutomationSelectionItemPattern pattern)
+                {
+                    pattern.Select();
+                    return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private bool TryTogglePattern(IUIAutomationElement element)
+        {
+            try
+            {
+                if (element.GetCachedPattern(10015) is IUIAutomationTogglePattern pattern)
+                {
+                    pattern.Toggle();
+                    return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private void OnPreferencesRequested(object? sender, EventArgs e)
+        {
+            var dialog = new PreferencesDialog(_options);
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                // Reload and apply
+                _options = _preferencesService.Load();
+                ApplyOptions();
+                _overlay.Invalidate();
             }
         }
 
         public void Dispose()
         {
-            RemoveKeyboardHook();
-            _trayIcon?.Dispose();
+            _keyboardService.Stop();
+            _trayIcon.Dispose();
+            _overlay.Dispose();
         }
-
-        // ============== Win32 keyboard hook ==============
-
-        private const int WH_KEYBOARD_LL = 13;
-
-        private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn,
-            IntPtr hMod, uint dwThreadId);
-
-        [DllImport("user32.dll")]
-        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
-
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr GetModuleHandle(string? lpModuleName);
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
-
-        [DllImport("user32.dll")]
-        private static extern short GetAsyncKeyState(int vKey);
-
-        [DllImport("user32.dll")]
-        private static extern bool RegisterRawInputDevices(
-            RAWINPUTDEVICE[] pRawInputDevices,
-            uint uiNumDevices,
-            uint cbSize);
-
-        [DllImport("user32.dll")]
-        private static extern uint GetRawInputData(
-            IntPtr hRawInput,
-            uint uiCommand,
-            IntPtr pData,
-            ref uint pcbSize,
-            uint cbSizeHeader);
     }
 }

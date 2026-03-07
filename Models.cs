@@ -1,7 +1,4 @@
 using System.Drawing;
-// Ensure the correct UIAutomationClient reference is added to your project.
-// If 'IUIAutomationElement' is not found, you may need to add a reference to 'UIAutomationClient.dll'.
-// If the using directive below does not resolve the type, check your project references.
 using UIAutomationClient;
 
 namespace HintOverlay
@@ -15,4 +12,6 @@ namespace HintOverlay
         public float CurrentOpacity { get; set; } = 1f;
         public float TargetOpacity { get; set; } = 1f;
     }
+
+    internal sealed record ClickableElement(Rectangle Bounds, IUIAutomationElement Element);
 }

@@ -1,6 +1,6 @@
-
 using System;
 using System.Windows.Forms;
+using HintOverlay.Services;
 
 namespace HintOverlay
 {
@@ -9,9 +9,29 @@ namespace HintOverlay
         [STAThread]
         static void Main()
         {
-            ApplicationConfiguration.Initialize();
-            using var controller = new HintController();
-            Application.Run(controller.Overlay);
+            Application.SetHighDpiMode(HighDpiMode.SystemAware);
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            
+            // Create services
+            var preferencesService = new PreferencesService();
+            var uiaService = new UIAutomationService();
+            var keyboardService = new KeyboardHookService();
+            var overlay = new OverlayForm();
+            var trayIcon = new TrayIconManager();
+            
+            // Create controller with dependencies
+            var controller = new HintController(
+                overlay,
+                uiaService,
+                keyboardService,
+                preferencesService,
+                trayIcon);
+            
+            Application.Run();
+            
+            // Cleanup
+            controller.Dispose();
         }
     }
 }

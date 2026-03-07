@@ -1,0 +1,50 @@
+using System;
+using System.IO;
+using System.Text.Json;
+using HintOverlay.Models;
+
+namespace HintOverlay.Services
+{
+    internal sealed class PreferencesService : IPreferencesService
+    {
+        private static readonly string PrefsPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "HintOverlay",
+            "preferences.json");
+
+        public HintOverlayOptions Load()
+        {
+            try
+            {
+                if (File.Exists(PrefsPath))
+                {
+                    var json = File.ReadAllText(PrefsPath);
+                    return JsonSerializer.Deserialize<HintOverlayOptions>(json) ?? new HintOverlayOptions();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load preferences: {ex.Message}");
+            }
+
+            return new HintOverlayOptions();
+        }
+
+        public void Save(HintOverlayOptions options)
+        {
+            try
+            {
+                var dir = Path.GetDirectoryName(PrefsPath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+
+                var json = JsonSerializer.Serialize(options, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(PrefsPath, json);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to save preferences: {ex.Message}");
+            }
+        }
+    }
+}
