@@ -197,30 +197,30 @@ namespace HintOverlay
 
             var clickableControlTypes = new int[]
             {
-               50000, // Button
-               50002, // CheckBox
-               50003, // ComboBox
-               50004, // Edit
-               50005, // Hyperlink
-               50007, // ListItem (includes ListViewItem)
-               50009, // Menu
-               50011, // MenuItem
-               50013, // RadioButton
-               50019, // TabItem
-               50024, // TreeItem
-               50031, // SplitButton
+               UIA_ControlTypeIds.UIA_ButtonControlTypeId,
+               UIA_ControlTypeIds.UIA_CheckBoxControlTypeId,
+               UIA_ControlTypeIds.UIA_ComboBoxControlTypeId,
+               UIA_ControlTypeIds.UIA_EditControlTypeId,
+               UIA_ControlTypeIds.UIA_HyperlinkControlTypeId,
+               UIA_ControlTypeIds.UIA_ListItemControlTypeId,
+               UIA_ControlTypeIds.UIA_MenuControlTypeId,
+               UIA_ControlTypeIds.UIA_MenuItemControlTypeId,
+               UIA_ControlTypeIds.UIA_RadioButtonControlTypeId,
+               UIA_ControlTypeIds.UIA_TabItemControlTypeId,
+               UIA_ControlTypeIds.UIA_TreeItemControlTypeId,
+               UIA_ControlTypeIds.UIA_SplitButtonControlTypeId,
             };
 
             var statusAndConditionList = new List<IUIAutomationCondition>()
             {
-               _uia.CreatePropertyCondition(30010, true), // UIA_IsEnabledPropertyId
-               _uia.CreatePropertyCondition(30022, false), // UIA_IsOffscreenPropertyId
+               _uia.CreatePropertyCondition(UIA_PropertyIds.UIA_IsEnabledPropertyId, true),
+               _uia.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false),
             };
 
             var statusAndCondition = _uia.CreateAndConditionFromArray(statusAndConditionList.ToArray());
 
             var controlTypeConditionList = clickableControlTypes
-                .Select(t => _uia.CreatePropertyCondition(30003, t))
+                .Select(t => _uia.CreatePropertyCondition(UIA_PropertyIds.UIA_ControlTypePropertyId, t))
                 .ToArray();
 
             var controlTypeOrCondition =
@@ -230,16 +230,16 @@ namespace HintOverlay
 
             var cache = _uia.CreateCacheRequest();
             cache.TreeScope = TreeScope.TreeScope_Element;
-            cache.AddProperty(30001); // UIA_BoundingRectanglePropertyId
-            cache.AddProperty(30003); // UIA_ControlTypePropertyId
-            cache.AddProperty(30041); // UIA_IsTogglePatternAvailablePropertyId
-            cache.AddProperty(30031); // UIA_IsInvokePatternAvailablePropertyId
-            cache.AddProperty(30028); // UIA_IsExpandCollapsePatternAvailablePropertyId
-            cache.AddProperty(30036); // UIA_IsSelectionItemPatternAvailablePropertyId
-            cache.AddPattern(10000);
-            cache.AddPattern(10005);
-            cache.AddPattern(10010);
-            cache.AddPattern(10015);
+            cache.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_ControlTypePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId);
+            cache.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
+            cache.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
+            cache.AddPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
+            cache.AddPattern(UIA_PatternIds.UIA_TogglePatternId);
 
             var elems = root.FindAllBuildCache(TreeScope.TreeScope_Descendants, combinedStatusAndTypeCondition, cache);
 
@@ -437,19 +437,19 @@ namespace HintOverlay
                     var el = h.Element;
 
                     // Prefer Invoke, then Expand/Collapse, then SelectionItem, then Toggle.
-                    if (el.GetCachedPattern(10000) is IUIAutomationInvokePattern invokePattern)
+                    if (el.GetCachedPattern(UIA_PatternIds.UIA_InvokePatternId) is IUIAutomationInvokePattern invokePattern)
                     {
                         invokePattern.Invoke();
                     }
-                    else if (el.GetCachedPattern(10005) is IUIAutomationExpandCollapsePattern expandPattern)
+                    else if (el.GetCachedPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId) is IUIAutomationExpandCollapsePattern expandPattern)
                     {
                         expandPattern.Expand();
                     }
-                    else if (el.GetCachedPattern(10010) is IUIAutomationSelectionItemPattern selectionPattern)
+                    else if (el.GetCachedPattern(UIA_PatternIds.UIA_SelectionItemPatternId) is IUIAutomationSelectionItemPattern selectionPattern)
                     {
                         selectionPattern.Select();
                     }
-                    else if (el.GetCachedPattern(10015) is IUIAutomationTogglePattern togglePattern)
+                    else if (el.GetCachedPattern(UIA_PatternIds.UIA_TogglePatternId) is IUIAutomationTogglePattern togglePattern)
                     {
                         togglePattern.Toggle();
                     }
