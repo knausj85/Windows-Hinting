@@ -30,11 +30,14 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     
-    - name: Restore dependencies
-      run: dotnet restore ${{ env.SOLUTION_PATH }}
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
     
-    - name: Build
-      run: dotnet build ${{ env.SOLUTION_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
+    - name: Restore dependencies
+      run: msbuild ${{ env.SOLUTION_PATH }} /t:Restore /p:Configuration=${{ env.BUILD_CONFIGURATION }}
+    
+    - name: Build with MSBuild
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU"
     
     - name: Run tests
       run: dotnet test ${{ env.SOLUTION_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
@@ -48,9 +51,6 @@ jobs:
         path: '**/test-results.trx'
         reporter: dotnet-trx
         fail-on-error: false
-    
-    - name: Code analysis
-      run: dotnet build ${{ env.SOLUTION_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore /p:RunAnalyzersDuringBuild=true /p:TreatWarningsAsErrors=false
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -81,20 +81,23 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     
-    - name: Restore dependencies
-      run: dotnet restore ${{ env.PROJECT_PATH }}
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
     
-    - name: Publish self-contained
+    - name: Restore dependencies
+      run: msbuild ${{ env.PROJECT_PATH }} /t:Restore /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:RuntimeIdentifier=${{ matrix.runtime }}
+    
+    - name: Publish with MSBuild
       run: |
-        dotnet publish ${{ env.PROJECT_PATH }} `
-          --configuration ${{ env.BUILD_CONFIGURATION }} `
-          --runtime ${{ matrix.runtime }} `
-          --self-contained true `
-          -p:PublishSingleFile=true `
-          -p:PublishReadyToRun=true `
-          -p:IncludeNativeLibrariesForSelfExtract=true `
-          -p:EnableCompressionInSingleFile=true `
-          --output ./publish/${{ matrix.runtime }}
+        msbuild ${{ env.PROJECT_PATH }} /t:Publish `
+          /p:Configuration=${{ env.BUILD_CONFIGURATION }} `
+          /p:RuntimeIdentifier=${{ matrix.runtime }} `
+          /p:SelfContained=true `
+          /p:PublishSingleFile=true `
+          /p:PublishReadyToRun=true `
+          /p:IncludeNativeLibrariesForSelfExtract=true `
+          /p:EnableCompressionInSingleFile=true `
+          /p:PublishDir=./publish/${{ matrix.runtime }}/
     
     - name: Create version file
       run: |
@@ -157,26 +160,14 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+    
     - name: Restore dependencies
-      run: dotnet restore ${{ env.SOLUTION_PATH }}
+      run: msbuild ${{ env.SOLUTION_PATH }} /t:Restore /p:Configuration=${{ env.BUILD_CONFIGURATION }}
     
     - name: Build for analysis
-      run: dotnet build ${{ env.SOLUTION_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
-    
-    - name: Run code analysis
-      run: |
-        dotnet build ${{ env.SOLUTION_PATH }} `
-          --configuration ${{ env.BUILD_CONFIGURATION }} `
-          --no-restore `
-          /p:RunAnalyzersDuringBuild=true `
-          /p:AnalysisMode=All `
-          /p:CodeAnalysisTreatWarningsAsErrors=false
-      continue-on-error: true
-    
-    - name: Generate code metrics
-      run: |
-        dotnet tool install -g dotnet-reportgenerator-globaltool
-        # Add your preferred code metrics tool here
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:RunAnalyzersDuringBuild=true /p:AnalysisMode=All
       continue-on-error: true
 
   security-scan:

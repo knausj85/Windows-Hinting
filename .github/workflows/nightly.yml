@@ -26,20 +26,20 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     
-    - name: Restore dependencies
-      run: dotnet restore ${{ env.PROJECT_PATH }}
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
     
-    - name: Build
-      run: dotnet build ${{ env.PROJECT_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
+    - name: Restore dependencies
+      run: msbuild ${{ env.PROJECT_PATH }} /t:Restore /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:RuntimeIdentifier=win-x64
     
     - name: Publish (win-x64)
       run: |
-        dotnet publish ${{ env.PROJECT_PATH }} `
-          --configuration ${{ env.BUILD_CONFIGURATION }} `
-          --runtime win-x64 `
-          --self-contained true `
-          -p:PublishSingleFile=true `
-          --output ./publish/nightly-win-x64
+        msbuild ${{ env.PROJECT_PATH }} /t:Publish `
+          /p:Configuration=${{ env.BUILD_CONFIGURATION }} `
+          /p:RuntimeIdentifier=win-x64 `
+          /p:SelfContained=true `
+          /p:PublishSingleFile=true `
+          /p:PublishDir=./publish/nightly-win-x64/
     
     - name: Create nightly archive
       run: |

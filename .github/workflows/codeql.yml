@@ -37,11 +37,14 @@ jobs:
       with:
         dotnet-version: '8.0.x'
     
-    - name: Restore dependencies
-      run: dotnet restore
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
     
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
+    - name: Restore dependencies
+      run: msbuild /t:Restore /p:Configuration=Release
+    
+    - name: Build with MSBuild
+      run: msbuild /p:Configuration=Release /p:Platform="Any CPU"
     
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
