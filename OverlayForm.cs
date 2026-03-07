@@ -14,9 +14,6 @@ namespace HintOverlay
         private string _filterPrefix = "";
 
         private const int HOTKEY_ID = 1;
-        private const int MOD_CONTROL = 0x0002;
-        private const int MOD_ALT = 0x0001;
-        private const int VK_H = 0x48;
 
         private readonly Font _font = new("Segoe UI", 9, FontStyle.Bold);
 
@@ -25,6 +22,11 @@ namespace HintOverlay
         private const float FadeLerp = 0.22f; // easing factor per frame (16ms)
 
         public event EventHandler? ToggleRequested;
+
+        public bool ShowRectangles { get; set; } = true;
+
+        private int _hotkeyModifiers;
+        private int _hotkeyVirtualKey;
 
         public OverlayForm()
         {
@@ -119,9 +121,12 @@ namespace HintOverlay
                 _animTimer.Stop();
         }
 
-        public void RegisterGlobalHotkey()
+        public void RegisterGlobalHotkey(int modifiers, int virtualKey)
         {
-            RegisterHotKey(Handle, HOTKEY_ID, MOD_CONTROL | MOD_ALT, VK_H);
+            UnregisterGlobalHotkey();
+            _hotkeyModifiers = modifiers;
+            _hotkeyVirtualKey = virtualKey;
+            RegisterHotKey(Handle, HOTKEY_ID, modifiers, virtualKey);
         }
 
         public void UnregisterGlobalHotkey()
@@ -135,22 +140,27 @@ namespace HintOverlay
 
             var g = e.Graphics;
 
+            int matches = 0;
             foreach (var h in _hints)
             {
                 if (h.TargetOpacity == 0f)
                 {
                     continue;
                 }
+                matches++;
 
                 int alpha = (int)(255 * Math.Clamp(h.CurrentOpacity, 0f, 1f));
 
-                using var pen = new Pen(Color.FromArgb(alpha, 255, 255, 0), 2);
                 using var labelBg = new SolidBrush(Color.FromArgb((int)(170 * Math.Clamp(h.CurrentOpacity, 0f, 1f)), 0, 0, 0));
                 using var labelFg = new SolidBrush(Color.FromArgb(alpha, 255, 255, 0));
                 using var labelHi = new SolidBrush(Color.FromArgb(alpha, 0, 255, 255)); // highlight
 
-                // rectangle outline
-                g.DrawRectangle(pen, h.Rect);
+                // rectangle outline (optional based on preference)
+                if (ShowRectangles)
+                {
+                    using var pen = new Pen(Color.FromArgb(alpha, 255, 255, 0), 2);
+                    g.DrawRectangle(pen, h.Rect);
+                }
 
                 // label background size based on full label
                 var size = g.MeasureString(h.Label, _font);
@@ -175,7 +185,6 @@ namespace HintOverlay
                 if (!string.IsNullOrEmpty(match))
                 {
                     g.DrawString(match, _font, labelHi, x, y);
-                    //x += g.MeasureString(match, _font).Width;
                 }
 
                 var matchSize = TextRenderer.MeasureText(

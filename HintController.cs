@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Windows.Forms;
 using UIAutomationClient;
 
 namespace HintOverlay
@@ -65,12 +67,75 @@ namespace HintOverlay
         private IntPtr _kbHook = IntPtr.Zero;
         private LowLevelKeyboardProc? _kbProc;
 
+        private NotifyIcon? _trayIcon;
+        private Preferences _preferences;
+
         public HintController()
         {
+            _preferences = Preferences.Load();
+
             Overlay = new OverlayForm();
+            Overlay.ShowRectangles = _preferences.ShowRectangles;
             Overlay.Show();
-            Overlay.RegisterGlobalHotkey();
+            Overlay.RegisterGlobalHotkey(_preferences.HotkeyModifiers, _preferences.HotkeyVirtualKey);
             Overlay.ToggleRequested += (_, __) => Toggle();
+
+            InitializeTrayIcon();
+        }
+
+        private void InitializeTrayIcon()
+        {
+            _trayIcon = new NotifyIcon
+            {
+                Text = "HintOverlay",
+                Visible = true
+            };
+
+            // Create a simple icon (you can replace this with a custom icon file)
+            _trayIcon.Icon = CreateTrayIcon();
+
+            var contextMenu = new ContextMenuStrip();
+            contextMenu.Items.Add("Preferences...", null, OnPreferences);
+            contextMenu.Items.Add("-");
+            contextMenu.Items.Add("Exit", null, OnExit);
+
+            _trayIcon.ContextMenuStrip = contextMenu;
+            _trayIcon.DoubleClick += (_, __) => Toggle();
+        }
+
+        private Icon CreateTrayIcon()
+        {
+            // Create a simple 16x16 icon with a yellow 'H' on transparent background
+            var bmp = new Bitmap(16, 16);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.Clear(Color.Transparent);
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var font = new Font("Segoe UI", 10, FontStyle.Bold))
+                using (var brush = new SolidBrush(Color.Yellow))
+                {
+                    g.DrawString("H", font, brush, -2, -2);
+                }
+            }
+            return Icon.FromHandle(bmp.GetHicon());
+        }
+
+        private void OnPreferences(object? sender, EventArgs e)
+        {
+            var dialog = new PreferencesDialog(_preferences);
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                // Reload preferences and apply
+                _preferences = Preferences.Load();
+                Overlay.ShowRectangles = _preferences.ShowRectangles;
+                Overlay.RegisterGlobalHotkey(_preferences.HotkeyModifiers, _preferences.HotkeyVirtualKey);
+                Overlay.Invalidate();
+            }
+        }
+
+        private void OnExit(object? sender, EventArgs e)
+        {
+            Application.Exit();
         }
 
         static void Measure(string name, Action func)
@@ -272,10 +337,23 @@ namespace HintOverlay
                 // mark as pressed to suppress further repeats until key up
                 _pressedKeys.Add(vkCode);
 
-                // don't intercept hotkey (Ctrl+Alt+H)
+                // don't intercept hotkey - check against current preferences
                 bool ctrlDown = (GetAsyncKeyState(0x11) & 0x8000) != 0;
                 bool altDown = (GetAsyncKeyState(0x12) & 0x8000) != 0;
-                if (ctrlDown && altDown && vkCode == 0x48) // H
+                bool shiftDown = (GetAsyncKeyState(0x10) & 0x8000) != 0;
+                
+                const int MOD_CONTROL = 0x0002;
+                const int MOD_ALT = 0x0001;
+                const int MOD_SHIFT = 0x0004;
+
+                bool hotkeyCtrl = (_preferences.HotkeyModifiers & MOD_CONTROL) != 0;
+                bool hotkeyAlt = (_preferences.HotkeyModifiers & MOD_ALT) != 0;
+                bool hotkeyShift = (_preferences.HotkeyModifiers & MOD_SHIFT) != 0;
+
+                if (vkCode == _preferences.HotkeyVirtualKey &&
+                    ctrlDown == hotkeyCtrl &&
+                    altDown == hotkeyAlt &&
+                    shiftDown == hotkeyShift)
                 {
                     return CallNextHookEx(_kbHook, nCode, wParam, lParam);
                 }
@@ -288,7 +366,6 @@ namespace HintOverlay
                 if (vkCode >= 0x41 && vkCode <= 0x5A) // A-Z
                 {
                     var candidate = _typed + ((char)vkCode).ToString();
-                    //_typed += ((char)vkCode).ToString();
 
                     bool anyMatch = _currentHints.Any(h =>
                            h.Label.StartsWith(candidate, StringComparison.OrdinalIgnoreCase));
@@ -343,7 +420,6 @@ namespace HintOverlay
 
             // Kick animation + repaint
             Overlay.SetHints(_currentHints);
-            //Overlay.StartAnimationIfNeeded();
         }
 
         private void CommitSelection()
@@ -389,6 +465,7 @@ namespace HintOverlay
         public void Dispose()
         {
             RemoveKeyboardHook();
+            _trayIcon?.Dispose();
         }
 
         // ============== Win32 keyboard hook ==============
@@ -430,5 +507,4 @@ namespace HintOverlay
             ref uint pcbSize,
             uint cbSizeHeader);
     }
-    //
 }
