@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Forms;
-using HintOverlay.Logging;
-using HintOverlay.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace HintOverlay
 {
@@ -14,31 +14,20 @@ namespace HintOverlay
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             
-            // Create logger
-            var logger = new DebugLogger
+            var host = Host.CreateDefaultBuilder()
+                .ConfigureServices((context, services) =>
+                {
+                    services.AddHintOverlayServices();
+                })
+                .Build();
+            
+            using (var scope = host.Services.CreateScope())
             {
-                MinimumLevel = LogLevel.Debug
-            };
+                var controller = scope.ServiceProvider.GetRequiredService<HintController>();
+                Application.Run();
+            }
             
-            // Create services
-            var preferencesService = new PreferencesService();
-            var uiaService = new UIAutomationService(logger);
-            var keyboardService = new KeyboardHookService();
-            var windowManager = new WindowManager();
-            var overlay = new OverlayForm();
-            var trayIcon = new TrayIconManager();
-            
-            // Create controller with dependencies
-            using var controller = new HintController(
-                overlay,
-                uiaService,
-                keyboardService,
-                preferencesService,
-                windowManager,
-                logger,
-                trayIcon);
-            
-            Application.Run();
+            host.Dispose();
         }
     }
 }
