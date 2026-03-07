@@ -7,21 +7,21 @@ namespace HintOverlay
     internal sealed class PreferencesDialog : Form
     {
         private readonly Preferences _prefs;
-        private CheckBox _chkShowRectangles;
-        private CheckBox _chkCtrl;
-        private CheckBox _chkAlt;
-        private CheckBox _chkShift;
-        private ComboBox _cmbKey;
-        private Button _btnOk;
-        private Button _btnCancel;
+        private CheckBox _chkShowRectangles = null!;
+        private CheckBox _chkCtrl = null!;
+        private CheckBox _chkAlt = null!;
+        private CheckBox _chkShift = null!;
+        private ComboBox _cmbKey = null!;
+        private Button _btnOk = null!;
+        private Button _btnCancel = null!;
 
         public PreferencesDialog(Preferences prefs)
         {
             _prefs = prefs;
-            
+
             // Enable automatic DPI scaling
             AutoScaleMode = AutoScaleMode.Dpi;
-            
+
             InitializeComponents();
             LoadPreferences();
         }
@@ -33,7 +33,7 @@ namespace HintOverlay
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            
+
             // Use TableLayoutPanel for proper DPI scaling
             var mainLayout = new TableLayoutPanel
             {
