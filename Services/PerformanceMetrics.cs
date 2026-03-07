@@ -1,3 +1,4 @@
+using HintOverlay.Logging;
 using System;
 using System.Diagnostics;
 
@@ -12,11 +13,12 @@ namespace HintOverlay.Services
         /// Starts a performance measurement scope that automatically logs the elapsed time when disposed.
         /// </summary>
         /// <param name="operationName">Name of the operation being measured.</param>
+        /// <param name="logger">Logger instance to use for output.</param>
         /// <param name="logLevel">Minimum log level required to log the result.</param>
         /// <returns>A disposable scope that measures execution time.</returns>
-        public static PerformanceScope Start(string operationName, LogLevel logLevel = LogLevel.Debug)
+        public static PerformanceScope Start(string operationName, ILogger logger, LogLevel logLevel = LogLevel.Debug)
         {
-            return new PerformanceScope(operationName, logLevel);
+            return new PerformanceScope(operationName, logger, logLevel);
         }
     }
 
@@ -26,13 +28,15 @@ namespace HintOverlay.Services
     internal sealed class PerformanceScope : IDisposable
     {
         private readonly string _operationName;
+        private readonly ILogger _logger;
         private readonly LogLevel _logLevel;
         private readonly Stopwatch _stopwatch;
         private bool _disposed;
 
-        internal PerformanceScope(string operationName, LogLevel logLevel)
+        internal PerformanceScope(string operationName, ILogger logger, LogLevel logLevel)
         {
             _operationName = operationName ?? throw new ArgumentNullException(nameof(operationName));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _logLevel = logLevel;
             _stopwatch = Stopwatch.StartNew();
         }
@@ -51,16 +55,16 @@ namespace HintOverlay.Services
             switch (_logLevel)
             {
                 case LogLevel.Debug:
-                    Logger.Debug(message);
+                    _logger.Debug(message);
                     break;
                 case LogLevel.Info:
-                    Logger.Info(message);
+                    _logger.Info(message);
                     break;
                 case LogLevel.Warning:
-                    Logger.Warning(message);
+                    _logger.Warning(message);
                     break;
                 case LogLevel.Error:
-                    Logger.Error(message);
+                    _logger.Error(message);
                     break;
             }
         }
@@ -77,11 +81,12 @@ namespace HintOverlay.Services
         /// <typeparam name="T">Return type of the function.</typeparam>
         /// <param name="operationName">Name of the operation being measured.</param>
         /// <param name="func">Function to execute and measure.</param>
+        /// <param name="logger">Logger instance to use for output.</param>
         /// <param name="logLevel">Minimum log level required to log the result.</param>
         /// <returns>The result of the function execution.</returns>
-        public static T MeasureExecution<T>(string operationName, Func<T> func, LogLevel logLevel = LogLevel.Debug)
+        public static T MeasureExecution<T>(string operationName, Func<T> func, ILogger logger, LogLevel logLevel = LogLevel.Debug)
         {
-            using (PerformanceMetrics.Start(operationName, logLevel))
+            using (PerformanceMetrics.Start(operationName, logger, logLevel))
             {
                 return func();
             }
@@ -92,10 +97,11 @@ namespace HintOverlay.Services
         /// </summary>
         /// <param name="operationName">Name of the operation being measured.</param>
         /// <param name="action">Action to execute and measure.</param>
+        /// <param name="logger">Logger instance to use for output.</param>
         /// <param name="logLevel">Minimum log level required to log the result.</param>
-        public static void MeasureExecution(string operationName, Action action, LogLevel logLevel = LogLevel.Debug)
+        public static void MeasureExecution(string operationName, Action action, ILogger logger, LogLevel logLevel = LogLevel.Debug)
         {
-            using (PerformanceMetrics.Start(operationName, logLevel))
+            using (PerformanceMetrics.Start(operationName, logger, logLevel))
             {
                 action();
             }

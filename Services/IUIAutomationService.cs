@@ -1,14 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Threading.Tasks;
 using UIAutomationClient;
 using HintOverlay.Models;
 
 namespace HintOverlay.Services
 {
-    internal interface IUIAutomationService
+    public interface IUIAutomationService : IDisposable
     {
         IReadOnlyList<ClickableElement> FindClickableElements(IntPtr windowHandle);
+        Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle);
     }
 
     public class ClickableElement

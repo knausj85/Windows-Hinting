@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using HintOverlay.Models;
+using HintOverlay.Services;
 
 namespace HintOverlay
 {
@@ -18,154 +19,114 @@ namespace HintOverlay
 
         public PreferencesDialog(HintOverlayOptions options)
         {
-            _options = options;
-
-            // Enable automatic DPI scaling
-            AutoScaleMode = AutoScaleMode.Dpi;
-
-            InitializeComponents();
+            _options = options ?? throw new ArgumentNullException(nameof(options));
+            InitializeComponent();
             LoadPreferences();
         }
 
-        private void InitializeComponents()
+        private void InitializeComponent()
         {
-            Text = "HintOverlay Preferences";
+            Text = "Preferences";
+            StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            StartPosition = FormStartPosition.CenterScreen;
 
-            // Use TableLayoutPanel for proper DPI scaling
             var mainLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
                 RowCount = 4,
-                Padding = new Padding(10),
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink
+                Padding = new Padding(10)
             };
-
-            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Show rectangles
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Hotkey section
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F)); // Spacer
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Buttons
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             // Show rectangles checkbox
             _chkShowRectangles = new CheckBox
             {
-                Text = "Show highlight rectangles",
+                Text = "Show element rectangles",
                 AutoSize = true,
-                Dock = DockStyle.Top,
-                Margin = new Padding(0, 0, 0, 10)
+                Dock = DockStyle.Fill
             };
+            mainLayout.Controls.Add(_chkShowRectangles, 0, 0);
 
-            // Hotkey groupbox with proper layout
+            // Hotkey configuration
             var hotkeyGroup = new GroupBox
             {
-                Text = "Toggle Hotkey",
+                Text = "Global Hotkey",
                 AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Dock = DockStyle.Top,
-                Margin = new Padding(0, 0, 0, 10)
+                Dock = DockStyle.Fill,
+                Padding = new Padding(5)
             };
 
             var hotkeyLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 1,
+                ColumnCount = 2,
                 RowCount = 2,
-                Padding = new Padding(10),
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink
+                AutoSize = true
             };
+            hotkeyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));
+            hotkeyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F));
 
-            hotkeyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            hotkeyLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Modifiers
-            hotkeyLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Key selection
+            var modifiersLabel = new Label
+            {
+                Text = "Modifiers:",
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            hotkeyLayout.Controls.Add(modifiersLabel, 0, 0);
 
-            // Modifiers panel
             var modifiersPanel = new FlowLayoutPanel
             {
                 AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                FlowDirection = FlowDirection.LeftToRight,
-                Dock = DockStyle.Top,
-                Margin = new Padding(0, 0, 0, 10),
-                WrapContents = false
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight
             };
-
-            _chkCtrl = new CheckBox
-            {
-                Text = "Ctrl",
-                AutoSize = true,
-                Margin = new Padding(0, 0, 10, 0)
-            };
-
-            _chkAlt = new CheckBox
-            {
-                Text = "Alt",
-                AutoSize = true,
-                Margin = new Padding(0, 0, 10, 0)
-            };
-
-            _chkShift = new CheckBox
-            {
-                Text = "Shift",
-                AutoSize = true
-            };
-
+            _chkCtrl = new CheckBox { Text = "Ctrl", AutoSize = true };
+            _chkAlt = new CheckBox { Text = "Alt", AutoSize = true };
+            _chkShift = new CheckBox { Text = "Shift", AutoSize = true };
             modifiersPanel.Controls.Add(_chkCtrl);
             modifiersPanel.Controls.Add(_chkAlt);
             modifiersPanel.Controls.Add(_chkShift);
+            hotkeyLayout.Controls.Add(modifiersPanel, 1, 0);
 
-            // Key selection panel
-            var keyPanel = new FlowLayoutPanel
-            {
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                FlowDirection = FlowDirection.LeftToRight,
-                Dock = DockStyle.Top,
-                WrapContents = false
-            };
-
-            var lblKey = new Label
+            var keyLabel = new Label
             {
                 Text = "Key:",
                 AutoSize = true,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Margin = new Padding(0, 3, 10, 0)
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft
             };
+            hotkeyLayout.Controls.Add(keyLabel, 0, 1);
 
             _cmbKey = new ComboBox
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Width = 100
+                Dock = DockStyle.Fill
             };
-
-            // Populate key dropdown with common keys
             for (char c = 'A'; c <= 'Z'; c++)
                 _cmbKey.Items.Add(c.ToString());
+            for (char c = '0'; c <= '9'; c++)
+                _cmbKey.Items.Add(c.ToString());
+            hotkeyLayout.Controls.Add(_cmbKey, 1, 1);
 
-            for (int i = 0; i <= 9; i++)
-                _cmbKey.Items.Add(i.ToString());
-
-            keyPanel.Controls.Add(lblKey);
-            keyPanel.Controls.Add(_cmbKey);
-
-            hotkeyLayout.Controls.Add(modifiersPanel, 0, 0);
-            hotkeyLayout.Controls.Add(keyPanel, 0, 1);
             hotkeyGroup.Controls.Add(hotkeyLayout);
+            mainLayout.Controls.Add(hotkeyGroup, 0, 1);
 
-            // Buttons panel
+            // Spacer
+            mainLayout.Controls.Add(new Panel { Height = 10 }, 0, 2);
+
+            // Buttons
             var buttonPanel = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.RightToLeft,
-                Dock = DockStyle.Bottom,
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Margin = new Padding(0)
+                Dock = DockStyle.Fill,
+                AutoSize = true
             };
 
             _btnCancel = new Button
@@ -173,37 +134,20 @@ namespace HintOverlay
                 Text = "Cancel",
                 DialogResult = DialogResult.Cancel,
                 AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                MinimumSize = new Size(75, 0),
-                Margin = new Padding(0, 0, 0, 0)
+                Padding = new Padding(10, 3, 10, 3)
             };
+            buttonPanel.Controls.Add(_btnCancel);
 
             _btnOk = new Button
             {
                 Text = "OK",
                 DialogResult = DialogResult.OK,
                 AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                MinimumSize = new Size(75, 0),
-                Margin = new Padding(0, 0, 10, 0)
+                Padding = new Padding(10, 3, 10, 3)
             };
-
             _btnOk.Click += BtnOk_Click;
-
-            buttonPanel.Controls.Add(_btnCancel);
             buttonPanel.Controls.Add(_btnOk);
 
-            // Add spacer panel
-            var spacer = new Panel
-            {
-                Dock = DockStyle.Fill,
-                MinimumSize = new Size(0, 10)
-            };
-
-            // Add all controls to main layout
-            mainLayout.Controls.Add(_chkShowRectangles, 0, 0);
-            mainLayout.Controls.Add(hotkeyGroup, 0, 1);
-            mainLayout.Controls.Add(spacer, 0, 2);
             mainLayout.Controls.Add(buttonPanel, 0, 3);
 
             Controls.Add(mainLayout);
@@ -266,7 +210,7 @@ namespace HintOverlay
                 _options.Hotkey.VirtualKey = keyStr[0];
             }
 
-            var prefsService = new Services.PreferencesService();
+            var prefsService = new PreferencesService();
             prefsService.Save(_options);
         }
     }

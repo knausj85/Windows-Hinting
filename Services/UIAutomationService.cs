@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
+using HintOverlay.Logging;
 using UIAutomationClient;
 
 namespace HintOverlay.Services
@@ -10,18 +12,20 @@ namespace HintOverlay.Services
     internal sealed class UIAutomationService : IUIAutomationService
     {
         private readonly IUIAutomation _automation;
+        private readonly ILogger _logger;
+        private bool _disposed;
 
-        public UIAutomationService()
+        public UIAutomationService(ILogger logger)
         {
-            using (PerformanceMetrics.Start("UIAutomationService.Constructor", LogLevel.Debug))
-            {
-                _automation = new CUIAutomation();
-            }
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _automation = new CUIAutomation();
         }
 
         public IReadOnlyList<ClickableElement> FindClickableElements(IntPtr windowHandle)
         {
-            using (PerformanceMetrics.Start("UIAutomationService.FindClickableElements", LogLevel.Info))
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            
+            using (PerformanceMetrics.Start("UIAutomationService.FindClickableElements", _logger, LogLevel.Info))
             {
                 try
                 {
@@ -29,147 +33,211 @@ namespace HintOverlay.Services
                 }
                 catch (COMException ex)
                 {
-                    Logger.Error($"UIA COM exception: {ex.Message}");
+                    _logger.Error($"UIA COM exception: {ex.Message}");
                     return Array.Empty<ClickableElement>();
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error($"Unexpected error in FindClickableElements", ex);
+                    _logger.Error("Unexpected error in FindClickableElements", ex);
                     return Array.Empty<ClickableElement>();
                 }
             }
+        }
+
+        public async Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            
+            return await Task.Run(() => FindClickableElements(windowHandle));
         }
 
         private IReadOnlyList<ClickableElement> FindClickableElementsCore(IntPtr windowHandle)
         {
             if (windowHandle == IntPtr.Zero)
             {
-                Logger.Debug("Window handle is zero");
+                _logger.Debug("Window handle is zero");
                 return Array.Empty<ClickableElement>();
             }
 
-            IUIAutomationElement root;
-            using (PerformanceMetrics.Start("ElementFromHandle", LogLevel.Debug))
+            IUIAutomationElement? root = null;
+            IUIAutomationCondition? combinedCondition = null;
+            IUIAutomationCondition? statusAndCondition = null;
+            IUIAutomationCondition? controlTypeOrCondition = null;
+            IUIAutomationCacheRequest? cache = null;
+            IUIAutomationElementArray? foundElements = null;
+            var conditionsToRelease = new List<IUIAutomationCondition>();
+
+            try
             {
-                root = _automation.ElementFromHandle(windowHandle);
-                if (root == null)
+                using (PerformanceMetrics.Start("ElementFromHandle", _logger, LogLevel.Debug))
                 {
-                    Logger.Warning("Failed to get root element from window handle");
-                    return Array.Empty<ClickableElement>();
+                    root = _automation.ElementFromHandle(windowHandle);
+                    if (root == null)
+                    {
+                        _logger.Warning("Failed to get root element from window handle");
+                        return Array.Empty<ClickableElement>();
+                    }
                 }
-            }
 
-            var clickableControlTypes = new int[]
-            {
-                UIA_ControlTypeIds.UIA_ButtonControlTypeId,
-                UIA_ControlTypeIds.UIA_CheckBoxControlTypeId,
-                UIA_ControlTypeIds.UIA_ComboBoxControlTypeId,
-                UIA_ControlTypeIds.UIA_EditControlTypeId,
-                UIA_ControlTypeIds.UIA_HyperlinkControlTypeId,
-                UIA_ControlTypeIds.UIA_ListItemControlTypeId,
-                UIA_ControlTypeIds.UIA_MenuControlTypeId,
-                UIA_ControlTypeIds.UIA_MenuItemControlTypeId,
-                UIA_ControlTypeIds.UIA_RadioButtonControlTypeId,
-                UIA_ControlTypeIds.UIA_TabItemControlTypeId,
-                UIA_ControlTypeIds.UIA_TreeItemControlTypeId,
-                UIA_ControlTypeIds.UIA_SplitButtonControlTypeId,
-            };
-
-            IUIAutomationCondition combinedCondition;
-            using (PerformanceMetrics.Start("BuildSearchConditions", LogLevel.Debug))
-            {
-                var statusConditions = new List<IUIAutomationCondition>
+                var clickableControlTypes = new int[]
                 {
-                    _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsEnabledPropertyId, true),
-                    _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false),
+                    UIA_ControlTypeIds.UIA_ButtonControlTypeId,
+                    UIA_ControlTypeIds.UIA_CheckBoxControlTypeId,
+                    UIA_ControlTypeIds.UIA_ComboBoxControlTypeId,
+                    UIA_ControlTypeIds.UIA_EditControlTypeId,
+                    UIA_ControlTypeIds.UIA_HyperlinkControlTypeId,
+                    UIA_ControlTypeIds.UIA_ListItemControlTypeId,
+                    UIA_ControlTypeIds.UIA_MenuControlTypeId,
+                    UIA_ControlTypeIds.UIA_MenuItemControlTypeId,
+                    UIA_ControlTypeIds.UIA_RadioButtonControlTypeId,
+                    UIA_ControlTypeIds.UIA_TabItemControlTypeId,
+                    UIA_ControlTypeIds.UIA_TreeItemControlTypeId,
+                    UIA_ControlTypeIds.UIA_SplitButtonControlTypeId,
                 };
 
-                var statusAndCondition = _automation.CreateAndConditionFromArray(statusConditions.ToArray());
-
-                var controlTypeConditions = clickableControlTypes
-                    .Select(t => _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_ControlTypePropertyId, t))
-                    .ToArray();
-
-                var controlTypeOrCondition = _automation.CreateOrConditionFromArray(controlTypeConditions);
-                combinedCondition = _automation.CreateAndCondition(statusAndCondition, controlTypeOrCondition);
-            }
-
-            IUIAutomationCacheRequest cache;
-            using (PerformanceMetrics.Start("CreateCacheRequest", LogLevel.Debug))
-            {
-                cache = _automation.CreateCacheRequest();
-                cache.TreeScope = TreeScope.TreeScope_Element;
-                cache.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
-                cache.AddProperty(UIA_PropertyIds.UIA_ControlTypePropertyId);
-                cache.AddProperty(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
-                cache.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
-                cache.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
-                cache.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
-                cache.AddPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
-                cache.AddPattern(UIA_PatternIds.UIA_TogglePatternId);
-            }
-
-            IUIAutomationElementArray foundElements;
-            using (PerformanceMetrics.Start("FindAllBuildCache", LogLevel.Info))
-            {
-                foundElements = root.FindAllBuildCache(TreeScope.TreeScope_Descendants, combinedCondition, cache);
-                if (foundElements == null)
+                using (PerformanceMetrics.Start("BuildSearchConditions", _logger, LogLevel.Debug))
                 {
-                    Logger.Debug("FindAllBuildCache returned null");
-                    return Array.Empty<ClickableElement>();
+                    var enabledCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsEnabledPropertyId, true);
+                    var onscreenCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false);
+                    conditionsToRelease.Add(enabledCondition);
+                    conditionsToRelease.Add(onscreenCondition);
+
+                    statusAndCondition = _automation.CreateAndCondition(enabledCondition, onscreenCondition);
+
+                    var controlTypeConditions = clickableControlTypes
+                        .Select(t => _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_ControlTypePropertyId, t))
+                        .ToArray();
+                    conditionsToRelease.AddRange(controlTypeConditions);
+
+                    controlTypeOrCondition = _automation.CreateOrConditionFromArray(controlTypeConditions);
+                    combinedCondition = _automation.CreateAndCondition(statusAndCondition, controlTypeOrCondition);
                 }
-            }
 
-            var results = new List<ClickableElement>();
-            int elementCount = foundElements.Length;
-            Logger.Debug($"Processing {elementCount} found elements");
-
-            using (PerformanceMetrics.Start($"ProcessElements({elementCount})", LogLevel.Debug))
-            {
-                for (int i = 0; i < elementCount; i++)
+                using (PerformanceMetrics.Start("CreateCacheRequest", _logger, LogLevel.Debug))
                 {
-                    try
+                    cache = _automation.CreateCacheRequest();
+                    cache.TreeScope = TreeScope.TreeScope_Element;
+                    cache.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+                    cache.AddProperty(UIA_PropertyIds.UIA_ControlTypePropertyId);
+                    cache.AddProperty(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
+                    cache.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
+                    cache.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
+                    cache.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
+                    cache.AddPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
+                    cache.AddPattern(UIA_PatternIds.UIA_TogglePatternId);
+                }
+
+                using (PerformanceMetrics.Start("FindAllBuildCache", _logger, LogLevel.Info))
+                {
+                    foundElements = root.FindAllBuildCache(TreeScope.TreeScope_Descendants, combinedCondition, cache);
+                    if (foundElements == null)
                     {
-                        var element = foundElements.GetElement(i);
-                        if (element == null)
-                            continue;
+                        _logger.Debug("FindAllBuildCache returned null");
+                        return Array.Empty<ClickableElement>();
+                    }
+                }
 
-                        var rectObj = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
-                        if (rectObj == null)
-                            continue;
+                var results = new List<ClickableElement>();
+                int elementCount = foundElements.Length;
+                _logger.Debug($"Processing {elementCount} found elements");
 
-                        if (rectObj is double[] rectArray && rectArray.Length == 4)
+                using (PerformanceMetrics.Start($"ProcessElements({elementCount})", _logger, LogLevel.Debug))
+                {
+                    for (int i = 0; i < elementCount; i++)
+                    {
+                        IUIAutomationElement? element = null;
+                        try
                         {
-                            var rect = new Rectangle(
-                                (int)rectArray[0],
-                                (int)rectArray[1],
-                                (int)rectArray[2],
-                                (int)rectArray[3]
-                            );
+                            element = foundElements.GetElement(i);
+                            if (element == null)
+                                continue;
 
-                            if (rect.Width > 0 && rect.Height > 0)
+                            var rectObj = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+                            if (rectObj == null)
+                                continue;
+
+                            if (rectObj is double[] rectArray && rectArray.Length == 4)
                             {
-                                results.Add(new ClickableElement
+                                var rect = new Rectangle(
+                                    (int)rectArray[0],
+                                    (int)rectArray[1],
+                                    (int)rectArray[2],
+                                    (int)rectArray[3]
+                                );
+
+                                if (rect.Width > 0 && rect.Height > 0)
                                 {
-                                    Element = element,
-                                    Bounds = rect
-                                });
+                                    results.Add(new ClickableElement
+                                    {
+                                        Element = element,
+                                        Bounds = rect
+                                    });
+                                    element = null; // Don't release - ownership transferred to ClickableElement
+                                }
+                            }
+                        }
+                        catch (COMException ex)
+                        {
+                            _logger.Debug($"COM exception processing element {i}: {ex.Message}");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Debug($"Exception processing element {i}: {ex.Message}");
+                        }
+                        finally
+                        {
+                            // Only release if we didn't transfer ownership
+                            if (element != null && Marshal.IsComObject(element))
+                            {
+                                Marshal.ReleaseComObject(element);
                             }
                         }
                     }
-                    catch (COMException ex)
-                    {
-                        Logger.Debug($"COM exception processing element {i}: {ex.Message}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Debug($"Exception processing element {i}: {ex.Message}");
-                    }
                 }
+
+                _logger.Info($"Found {results.Count} valid clickable elements");
+                return results;
+            }
+            finally
+            {
+                // Release all COM objects
+                if (foundElements != null && Marshal.IsComObject(foundElements))
+                    Marshal.ReleaseComObject(foundElements);
+                
+                if (cache != null && Marshal.IsComObject(cache))
+                    Marshal.ReleaseComObject(cache);
+                
+                if (combinedCondition != null && Marshal.IsComObject(combinedCondition))
+                    Marshal.ReleaseComObject(combinedCondition);
+                
+                if (controlTypeOrCondition != null && Marshal.IsComObject(controlTypeOrCondition))
+                    Marshal.ReleaseComObject(controlTypeOrCondition);
+                
+                if (statusAndCondition != null && Marshal.IsComObject(statusAndCondition))
+                    Marshal.ReleaseComObject(statusAndCondition);
+                
+                foreach (var condition in conditionsToRelease)
+                {
+                    if (condition != null && Marshal.IsComObject(condition))
+                        Marshal.ReleaseComObject(condition);
+                }
+                
+                if (root != null && Marshal.IsComObject(root))
+                    Marshal.ReleaseComObject(root);
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            if (_automation != null && Marshal.IsComObject(_automation))
+            {
+                Marshal.ReleaseComObject(_automation);
             }
 
-            Logger.Info($"Found {results.Count} valid clickable elements");
-            return results;
+            _disposed = true;
         }
     }
 }
