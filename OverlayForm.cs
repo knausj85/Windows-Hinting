@@ -18,10 +18,6 @@ namespace HintOverlay
 
         private readonly Font _font = new("Segoe UI", 9, FontStyle.Bold);
 
-        // animation
-        private readonly System.Windows.Forms.Timer _animTimer;
-        private const float FadeLerp = 0.22f; // easing factor per frame (16ms)
-
         public event EventHandler? ToggleRequested;
 
         public bool ShowRectangles { get; set; } = true;
@@ -42,9 +38,6 @@ namespace HintOverlay
 
             BackColor = Color.LimeGreen;
             TransparencyKey = Color.LimeGreen;
-
-            _animTimer = new System.Windows.Forms.Timer { Interval = 16 };
-            _animTimer.Tick += (_, __) => AnimateStep();
         }
 
         public void SetEnabled(bool enabled)
@@ -56,7 +49,6 @@ namespace HintOverlay
             {
                 _filterPrefix = "";
                 _hints.Clear();
-                _animTimer.Stop();
             }
 
             Invalidate();
@@ -67,8 +59,6 @@ namespace HintOverlay
             Debug.WriteLine($"SetHints {hints.Count}");
             _hints = hints;
 
-            // ensure animation progresses toward current targets
-            StartAnimationIfNeeded();
             Invalidate();
         }
 
@@ -85,41 +75,6 @@ namespace HintOverlay
             }
 
             Invalidate(); // redraw text highlight immediately
-        }
-
-        public void StartAnimationIfNeeded()
-        {
-            if (!_enabled || _hints.Count == 0) return;
-            _animTimer.Start();
-        }
-
-        private void AnimateStep()
-        {
-            if (!_enabled || _hints.Count == 0)
-            {
-                _animTimer.Stop();
-                return;
-            }
-
-            bool anyAnimating = false;
-            foreach (var h in _hints)
-            {
-                var diff = h.TargetOpacity - h.CurrentOpacity;
-                if (Math.Abs(diff) > 0.01f)
-                {
-                    h.CurrentOpacity += diff * FadeLerp;
-                    anyAnimating = true;
-                }
-                else
-                {
-                    h.CurrentOpacity = h.TargetOpacity;
-                }
-            }
-
-            Invalidate();
-
-            if (!anyAnimating)
-                _animTimer.Stop();
         }
 
         public void RegisterGlobalHotkey(int modifiers, int virtualKey)

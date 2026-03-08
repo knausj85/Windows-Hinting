@@ -11,7 +11,7 @@ namespace HintOverlay
             // Logging
             services.AddSingleton<ILogger>(sp => new DebugLogger 
             { 
-                MinimumLevel = LogLevel.Debug 
+                MinimumLevel = LogLevel.Info 
             });
             
             // Core Services

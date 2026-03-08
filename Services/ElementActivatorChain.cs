@@ -20,7 +20,8 @@ namespace HintOverlay.Services
                 new InvokePatternActivator(logger),
                 new ExpandCollapsePatternActivator(logger),
                 new SelectionItemPatternActivator(logger),
-                new TogglePatternActivator(logger)
+                new TogglePatternActivator(logger),
+                new SetFocusActivator(logger) // Add as fallback for focusable elements
             };
         }
 

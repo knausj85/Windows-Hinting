@@ -121,8 +121,10 @@ namespace HintOverlay.Services
                     cache.AddProperty(UIA_PropertyIds.UIA_ControlTypePropertyId);
                     cache.AddProperty(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
                     cache.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
+                    cache.AddProperty(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId);
                     cache.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
                     cache.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
+                    cache.AddPattern(UIA_PatternIds.UIA_SelectionPatternId);
                     cache.AddPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
                     cache.AddPattern(UIA_PatternIds.UIA_TogglePatternId);
                 }
