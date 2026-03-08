@@ -17,27 +17,33 @@ namespace HintOverlay.Services.ElementActivators
         public bool TryActivate(IUIAutomationElement element)
         {
             IUIAutomationSelectionItemPattern? pattern = null;
-            try
+            bool isAvailable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId);
+
+            if (isAvailable)
             {
-                pattern = element.GetCachedPattern(UIA_PatternIds.UIA_SelectionItemPatternId) as IUIAutomationSelectionItemPattern;
-                if (pattern != null)
+                try
                 {
-                    pattern.Select();
-                    _logger.Info("Successfully selected element");
-                    return true;
+                    pattern = element.GetCachedPattern(UIA_PatternIds.UIA_SelectionItemPatternId) as IUIAutomationSelectionItemPattern;
+                    if (pattern != null)
+                    {
+                        pattern.Select();
+                        _logger.Info($"Successfully selected element {element.CachedName}");
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug($"SelectionItemPattern failed: {ex.Message}");
+                }
+                finally
+                {
+                    if (pattern != null && Marshal.IsComObject(pattern))
+                    {
+                        Marshal.ReleaseComObject(pattern);
+                    }
                 }
             }
-            catch (Exception ex)
-            {
-                _logger.Debug($"SelectionItemPattern failed: {ex.Message}");
-            }
-            finally
-            {
-                if (pattern != null && Marshal.IsComObject(pattern))
-                {
-                    Marshal.ReleaseComObject(pattern);
-                }
-            }
+
             return false;
         }
     }

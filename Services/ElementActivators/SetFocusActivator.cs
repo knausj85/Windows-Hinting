@@ -23,7 +23,7 @@ namespace HintOverlay.Services.ElementActivators
                 if (canFocus is bool focusable && focusable)
                 {
                     element.SetFocus();
-                    _logger.Info("Successfully set focus on element");
+                    _logger.Info($"Successfully set focus on element {element.CachedName}");
                     return true;
                 }
             }
