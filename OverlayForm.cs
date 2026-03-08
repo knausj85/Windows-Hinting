@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace HintOverlay
 {
@@ -198,19 +199,51 @@ namespace HintOverlay
             }
         }
 
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+        
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOACTIVATE = 0x0010;
+        private const uint SWP_SHOWWINDOW = 0x0040;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(
+            IntPtr hWnd,
+            IntPtr hWndInsertAfter,
+            int X,
+            int Y,
+            int cx,
+            int cy,
+            uint uFlags);
+
+        public void EnsureTopmost()
+        {
+            SetWindowPos(
+                Handle,
+                HWND_TOPMOST,
+                0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        }
+
         protected override CreateParams CreateParams
         {
             get
             {
-                const int WS_EX_TRANSPARENT = 0x20;
-                const int WS_EX_TOOLWINDOW = 0x80;
-                const int WS_EX_NOACTIVATE = 0x08000000;
-                const int WS_EX_LAYERED = 0x80000;
-
-                var cp = base.CreateParams;
-                cp.ExStyle |= WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= 0x00000020; // WS_EX_TRANSPARENT
+                cp.ExStyle |= 0x00000080; // WS_EX_TOOLWINDOW
+                cp.ExStyle |= 0x00080000; // WS_EX_LAYERED
+                cp.ExStyle |= 0x00000008; // WS_EX_TOPMOST
+                cp.ExStyle |= 0x08000000; // WS_EX_NOACTIVATE
                 return cp;
             }
+        }
+        
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            EnsureTopmost();
         }
 
         protected override void WndProc(ref Message m)

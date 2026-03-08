@@ -135,6 +135,9 @@ namespace HintOverlay
                 
                 _logger.Debug($"Scanning window: {hwnd}");
                 
+                // Ensure overlay is topmost before scanning
+                _overlay.EnsureTopmost();
+                
                 var elements = PerformanceMetricsExtensions.MeasureExecution(
                     "FindClickableElements",
                     () => _uiaService.FindClickableElements(hwnd),
