@@ -23,6 +23,15 @@ Write-Host "Build Installer: $(if ($ExeOnly) { 'False' } else { 'True' })"
 Write-Host "Skip Signing: $SkipSigning"
 Write-Host "Repository Root: $RepoRoot"
 Write-Host ""
+Write-Host "--- Parameters (debug) ---"
+Write-Host "  -Configuration : $Configuration"
+Write-Host "  -ExeOnly       : $ExeOnly"
+Write-Host "  -SkipSigning   : $SkipSigning"
+Write-Host "  -CertPath      : $(if ($CertPath) { $CertPath } else { '(empty)' })"
+Write-Host "  -CertPassword  : $(if ($CertPassword) { '(set)' } else { '(empty)' })"
+Write-Host "  Raw args       : $($args -join ' ')"
+Write-Host "--------------------------"
+Write-Host ""
 
 # By default, build both app and MSI (unless -ExeOnly specified)
 $IsBuildingMsi = (-not $ExeOnly -and $Configuration -eq "Release")

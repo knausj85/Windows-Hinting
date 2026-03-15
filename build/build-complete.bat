@@ -39,6 +39,13 @@ shift
 goto :parse_args
 
 :run_build
+echo --- Parameters (debug) ---
+echo   Configuration : !Configuration!
+echo   ExeOnly       : !ExeOnly!
+echo   SkipSigning   : !SkipSigning!
+echo   Raw args      : %*
+echo --------------------------
+echo.
 echo Building HintOverlay complete project...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "!POWERSHELL_SCRIPT!" -Configuration !Configuration! !ExeOnly! !SkipSigning!
 

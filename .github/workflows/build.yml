@@ -82,6 +82,10 @@ jobs:
         env:
           CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
         run: |
+          Write-Host "--- Signing params (debug) ---"
+          Write-Host "  CERT_PATH set : $(if ($env:CERT_PATH) { 'yes — ' + $env:CERT_PATH } else { 'no' })"
+          Write-Host "  CERT_PASSWORD : $(if ($env:CERT_PASSWORD) { '(set)' } else { '(empty — secret not configured)' })"
+          Write-Host "------------------------------"
           if ($env:CERT_PATH) {
             Write-Host "Building with code signing (cert: $env:CERT_PATH)"
             .\build\build-complete.ps1 -Configuration Release -CertPath $env:CERT_PATH -CertPassword $env:CERT_PASSWORD
