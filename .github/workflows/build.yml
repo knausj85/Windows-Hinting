@@ -103,6 +103,26 @@ jobs:
             Write-Host "Signing certificate removed"
           }
 
+      - name: Verify exe signature
+        shell: pwsh
+        run: |
+          $exePath = "bin\Release\net8.0-windows\HintOverlay.exe"
+          Write-Host "--- Signature verification ---"
+          if (-not (Test-Path $exePath)) {
+            Write-Host "  ERROR: exe not found at $exePath"
+          } else {
+            $sig = Get-AuthenticodeSignature -FilePath $exePath
+            Write-Host "  Status       : $($sig.Status)"
+            Write-Host "  StatusMessage: $($sig.StatusMessage)"
+            if ($sig.SignerCertificate) {
+              Write-Host "  Signer       : $($sig.SignerCertificate.Subject)"
+              Write-Host "  Valid until  : $($sig.SignerCertificate.NotAfter)"
+            } else {
+              Write-Host "  Signer       : (none — exe is unsigned)"
+            }
+          }
+          Write-Host "------------------------------"
+
       - name: Upload Release exe artifact
         uses: actions/upload-artifact@v4
         with:
