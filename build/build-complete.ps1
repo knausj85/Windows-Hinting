@@ -40,8 +40,9 @@ $BuildArgs = @(
 )
 
 if ($SkipSigning) {
-    # Pass an empty cert path to override the project default and prevent the
-    # SignExecutable target from running (its condition checks CertPath != '').
+    # Disable both signing MSBuild targets via the SkipCodeSigning property.
+    # Also clear CodeSigningCertPath as a belt-and-suspenders guard.
+    $BuildArgs += "/p:SkipCodeSigning=true"
     $BuildArgs += "/p:CodeSigningCertPath="
 } elseif ($Configuration -eq "Release") {
     $BuildArgs += "/p:CodeSigningCertPath=`"$CertPath`""
