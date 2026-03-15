@@ -1,0 +1,117 @@
+name: Build
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+env:
+  BUILD_VERSION: 1.0.${{ github.run_number }}
+
+jobs:
+  build-debug:
+    name: Debug Build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore NuGet packages
+        run: dotnet restore HintOverlay.csproj
+
+      - name: Build Debug (exe only)
+        run: build\build-complete.bat Debug --exe-only
+
+      - name: Upload Debug artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HintOverlay-Debug
+          path: bin\Debug\net8.0-windows\HintOverlay.exe
+          if-no-files-found: error
+
+  build-release:
+    name: Release Build + MSI
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install WiX Toolset
+        # Version must match WixToolset.Sdk version in HintOverlay.Installer2.wixproj
+        run: dotnet tool install --global wix --version 6.0.2
+
+      - name: Restore NuGet packages
+        run: dotnet restore HintOverlay.csproj
+
+      - name: Build Release + MSI
+        # BUILD_VERSION is inherited from the top-level env and picked up by
+        # Directory.Build.props, which sets FileVersion on the exe.
+        # Package.wxs binds the MSI version to that FileVersion automatically.
+        run: build\build-complete.bat Release
+
+      - name: Upload Release exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HintOverlay-Release
+          path: bin\Release\net8.0-windows\HintOverlay.exe
+          if-no-files-found: error
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HintOverlay-Installer
+          path: HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-debug, build-release]
+    # Only publish a release on direct pushes to main — not PRs or other branches
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Release exe
+        uses: actions/download-artifact@v4
+        with:
+          name: HintOverlay-Release
+          path: artifacts
+
+      - name: Download MSI installer
+        uses: actions/download-artifact@v4
+        with:
+          name: HintOverlay-Installer
+          path: artifacts
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.BUILD_VERSION }}
+          name: v${{ env.BUILD_VERSION }}
+          generate_release_notes: true
+          make_latest: true
+          files: |
+            artifacts/HintOverlay.exe
+            artifacts/HintOverlay.msi
