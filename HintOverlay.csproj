@@ -47,7 +47,7 @@
     <Message Text="[Sign] Executable signed successfully" Importance="high" />
   </Target>
 
-  <!-- Skipped-signing diagnostic target — fires when SignExecutable would have run but was bypassed -->
+  <!-- Diagnostic target — always runs for Release builds, reports signing state and signtool discovery -->
   <Target Name="DiagnoseSkippedSigning" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <Message Text="[Sign] --- Signing condition diagnostics ---" Importance="high" />
     <Message Text="[Sign] SkipCodeSigning    : $(SkipCodeSigning)" Importance="high" />
@@ -55,7 +55,8 @@
     <Message Text="[Sign] CertPath is empty  : $([System.String]::IsNullOrEmpty('$(CodeSigningCertPath)'))" Importance="high" />
     <Message Text="[Sign] CertPath exists    : $([System.IO.File]::Exists('$(CodeSigningCertPath)'))" Importance="high" />
     <Message Text="[Sign] CI env var         : $(CI)" Importance="high" />
-    <Message Text="[Sign] SignExecutable ran  : $(if '$(SkipCodeSigning)' != 'true' and '$(CodeSigningCertPath)' != '' and Exists check above is true then YES else NO — check above values)" Importance="high" />
+    <Message Text="[Sign] --- signtool.exe search ---" Importance="high" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\build\find-signtool.ps1&quot;" ContinueOnError="true" />
     <Message Text="[Sign] -------------------------------------------" Importance="high" />
   </Target>
   <ItemGroup>

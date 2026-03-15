@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 
-if ($CertPath -eq "") {
+if ($CertPath -eq "" -and -not $SkipSigning -and $Configuration -eq "Release") {
     $CertPath = "$RepoRoot\certs\HintOverlay_CodeSign.pfx"
 }
 
@@ -54,8 +54,8 @@ if ($SkipSigning) {
     $BuildArgs += "/p:SkipCodeSigning=true"
     $BuildArgs += "/p:CodeSigningCertPath="
 } elseif ($Configuration -eq "Release") {
-    $BuildArgs += "/p:CodeSigningCertPath=`"$CertPath`""
-    $BuildArgs += "/p:CodeSigningPassword=`"$CertPassword`""
+    $BuildArgs += "/p:CodeSigningCertPath=$CertPath"
+    $BuildArgs += "/p:CodeSigningPassword=$CertPassword"
 }
 
 msbuild @BuildArgs
