@@ -1,6 +1,6 @@
 @echo off
-REM Build Complete - Both Executable and Installer
-REM Usage: build-complete.bat [Release|Debug] [--installer] [--skip-signing]
+REM Build Complete - Executable and Installer (Default)
+REM Usage: build-complete.bat [Release|Debug] [--exe-only] [--skip-signing]
 
 setlocal enabledelayedexpansion
 
@@ -9,7 +9,7 @@ set "POWERSHELL_SCRIPT=%SCRIPT_DIR%build-complete.ps1"
 
 REM Default parameters
 set "Configuration=Release"
-set "Installer="
+set "ExeOnly="
 set "SkipSigning="
 
 REM Parse command line arguments
@@ -25,8 +25,8 @@ if /i "%1"=="Release" (
     shift
     goto :parse_args
 )
-if /i "%1"=="--installer" (
-    set "Installer=-Installer"
+if /i "%1"=="--exe-only" (
+    set "ExeOnly=-ExeOnly"
     shift
     goto :parse_args
 )
@@ -40,7 +40,7 @@ goto :parse_args
 
 :run_build
 echo Building HintOverlay complete project...
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "!POWERSHELL_SCRIPT!" -Configuration !Configuration! !Installer! !SkipSigning!
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "!POWERSHELL_SCRIPT!" -Configuration !Configuration! !ExeOnly! !SkipSigning!
 
 if %errorlevel% neq 0 (
     echo.

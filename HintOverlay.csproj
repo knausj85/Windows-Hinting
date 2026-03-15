@@ -41,6 +41,11 @@
     <Message Text="Executable signed successfully" Importance="high" />
   </Target>
   <ItemGroup>
+    <Compile Remove="HintOverlay.Installer\**" />
+    <EmbeddedResource Remove="HintOverlay.Installer\**" />
+    <None Remove="HintOverlay.Installer\**" />
+  </ItemGroup>
+  <ItemGroup>
     <COMReference Include="UIAutomationClient">
       <WrapperTool>tlbimp</WrapperTool>
       <VersionMinor>0</VersionMinor>
@@ -52,8 +57,6 @@
     </COMReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="HintOverlay.Installer\HintOverlay.Installer.wixproj" />
-    <None Include="HintOverlay.Installer\Product.wixproj.user" />
     <None Include="Windows-Hinting.sln" />
   </ItemGroup>
   <ItemGroup>
