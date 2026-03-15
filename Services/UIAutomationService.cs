@@ -93,6 +93,9 @@ namespace HintOverlay.Services
                     UIA_ControlTypeIds.UIA_TabItemControlTypeId,
                     UIA_ControlTypeIds.UIA_TreeItemControlTypeId,
                     UIA_ControlTypeIds.UIA_SplitButtonControlTypeId,
+                    UIA_ControlTypeIds.UIA_GroupControlTypeId,
+                    UIA_ControlTypeIds.UIA_ListControlTypeId,
+                    UIA_ControlTypeIds.UIA_TreeControlTypeId,
                 };
 
                 using (PerformanceMetrics.Start("BuildSearchConditions", _logger, LogLevel.Debug))
