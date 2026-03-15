@@ -63,11 +63,41 @@ jobs:
       - name: Restore NuGet packages
         run: dotnet restore HintOverlay.csproj
 
+      - name: Decode signing certificate
+        shell: pwsh
+        env:
+          CERT_BASE64: ${{ secrets.SIGNING_CERT_BASE64 }}
+        run: |
+          if ($env:CERT_BASE64) {
+            $certPath = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
+            [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:CERT_BASE64))
+            "CERT_PATH=$certPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+            Write-Host "Signing certificate decoded to $certPath"
+          } else {
+            Write-Host "SIGNING_CERT_BASE64 secret not configured — build will be unsigned"
+          }
+
       - name: Build Release + MSI
-        # BUILD_VERSION is inherited from the top-level env and picked up by
-        # Directory.Build.props, which sets FileVersion on the exe.
-        # Package.wxs binds the MSI version to that FileVersion automatically.
-        run: build\build-complete.bat Release
+        shell: pwsh
+        env:
+          CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        run: |
+          if ($env:CERT_PATH) {
+            Write-Host "Building with code signing (cert: $env:CERT_PATH)"
+            .\build\build-complete.ps1 -Configuration Release -CertPath $env:CERT_PATH -CertPassword $env:CERT_PASSWORD
+          } else {
+            Write-Host "Building without code signing"
+            .\build\build-complete.ps1 -Configuration Release -SkipSigning
+          }
+
+      - name: Clean up signing certificate
+        if: always()
+        shell: pwsh
+        run: |
+          if ($env:CERT_PATH -and (Test-Path $env:CERT_PATH)) {
+            Remove-Item $env:CERT_PATH -Force
+            Write-Host "Signing certificate removed"
+          }
 
       - name: Upload Release exe artifact
         uses: actions/upload-artifact@v4

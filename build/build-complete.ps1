@@ -39,7 +39,11 @@ $BuildArgs = @(
     "/v:minimal"
 )
 
-if ((-not $SkipSigning) -and ($Configuration -eq "Release")) {
+if ($SkipSigning) {
+    # Pass an empty cert path to override the project default and prevent the
+    # SignExecutable target from running (its condition checks CertPath != '').
+    $BuildArgs += "/p:CodeSigningCertPath="
+} elseif ($Configuration -eq "Release") {
     $BuildArgs += "/p:CodeSigningCertPath=`"$CertPath`""
     $BuildArgs += "/p:CodeSigningPassword=`"$CertPassword`""
 }
@@ -88,7 +92,17 @@ if (-not $ExeOnly) {
         exit 1
     }
 
-    msbuild $InstallerProject /p:Configuration=$Configuration /nologo /v:minimal
+    $InstallerArgs = @(
+        $InstallerProject
+        "/p:Configuration=$Configuration"
+        "/nologo"
+        "/v:minimal"
+    )
+    if ($SkipSigning) {
+        # Disable WiX's built-in MSI signing when signing is skipped.
+        $InstallerArgs += "/p:SignOutput=false"
+    }
+    msbuild @InstallerArgs
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host ""
