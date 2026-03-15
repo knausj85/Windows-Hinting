@@ -27,12 +27,12 @@
 
   <!-- Pre-build target to ensure certificate exists -->
   <!-- Skipped when: SkipCodeSigning=true, or a cert already exists at CodeSigningCertPath (e.g. decoded from a CI secret) -->
-  <Target Name="EnsureSigningCertificate" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipCodeSigning)' != 'true' AND !Exists('$(CodeSigningCertPath)')">
+  <Target Name="EnsureSigningCertificate" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(CI)' != 'true' AND '$(SkipCodeSigning)' != 'true' AND !Exists('$(CodeSigningCertPath)')">
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\build\generate-signing-cert.ps1&quot;" IgnoreExitCode="true" />
   </Target>
 
   <!-- Post-build signing target using signtool.exe for Authenticode code signing -->
-  <Target Name="SignExecutable" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipCodeSigning)' != 'true' AND '$(CodeSigningCertPath)' != ''">
+  <Target Name="SignExecutable" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipCodeSigning)' != 'true' AND '$(CodeSigningCertPath)' != '' AND Exists('$(CodeSigningCertPath)')">
     <PropertyGroup>
       <ExecutablePath Condition="'$(ExecutablePath)' == ''">$([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(OutputPath), $(AssemblyName).exe))</ExecutablePath>
       <!-- Try different Windows SDK versions -->
