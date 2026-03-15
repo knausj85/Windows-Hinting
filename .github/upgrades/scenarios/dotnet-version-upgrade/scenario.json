@@ -1,0 +1,15 @@
+{
+  "scenarioId": "dotnet-version-upgrade",
+  "operationId": "dc5fd04c-0745-49f1-b5f3-7c3526acb5f6",
+  "description": "Upgrade .NET projects to newer .NET versions",
+  "startTime": "2026-03-15T08:27:12.0435109Z",
+  "lastUpdateTime": "2026-03-15T08:32:32.2071286Z",
+  "stage": "Assessment",
+  "properties": {
+    "currentTask": "02-verify-solution-integration",
+    "task:01-update-hintoverlay-installer-wixproj:startedAt": "2026-03-15T08:31:06.2143887Z",
+    "UpgradeTargetFramework": "net8.0",
+    "task:02-verify-solution-integration:startedAt": "2026-03-15T08:32:32.2071286Z"
+  },
+  "folderPath": ""
+}

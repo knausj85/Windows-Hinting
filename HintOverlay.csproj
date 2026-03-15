@@ -7,8 +7,39 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>  
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
+    <EmbedInteropTypes>false</EmbedInteropTypes>
+    <!-- Code Signing Configuration for UIAccess -->
+    <SignAssembly>false</SignAssembly>
+    <AssemblyOriginatorKeyFile Condition="'$(AssemblyOriginatorKeyFile)' == ''"></AssemblyOriginatorKeyFile>
+    <DelaySign>false</DelaySign>
+    <!-- Default certificate path for self-signed development certificate -->
+    <DefaultCodeSigningCertPath>$(MSBuildProjectDirectory)\certs\HintOverlay_CodeSign.pfx</DefaultCodeSigningCertPath>
+    <DefaultCodeSigningPassword>HintOverlay_BuildCert_2024</DefaultCodeSigningPassword>
+    <!-- Use default cert if available and no explicit cert path provided -->
+    <CodeSigningCertPath Condition="'$(CodeSigningCertPath)' == ''">$(DefaultCodeSigningCertPath)</CodeSigningCertPath>
+    <CodeSigningPassword Condition="'$(CodeSigningPassword)' == ''">$(DefaultCodeSigningPassword)</CodeSigningPassword>
+  </PropertyGroup>
 
+  <!-- Pre-build target to ensure certificate exists -->
+  <Target Name="EnsureSigningCertificate" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\build\generate-signing-cert.ps1&quot;" IgnoreExitCode="true" />
+  </Target>
+
+  <!-- Post-build signing target using signtool.exe for Authenticode code signing -->
+  <Target Name="SignExecutable" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(CodeSigningCertPath)' != ''">
+    <PropertyGroup>
+      <ExecutablePath Condition="'$(ExecutablePath)' == ''">$([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(OutputPath), $(AssemblyName).exe))</ExecutablePath>
+      <!-- Try different Windows SDK versions -->
+      <SignToolExe Condition="Exists('C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe')">C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe</SignToolExe>
+      <SignToolExe Condition="Exists('C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe') AND '$(SignToolExe)' == ''">C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe</SignToolExe>
+      <SignToolExe Condition="Exists('C:\Program Files\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe') AND '$(SignToolExe)' == ''">C:\Program Files\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe</SignToolExe>
+    </PropertyGroup>
+    <Message Text="Signing executable: $(ExecutablePath)" Importance="high" />
+    <Exec Condition="'$(SignToolExe)' != ''" Command="&quot;$(SignToolExe)&quot; sign /f &quot;$(CodeSigningCertPath)&quot; /p &quot;$(CodeSigningPassword)&quot; /t http://timestamp.digicert.com /fd SHA256 &quot;$(ExecutablePath)&quot;" ContinueOnError="false" />
+    <Message Text="Executable signed successfully" Importance="high" />
+  </Target>
   <ItemGroup>
     <COMReference Include="UIAutomationClient">
       <WrapperTool>tlbimp</WrapperTool>
@@ -20,7 +51,11 @@
       <EmbedInteropTypes>true</EmbedInteropTypes>
     </COMReference>
   </ItemGroup>
-
+  <ItemGroup>
+    <None Include="HintOverlay.Installer\HintOverlay.Installer.wixproj" />
+    <None Include="HintOverlay.Installer\Product.wixproj.user" />
+    <None Include="Windows-Hinting.sln" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
