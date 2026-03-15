@@ -21,7 +21,8 @@ namespace HintOverlay
         private readonly HintInputHandler _inputHandler;
         private readonly TrayIconManager _trayIcon;
         private readonly ElementActivatorChain _activatorChain;
-        
+        private readonly NamedPipeService _namedPipeService;
+
         private HintOverlayOptions _options;
         private long _lastToggleTicks;
         private const long ToggleDebounceMs = 200;
@@ -40,18 +41,19 @@ namespace HintOverlay
             {
                 _logger = logger ?? throw new ArgumentNullException(nameof(logger));
                 _logger.Info("Initializing HintController");
-                
+
                 _overlay = overlay ?? throw new ArgumentNullException(nameof(overlay));
                 _uiaService = uiaService ?? throw new ArgumentNullException(nameof(uiaService));
                 _keyboardService = keyboardService ?? throw new ArgumentNullException(nameof(keyboardService));
                 _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
                 _windowManager = windowManager ?? throw new ArgumentNullException(nameof(windowManager));
                 _trayIcon = trayIcon ?? throw new ArgumentNullException(nameof(trayIcon));
-                
+
                 _stateManager = new HintStateManager();
                 _inputHandler = new HintInputHandler(_stateManager);
                 _activatorChain = new ElementActivatorChain(logger);
-                
+                _namedPipeService = new NamedPipeService(logger);
+
                 // Load preferences
                 _logger.Debug("Loading preferences");
                 _options = PerformanceMetricsExtensions.MeasureExecution(
@@ -60,27 +62,33 @@ namespace HintOverlay
                     _logger,
                     HintOverlay.Logging.LogLevel.Debug);
                 ApplyOptions();
-                
+
                 // Wire up events
                 _logger.Debug("Wiring up event handlers");
                 _overlay.ToggleRequested += (s, e) => Toggle();
                 _trayIcon.ToggleRequested += (s, e) => Toggle();
                 _trayIcon.PreferencesRequested += OnPreferencesRequested;
                 _trayIcon.ExitRequested += (s, e) => Application.Exit();
-                
+
                 _stateManager.ModeChanged += OnModeChanged;
                 _stateManager.HintsChanged += OnHintsChanged;
                 _stateManager.FilterChanged += OnFilterChanged;
-                
+
                 _inputHandler.SelectionCommitted += OnSelectionCommitted;
-                
+
                 _keyboardService.KeyPressed += OnKeyPressed;
                 _keyboardService.KeyReleased += OnKeyReleased;
-                
+
+                _namedPipeService.CommandReceived += OnNamedPipeCommandReceived;
+
+                // Start named pipe service
+                _logger.Debug("Starting named pipe service");
+                _namedPipeService.Start();
+
                 // Show overlay
                 _logger.Debug("Showing overlay");
                 _overlay.Show();
-                
+
                 _logger.Info("HintController initialized successfully");
             }
         }
@@ -92,21 +100,75 @@ namespace HintOverlay
             _overlay.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
         }
 
+        private void OnNamedPipeCommandReceived(object? sender, NamedPipeCommand command)
+        {
+            _logger.Debug($"Processing named pipe command: {command.CommandType}");
+
+            switch (command.CommandType)
+            {
+                case CommandType.Toggle:
+                    Toggle();
+                    break;
+
+                case CommandType.Select:
+                    if (!string.IsNullOrEmpty(command.HintLabel))
+                    {
+                        SelectHintByLabel(command.HintLabel);
+                    }
+                    break;
+
+                case CommandType.Deactivate:
+                    _stateManager.Deactivate();
+                    break;
+            }
+        }
+
+        private void SelectHintByLabel(string label)
+        {
+            _logger.Info($"Attempting to select hint with label: {label}");
+
+            var hint = _stateManager.CurrentHints.FirstOrDefault(h => 
+                h.Label.Equals(label, StringComparison.OrdinalIgnoreCase));
+
+            if (hint == null)
+            {
+                _logger.Warning($"Hint with label '{label}' not found");
+                return;
+            }
+
+            _logger.Info($"Activating hint: {hint.Label}");
+
+            try
+            {
+                _activatorChain.TryActivate(hint.Element);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"Error activating hint '{label}'", ex);
+            }
+            finally
+            {
+                // Hide hints after activation
+                _logger.Debug("Deactivating hints after direct selection");
+                _stateManager.Deactivate();
+            }
+        }
+
         public void Toggle()
         {
             using (PerformanceMetrics.Start("Toggle", _logger, LogLevel.Debug))
             {
                 long now = Stopwatch.GetTimestamp();
                 long elapsedMs = (now - _lastToggleTicks) * 1000 / Stopwatch.Frequency;
-                
+
                 if (elapsedMs < ToggleDebounceMs)
                 {
                     _logger.Debug($"Toggle debounced - only {elapsedMs}ms since last toggle");
                     return;
                 }
-                    
+
                 _lastToggleTicks = now;
-                
+
                 if (_stateManager.CurrentMode == HintMode.Inactive)
                 {
                     _logger.Info("Activating hint mode");
@@ -315,12 +377,13 @@ namespace HintOverlay
                 return;
 
             _logger.Info("Disposing HintController");
+            _namedPipeService.Dispose();
             _keyboardService.Stop();
             _trayIcon.Dispose();
             _overlay.Dispose();
             _uiaService.Dispose();
             _logger.Info("HintController disposed");
-            
+
             _disposed = true;
         }
     }
