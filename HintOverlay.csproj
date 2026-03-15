@@ -8,6 +8,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
     <EmbedInteropTypes>false</EmbedInteropTypes>
     <!-- Code Signing Configuration for UIAccess -->

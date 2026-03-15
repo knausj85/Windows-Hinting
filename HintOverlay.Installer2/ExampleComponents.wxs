@@ -126,8 +126,10 @@
           Value="1"
           KeyPath="yes" />
       </Component>
+    </DirectoryRef>
 
-      <!-- Platform-specific runtime files - Windows x64 -->
+    <!-- Platform-specific runtime files - Windows x64 -->
+    <ComponentGroup Id="RuntimesWinFiles" Directory="RuntimesWinLibNet80Folder">
       <Component Id="RuntimesWin" Bitness="always64" Guid="33333333-4444-5555-6666-777777777503">
         <File
           Id="SystemDiagnosticsEventLogDllWin"
@@ -135,15 +137,17 @@
           KeyPath="yes" />
         <File Source="$(var.HintOverlay.TargetDir)runtimes\win\lib\net8.0\System.Diagnostics.EventLog.Messages.dll" />
       </Component>
+    </ComponentGroup>
 
-      <!-- Browser-specific runtime files -->
+    <!-- Browser-specific runtime files -->
+    <ComponentGroup Id="RuntimesBrowserFiles" Directory="RuntimesBrowserLibNet80Folder">
       <Component Id="RuntimesBrowser" Bitness="always64" Guid="44444444-5555-6666-7777-888888888504">
         <File
           Id="SystemTextEncodingsWebDllBrowser"
           Source="$(var.HintOverlay.TargetDir)runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll"
           KeyPath="yes" />
       </Component>
-    </DirectoryRef>
+    </ComponentGroup>
 
     <!-- Desktop and Program Menu shortcuts -->
     <ComponentGroup Id="DesktopShortcuts" Directory="INSTALLFOLDER">

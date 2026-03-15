@@ -12,6 +12,9 @@ namespace HintOverlay.Services.Native
         [DllImport("user32.dll")]
         public static extern bool IsWindow(IntPtr hWnd);
 
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+
         // user32.dll - Keyboard Hook
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         public static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);

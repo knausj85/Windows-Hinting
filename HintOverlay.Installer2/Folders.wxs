@@ -1,5 +1,26 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
-    <!-- This fragment is not needed as Package.wxs already defines the directory structure -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="HintOverlay">
+        <Directory Id="RuntimesFolder" Name="runtimes">
+          <Directory Id="RuntimesWinFolder" Name="win">
+            <Directory Id="RuntimesWinLibFolder" Name="lib">
+              <Directory Id="RuntimesWinLibNet80Folder" Name="net8.0" />
+            </Directory>
+          </Directory>
+          <Directory Id="RuntimesBrowserFolder" Name="browser">
+            <Directory Id="RuntimesBrowserLibFolder" Name="lib">
+              <Directory Id="RuntimesBrowserLibNet80Folder" Name="net8.0" />
+            </Directory>
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="HintOverlay" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
   </Fragment>
 </Wix>

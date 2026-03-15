@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using HintOverlay.Logging;
+using HintOverlay.Services.Native;
 using UIAutomationClient;
 
 namespace HintOverlay.Services
@@ -79,6 +80,10 @@ namespace HintOverlay.Services
                     }
                 }
 
+                // Special case: Start Menu (CoreWindow class with "Search" element)
+                // For Start Menu, search the parent element instead of descendants
+                root = HandleStartMenuSpecialCase(root);
+
                 var clickableControlTypes = new int[]
                 {
                     UIA_ControlTypeIds.UIA_ButtonControlTypeId,
@@ -128,6 +133,7 @@ namespace HintOverlay.Services
                     cache.AddProperty(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId);
                     cache.AddProperty(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId);
                     cache.AddProperty(UIA_PropertyIds.UIA_NamePropertyId);
+                    cache.AddProperty(UIA_PropertyIds.UIA_ClassNamePropertyId);
                     cache.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
                     cache.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
                     cache.AddPattern(UIA_PatternIds.UIA_SelectionPatternId);
@@ -233,6 +239,73 @@ namespace HintOverlay.Services
                 if (root != null && Marshal.IsComObject(root))
                     Marshal.ReleaseComObject(root);
             }
+        }
+
+        /// <summary>
+        /// Special handling for Start Menu (CoreWindow class).
+        /// When the root element is a CoreWindow with "Search" as name or the foreground window title contains "Search",
+        /// search from the parent element instead.
+        /// </summary>
+        private IUIAutomationElement HandleStartMenuSpecialCase(IUIAutomationElement root)
+        {
+            if (root == null)
+                return root;
+
+            try
+            {
+                // Check if this is a CoreWindow
+
+                // Get the foreground window title for additional matching
+                var foregroundWindowHandle = NativeMethods.GetForegroundWindow();
+                var className = root.CurrentClassName;
+                var windowTitle = GetWindowTitle(foregroundWindowHandle);
+                _logger.Debug($"Detected CoreWindow (likely Start Menu). class = {className} title = {windowTitle}");
+
+                bool isStartMenuWindow = root.CurrentClassName == "Windows.UI.Core.CoreWindow" && (GetWindowTitle(foregroundWindowHandle) == ("Search"));
+
+                if (isStartMenuWindow)
+                {
+
+                    // Try to get the parent element
+                    var treeWalker = _automation.ControlViewWalker;
+                    var parentElement = treeWalker.GetParentElement(root);
+
+                    if (parentElement != null)
+                    {
+                        _logger.Debug("Found parent of CoreWindow, will search from parent");
+                        // Release the old root since we're replacing it
+                        if (root != null && Marshal.IsComObject(root))
+                        {
+                            try { Marshal.ReleaseComObject(root); } catch { }
+                        }
+                        return parentElement;
+                    }
+                }
+            }
+            catch (COMException ex)
+            {
+                _logger.Debug($"COM exception in HandleStartMenuSpecialCase: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug($"Exception in HandleStartMenuSpecialCase: {ex.Message}");
+            }
+
+            return root;
+        }
+
+        /// <summary>
+        /// Get the window title for a given window handle.
+        /// </summary>
+        private string GetWindowTitle(IntPtr windowHandle)
+        {
+            if (windowHandle == IntPtr.Zero)
+                return string.Empty;
+
+            const int maxLength = 256;
+            var title = new System.Text.StringBuilder(maxLength);
+            NativeMethods.GetWindowText(windowHandle, title, maxLength);
+            return title.ToString();
         }
 
         public void Dispose()
