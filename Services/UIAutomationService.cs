@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using HintOverlay.Configuration;
 using HintOverlay.Logging;
 using HintOverlay.Services.Native;
 using UIAutomationClient;
@@ -14,11 +16,13 @@ namespace HintOverlay.Services
     {
         private readonly IUIAutomation _automation;
         private readonly ILogger _logger;
+        private readonly WindowRuleRegistry _ruleRegistry;
         private bool _disposed;
 
-        public UIAutomationService(ILogger logger)
+        public UIAutomationService(ILogger logger, WindowRuleRegistry ruleRegistry)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _ruleRegistry = ruleRegistry ?? throw new ArgumentNullException(nameof(ruleRegistry));
             _automation = new CUIAutomation();
         }
 
@@ -80,9 +84,8 @@ namespace HintOverlay.Services
                     }
                 }
 
-                // Special case: Start Menu (CoreWindow class with "Search" element)
-                // For Start Menu, search the parent element instead of descendants
-                root = HandleStartMenuSpecialCase(root);
+                // Resolve the root element strategy based on window rules
+                root = ResolveRootElement(windowHandle, root);
 
                 var clickableControlTypes = new int[]
                 {
@@ -243,70 +246,168 @@ namespace HintOverlay.Services
         }
 
         /// <summary>
-        /// Special handling for Start Menu (CoreWindow class).
-        /// When the root element is a CoreWindow with "Search" as name or the foreground window title contains "Search",
-        /// search from the parent element instead.
+        /// Resolves the root element to search based on the configured <see cref="WindowRuleRegistry"/> rules.
         /// </summary>
-        private IUIAutomationElement HandleStartMenuSpecialCase(IUIAutomationElement root)
+        private IUIAutomationElement ResolveRootElement(IntPtr windowHandle, IUIAutomationElement root)
         {
             if (root == null)
                 return root;
 
             try
             {
-                // Check if this is a CoreWindow
-
-                // Get the foreground window title for additional matching
-                var foregroundWindowHandle = NativeMethods.GetForegroundWindow();
                 var className = root.CurrentClassName;
-                var windowTitle = GetWindowTitle(foregroundWindowHandle);
-                _logger.Debug($"Detected CoreWindow (likely Start Menu). class = {className} title = {windowTitle}");
+                var executableName = GetExecutableName(windowHandle);
+                var windowTitle = GetWindowTitle(windowHandle);
+                var strategy = _ruleRegistry.ResolveStrategy(executableName, className, windowTitle);
 
-                bool isStartMenuWindow = root.CurrentClassName == "Windows.UI.Core.CoreWindow" && (GetWindowTitle(foregroundWindowHandle) == ("Search"));
+                _logger.Debug($"Window rule resolved: exe={executableName}, class={className}, title={windowTitle}, strategy={strategy}");
 
-                if (isStartMenuWindow)
+                if (strategy == RootStrategy.ActiveWindow)
+                    return root;
+
+                var resolved = ApplyStrategy(strategy, root);
+                if (resolved != null && resolved != root)
                 {
-
-                    // Try to get the parent element
-                    var treeWalker = _automation.ControlViewWalker;
-                    var parentElement = treeWalker.GetParentElement(root);
-
-                    if (parentElement != null)
+                    if (Marshal.IsComObject(root))
                     {
-                        _logger.Debug("Found parent of CoreWindow, will search from parent");
-                        // Release the old root since we're replacing it
-                        if (root != null && Marshal.IsComObject(root))
-                        {
-                            try { Marshal.ReleaseComObject(root); } catch { }
-                        }
-                        return parentElement;
+                        try { Marshal.ReleaseComObject(root); } catch { }
                     }
+                    return resolved;
                 }
             }
             catch (COMException ex)
             {
-                _logger.Debug($"COM exception in HandleStartMenuSpecialCase: {ex.Message}");
+                _logger.Debug($"COM exception in ResolveRootElement: {ex.Message}");
             }
             catch (Exception ex)
             {
-                _logger.Debug($"Exception in HandleStartMenuSpecialCase: {ex.Message}");
+                _logger.Debug($"Exception in ResolveRootElement: {ex.Message}");
             }
 
             return root;
         }
 
-        /// <summary>
-        /// Get the window title for a given window handle.
-        /// </summary>
-        private string GetWindowTitle(IntPtr windowHandle)
+        private IUIAutomationElement? ApplyStrategy(RootStrategy strategy, IUIAutomationElement root)
+        {
+            var walker = _automation.ControlViewWalker;
+
+            switch (strategy)
+            {
+                case RootStrategy.ActiveWindowParent:
+                {
+                    var parent = walker.GetParentElement(root);
+                    _logger.Debug(parent != null
+                        ? "ActiveWindowParent: navigated to parent element"
+                        : "ActiveWindowParent: no parent found, falling back to root");
+                    return parent;
+                }
+
+                case RootStrategy.FocusedElement:
+                {
+                    var focused = _automation.GetFocusedElement();
+                    _logger.Debug(focused != null
+                        ? "FocusedElement: using focused element as root"
+                        : "FocusedElement: no focused element, falling back to root");
+                    return focused;
+                }
+
+                case RootStrategy.FocusedElementParent:
+                {
+                    var focused = _automation.GetFocusedElement();
+                    if (focused == null)
+                    {
+                        _logger.Debug("FocusedElementParent: no focused element, falling back to root");
+                        return null;
+                    }
+                    var parent = walker.GetParentElement(focused);
+                    if (parent != null && Marshal.IsComObject(focused))
+                    {
+                        try { Marshal.ReleaseComObject(focused); } catch { }
+                    }
+                    _logger.Debug(parent != null
+                        ? "FocusedElementParent: navigated to parent of focused element"
+                        : "FocusedElementParent: no parent found, falling back to root");
+                    return parent;
+                }
+
+                case RootStrategy.FocusedElementFirstParentWindow:
+                {
+                    var focused = _automation.GetFocusedElement();
+                    if (focused == null)
+                    {
+                        _logger.Debug("FocusedElementFirstParentWindow: no focused element, falling back to root");
+                        return null;
+                    }
+                    var current = focused;
+                    IUIAutomationElement? windowAncestor = null;
+                    while (true)
+                    {
+                        var parent = walker.GetParentElement(current);
+                        if (parent == null)
+                            break;
+
+                        int controlType = parent.CurrentControlType;
+                        if (controlType == UIA_ControlTypeIds.UIA_WindowControlTypeId)
+                        {
+                            windowAncestor = parent;
+                            break;
+                        }
+
+                        if (current != focused && Marshal.IsComObject(current))
+                        {
+                            try { Marshal.ReleaseComObject(current); } catch { }
+                        }
+                        current = parent;
+                    }
+                    if (current != focused && current != windowAncestor && Marshal.IsComObject(current))
+                    {
+                        try { Marshal.ReleaseComObject(current); } catch { }
+                    }
+                    if (Marshal.IsComObject(focused) && focused != windowAncestor)
+                    {
+                        try { Marshal.ReleaseComObject(focused); } catch { }
+                    }
+                    _logger.Debug(windowAncestor != null
+                        ? "FocusedElementFirstParentWindow: found Window ancestor"
+                        : "FocusedElementFirstParentWindow: no Window ancestor found, falling back to root");
+                    return windowAncestor;
+                }
+
+                default:
+                    return null;
+            }
+        }
+
+        private static string? GetExecutableName(IntPtr windowHandle)
         {
             if (windowHandle == IntPtr.Zero)
-                return string.Empty;
+                return null;
+
+            try
+            {
+                NativeMethods.GetWindowThreadProcessId(windowHandle, out uint processId);
+                if (processId == 0)
+                    return null;
+
+                using var process = Process.GetProcessById((int)processId);
+                return process.ProcessName;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string? GetWindowTitle(IntPtr windowHandle)
+        {
+            if (windowHandle == IntPtr.Zero)
+                return null;
 
             const int maxLength = 256;
             var title = new System.Text.StringBuilder(maxLength);
             NativeMethods.GetWindowText(windowHandle, title, maxLength);
-            return title.ToString();
+            var text = title.ToString();
+            return string.IsNullOrEmpty(text) ? null : text;
         }
 
         private bool HasActivatablePattern(IUIAutomationElement element)

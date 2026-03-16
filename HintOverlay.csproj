@@ -11,6 +11,8 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
     <EmbedInteropTypes>false</EmbedInteropTypes>
+    <!-- Suppress harmless COM interop warning for CUIAutomation8.SafeArrayToRectNativeArray -->
+    <MSBuildWarningsAsMessages>MSB3305</MSBuildWarningsAsMessages>
     <!-- Code Signing Configuration for UIAccess -->
     <SignAssembly>false</SignAssembly>
     <AssemblyOriginatorKeyFile Condition="'$(AssemblyOriginatorKeyFile)' == ''"></AssemblyOriginatorKeyFile>

@@ -35,6 +35,10 @@ namespace HintOverlay.Services.Native
 
         // Delegates
         public delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+        // user32.dll - Process Info
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
     }
 
     internal static class WindowsConstants

@@ -1,3 +1,4 @@
+using HintOverlay.Configuration;
 using HintOverlay.Logging;
 using HintOverlay.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +14,10 @@ namespace HintOverlay
             { 
                 MinimumLevel = LogLevel.Info 
             });
-            
+
+            // Configuration
+            services.AddSingleton(WindowRuleRegistry.CreateRegistry());
+
             // Core Services
             services.AddSingleton<IPreferencesService, PreferencesService>();
             services.AddSingleton<IUIAutomationService, UIAutomationService>();
