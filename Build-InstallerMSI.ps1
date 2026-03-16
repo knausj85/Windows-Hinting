@@ -70,6 +70,7 @@ if (-not $SkipSign -and -not (Test-Path $certPath)) {
 if (-not $SkipBuild) {
     Write-Host "Step 1: Building application..." -ForegroundColor $infoColor
     Write-Host "  Configuration: Release" -ForegroundColor $infoColor
+    Write-Host "  Note: Release build automatically patches manifest to uiAccess=true" -ForegroundColor $infoColor
 
     & $msbuild HintOverlay.sln /p:Configuration=Release /verbosity:minimal /nologo
 
