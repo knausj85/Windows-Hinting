@@ -179,7 +179,8 @@ namespace HintOverlay.Services
                                     (int)rectArray[3]
                                 );
 
-                                if (rect.Width > 0 && rect.Height > 0)
+                                if (rect.Width > 0 && rect.Height > 0
+                                    && HasActivatablePattern(element))
                                 {
                                     results.Add(new ClickableElement
                                     {
@@ -306,6 +307,15 @@ namespace HintOverlay.Services
             var title = new System.Text.StringBuilder(maxLength);
             NativeMethods.GetWindowText(windowHandle, title, maxLength);
             return title.ToString();
+        }
+
+        private bool HasActivatablePattern(IUIAutomationElement element)
+        {
+            return element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId) is true
+                || element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId) is true
+                || element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId) is true
+                || element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId) is true
+                || element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId) is true;
         }
 
         public void Dispose()

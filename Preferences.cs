@@ -6,7 +6,7 @@ namespace HintOverlay
 {
     internal sealed class Preferences
     {
-        public bool ShowRectangles { get; set; } = true;
+        public bool ShowRectangles { get; set; } = false;
         public int HotkeyModifiers { get; set; } = 0x0003; // MOD_CONTROL | MOD_ALT
         public int HotkeyVirtualKey { get; set; } = 0x48; // H key
 

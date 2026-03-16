@@ -20,7 +20,7 @@ namespace HintOverlay
 
         public event EventHandler? ToggleRequested;
 
-        public bool ShowRectangles { get; set; } = true;
+        public bool ShowRectangles { get; set; } = false;
 
         private int _hotkeyModifiers;
         private int _hotkeyVirtualKey;

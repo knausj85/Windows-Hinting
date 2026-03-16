@@ -27,6 +27,8 @@ namespace HintOverlay.Services
 
         public bool TryActivate(IUIAutomationElement element)
         {
+            LogCachedPatterns(element);
+
             foreach (var activator in _activators)
             {
                 if (activator.TryActivate(element))
@@ -37,6 +39,30 @@ namespace HintOverlay.Services
             
             _logger.Warning("No interaction pattern succeeded for element");
             return false;
+        }
+
+        private void LogCachedPatterns(IUIAutomationElement element)
+        {
+            try
+            {
+                var name = element.CachedName ?? "(unnamed)";
+                bool isInvoke = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId) is true;
+                bool isExpandCollapse = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId) is true;
+                bool isSelectionItem = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId) is true;
+                bool isToggle = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId) is true;
+                bool isKeyboardFocusable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId) is true;
+
+                _logger.Info($"Cached patterns for '{name}': " +
+                    $"Invoke={isInvoke}, " +
+                    $"ExpandCollapse={isExpandCollapse}, " +
+                    $"SelectionItem={isSelectionItem}, " +
+                    $"Toggle={isToggle}, " +
+                    $"KeyboardFocusable={isKeyboardFocusable}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug($"Failed to read cached patterns: {ex.Message}");
+            }
         }
     }
 }

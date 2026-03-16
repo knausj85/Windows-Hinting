@@ -2,7 +2,7 @@ namespace HintOverlay.Models
 {
     internal sealed class HintOverlayOptions
     {
-        public bool ShowRectangles { get; set; } = true;
+        public bool ShowRectangles { get; set; } = false;
         public HotkeyConfiguration Hotkey { get; set; } = new();
         public AnimationOptions Animation { get; set; } = new();
     }
