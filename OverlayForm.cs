@@ -118,14 +118,18 @@ namespace HintOverlay
                     g.DrawRectangle(pen, h.Rect);
                 }
 
-                // label background size based on full label
+                // label background size based on full label, centered in rect
                 var size = g.MeasureString(h.Label, _font);
-                var bg = new RectangleF(h.Rect.Left, h.Rect.Top, size.Width + 6, size.Height + 2);
+                float bgWidth = size.Width + 6;
+                float bgHeight = size.Height + 2;
+                float bgX = h.Rect.Left + (h.Rect.Width - bgWidth) / 2;
+                float bgY = h.Rect.Top + (h.Rect.Height - bgHeight) / 2;
+                var bg = new RectangleF(bgX, bgY, bgWidth, bgHeight);
                 g.FillRectangle(labelBg, bg);
 
                 // draw label with highlighted matching prefix
-                float x = h.Rect.Left + 3;
-                float y = h.Rect.Top + 1;
+                float x = bgX + 3;
+                float y = bgY + 1;
 
                 string match = "";
                 string suffix = h.Label;
