@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
+using HintOverlay.Configuration;
 using HintOverlay.Logging;
 using HintOverlay.Models;
 using HintOverlay.Services;
@@ -22,6 +23,7 @@ namespace HintOverlay
         private readonly TrayIconManager _trayIcon;
         private readonly ElementActivatorChain _activatorChain;
         private readonly NamedPipeService _namedPipeService;
+        private readonly WindowRuleRegistry _ruleRegistry;
 
         private HintOverlayOptions _options;
         private long _lastToggleTicks;
@@ -35,7 +37,8 @@ namespace HintOverlay
             IPreferencesService preferencesService,
             IWindowManager windowManager,
             ILogger logger,
-            TrayIconManager trayIcon)
+            TrayIconManager trayIcon,
+            WindowRuleRegistry ruleRegistry)
         {
             using (PerformanceMetrics.Start("HintController.Constructor", logger, HintOverlay.Logging.LogLevel.Info))
             {
@@ -48,6 +51,7 @@ namespace HintOverlay
                 _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
                 _windowManager = windowManager ?? throw new ArgumentNullException(nameof(windowManager));
                 _trayIcon = trayIcon ?? throw new ArgumentNullException(nameof(trayIcon));
+                _ruleRegistry = ruleRegistry ?? throw new ArgumentNullException(nameof(ruleRegistry));
 
                 _stateManager = new HintStateManager();
                 _inputHandler = new HintInputHandler(_stateManager);
@@ -97,7 +101,15 @@ namespace HintOverlay
         {
             _logger.Debug($"Applying options - ShowRectangles: {_options.ShowRectangles}, Hotkey: {_options.Hotkey.Modifiers}+{_options.Hotkey.VirtualKey}");
             _overlay.ShowRectangles = _options.ShowRectangles;
-            _overlay.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
+
+            if (_options.Hotkey.Enabled)
+                _overlay.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
+            else
+                _overlay.UnregisterGlobalHotkey();
+
+            var rules = _options.WindowRules ?? WindowRuleRegistry.GetDefaultRules();
+            _ruleRegistry.SetRules(rules);
+            _logger.Debug($"Window rules applied: {rules.Count} rule(s)");
         }
 
         private void OnNamedPipeCommandReceived(object? sender, NamedPipeCommand command)
@@ -356,6 +368,16 @@ namespace HintOverlay
             {
                 _logger.Info("Opening preferences dialog");
                 var dialog = new PreferencesDialog(_options);
+                dialog.HotkeyRecordingStarted += (_, _) =>
+                {
+                    _logger.Debug("Hotkey recording started, unregistering global hotkey");
+                    _overlay.UnregisterGlobalHotkey();
+                };
+                dialog.HotkeyRecordingStopped += (_, _) =>
+                {
+                    _logger.Debug("Hotkey recording stopped, re-registering global hotkey");
+                    _overlay.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
+                };
                 if (dialog.ShowDialog() == DialogResult.OK)
                 {
                     _logger.Info("Preferences saved, reloading and applying");

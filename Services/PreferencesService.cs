@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using HintOverlay.Models;
 
 namespace HintOverlay.Services
@@ -12,6 +13,12 @@ namespace HintOverlay.Services
             "HintOverlay",
             "preferences.json");
 
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            WriteIndented = true,
+            Converters = { new JsonStringEnumConverter() }
+        };
+
         public HintOverlayOptions Load()
         {
             try
@@ -19,7 +26,7 @@ namespace HintOverlay.Services
                 if (File.Exists(PrefsPath))
                 {
                     var json = File.ReadAllText(PrefsPath);
-                    return JsonSerializer.Deserialize<HintOverlayOptions>(json) ?? new HintOverlayOptions();
+                    return JsonSerializer.Deserialize<HintOverlayOptions>(json, JsonOptions) ?? new HintOverlayOptions();
                 }
             }
             catch (Exception ex)
@@ -38,7 +45,7 @@ namespace HintOverlay.Services
                 if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                     Directory.CreateDirectory(dir);
 
-                var json = JsonSerializer.Serialize(options, new JsonSerializerOptions { WriteIndented = true });
+                var json = JsonSerializer.Serialize(options, JsonOptions);
                 File.WriteAllText(PrefsPath, json);
             }
             catch (Exception ex)

@@ -5,21 +5,21 @@ namespace HintOverlay.Configuration
         /// <summary>
         /// Process executable name to match (without extension), or null to match any.
         /// </summary>
-        public string? ExecutableName { get; init; }
+        public string? ExecutableName { get; set; }
 
         /// <summary>
         /// UIA ClassName to match, or null to match any.
         /// </summary>
-        public string? ClassName { get; init; }
+        public string? ClassName { get; set; }
 
         /// <summary>
         /// Window title to match, or null to match any.
         /// </summary>
-        public string? WindowTitle { get; init; }
+        public string? WindowTitle { get; set; }
 
         /// <summary>
         /// The root element strategy to use when this rule matches.
         /// </summary>
-        public RootStrategy Strategy { get; init; }
+        public RootStrategy Strategy { get; set; }
     }
 }

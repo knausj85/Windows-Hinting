@@ -16,7 +16,7 @@ namespace HintOverlay
             });
 
             // Configuration
-            services.AddSingleton(WindowRuleRegistry.CreateRegistry());
+            services.AddSingleton<WindowRuleRegistry>();
 
             // Core Services
             services.AddSingleton<IPreferencesService, PreferencesService>();

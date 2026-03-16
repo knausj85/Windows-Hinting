@@ -18,6 +18,15 @@ namespace HintOverlay.Configuration
         }
 
         /// <summary>
+        /// Replaces all rules with the supplied collection.
+        /// </summary>
+        public void SetRules(IEnumerable<WindowRule> rules)
+        {
+            _rules.Clear();
+            _rules.AddRange(rules);
+        }
+
+        /// <summary>
         /// Returns the strategy for the first matching rule, or <see cref="DefaultStrategy"/> if none match.
         /// A rule matches when every non-null criterion equals the supplied value (case-insensitive).
         /// </summary>
@@ -42,27 +51,16 @@ namespace HintOverlay.Configuration
         }
 
         /// <summary>
-        /// Creates a registry pre-populated with the built-in rules.
+        /// Returns the built-in default rules.
         /// </summary>
-        public static WindowRuleRegistry CreateRegistry()
-        {
-            var registry = new WindowRuleRegistry();
-
-            // Start Menu / Windows Search surfaces use a CoreWindow that only
-            // exposes its full element tree from the parent.
-            registry.AddRule(new WindowRule
+        public static List<WindowRule> GetDefaultRules() =>
+        [
+            new WindowRule
             {
                 ExecutableName = "SearchHost",
                 ClassName = "Windows.UI.Core.CoreWindow",
                 Strategy = RootStrategy.ActiveWindowParent
-            });
-
-            registry.AddRule(new WindowRule
-            {
-                Strategy = RootStrategy.ActiveWindow
-            });
-
-            return registry;
-        }
+            }
+        ];
     }
 }
