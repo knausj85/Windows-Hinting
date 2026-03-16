@@ -38,7 +38,11 @@ namespace HintOverlay
             IWindowManager windowManager,
             ILogger logger,
             TrayIconManager trayIcon,
-            WindowRuleRegistry ruleRegistry)
+            WindowRuleRegistry ruleRegistry,
+            HintStateManager stateManager,
+            HintInputHandler inputHandler,
+            ElementActivatorChain activatorChain,
+            NamedPipeService namedPipeService)
         {
             using (PerformanceMetrics.Start("HintController.Constructor", logger, HintOverlay.Logging.LogLevel.Info))
             {
@@ -53,10 +57,10 @@ namespace HintOverlay
                 _trayIcon = trayIcon ?? throw new ArgumentNullException(nameof(trayIcon));
                 _ruleRegistry = ruleRegistry ?? throw new ArgumentNullException(nameof(ruleRegistry));
 
-                _stateManager = new HintStateManager();
-                _inputHandler = new HintInputHandler(_stateManager);
-                _activatorChain = new ElementActivatorChain(logger);
-                _namedPipeService = new NamedPipeService(logger);
+                _stateManager = stateManager ?? throw new ArgumentNullException(nameof(stateManager));
+                _inputHandler = inputHandler ?? throw new ArgumentNullException(nameof(inputHandler));
+                _activatorChain = activatorChain ?? throw new ArgumentNullException(nameof(activatorChain));
+                _namedPipeService = namedPipeService ?? throw new ArgumentNullException(nameof(namedPipeService));
 
                 // Load preferences
                 _logger.Debug("Loading preferences");

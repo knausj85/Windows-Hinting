@@ -23,6 +23,10 @@ namespace HintOverlay
             services.AddSingleton<IUIAutomationService, UIAutomationService>();
             services.AddSingleton<IKeyboardHookService, KeyboardHookService>();
             services.AddSingleton<IWindowManager, WindowManager>();
+            services.AddSingleton<HintStateManager>();
+            services.AddSingleton<HintInputHandler>();
+            services.AddSingleton<ElementActivatorChain>();
+            services.AddSingleton<NamedPipeService>();
             
             // UI Components
             services.AddSingleton<OverlayForm>();
