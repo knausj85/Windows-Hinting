@@ -393,10 +393,10 @@ namespace HintOverlay
         private void OnModeChanged(object? sender, HintMode mode)
         {
             _logger.Info($"Mode changed: {mode}");
-            
+
             bool enabled = mode != HintMode.Inactive;
             _overlay.SetEnabled(enabled);
-            
+
             if (enabled)
             {
                 _logger.Debug("Starting keyboard service");
@@ -407,6 +407,7 @@ namespace HintOverlay
                 _logger.Debug("Stopping keyboard service");
                 _keyboardService.Stop();
                 _inputHandler.Reset();
+                _trayIcon.ResetIcon();
             }
         }
 
@@ -425,14 +426,7 @@ namespace HintOverlay
         private void OnClickActionChanged(object? sender, ClickAction action)
         {
             _logger.Debug($"Click action changed: {action}");
-            string label = action switch
-            {
-                ClickAction.LeftClick => "Left Click",
-                ClickAction.RightClick => "Right Click",
-                ClickAction.DoubleClick => "Double Click",
-                _ => ""
-            };
-            _overlay.SetClickAction(label);
+            _trayIcon.SetClickAction(action);
         }
 
         private void OnKeyPressed(object? sender, KeyboardEventArgs e)
