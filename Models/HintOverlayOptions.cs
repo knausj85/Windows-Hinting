@@ -7,6 +7,12 @@ namespace HintOverlay.Models
     {
         public bool ShowRectangles { get; set; } = false;
         public HotkeyConfiguration Hotkey { get; set; } = new();
+        public HotkeyConfiguration TaskbarHotkey { get; set; } = new()
+        {
+            Enabled = true,
+            Modifiers = 0x0003, // MOD_CONTROL | MOD_ALT
+            VirtualKey = 0x54   // T key
+        };
         public AnimationOptions Animation { get; set; } = new();
         public List<WindowRule>? WindowRules { get; set; }
     }

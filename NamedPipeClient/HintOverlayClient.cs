@@ -49,6 +49,15 @@ namespace HintOverlay.NamedPipeClient
             return SendCommand("DEACTIVATE");
         }
 
+        /// <summary>
+        /// Toggles the taskbar-only hint mode on or off.
+        /// </summary>
+        /// <returns>True if the command was sent successfully, false otherwise.</returns>
+        public bool ToggleTaskbar()
+        {
+            return SendCommand("TOGGLETASKBAR");
+        }
+
         private bool SendCommand(string command)
         {
             return SendCommandAsync(command).GetAwaiter().GetResult();

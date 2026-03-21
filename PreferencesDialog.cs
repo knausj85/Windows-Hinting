@@ -19,6 +19,8 @@ namespace HintOverlay
         private CheckBox _chkShowRectangles = null!;
         private CheckBox _chkHotkeyEnabled = null!;
         private HotkeyRecorderControl _hotkeyRecorder = null!;
+        private CheckBox _chkTaskbarHotkeyEnabled = null!;
+        private HotkeyRecorderControl _taskbarHotkeyRecorder = null!;
 
         // Window Rules tab controls
         private DataGridView _rulesGrid = null!;
@@ -118,9 +120,10 @@ namespace HintOverlay
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 3,
+                RowCount = 4,
                 Padding = new Padding(10)
             };
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
@@ -165,6 +168,38 @@ namespace HintOverlay
             hotkeyGroup.Controls.Add(_hotkeyRecorder);
             hotkeyGroup.Controls.Add(_chkHotkeyEnabled);
             layout.Controls.Add(hotkeyGroup, 0, 1);
+
+            // Taskbar hotkey configuration
+            var taskbarHotkeyGroup = new GroupBox
+            {
+                Text = "Taskbar Hotkey",
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10)
+            };
+
+            _chkTaskbarHotkeyEnabled = new CheckBox
+            {
+                Text = "Enable taskbar hotkey",
+                AutoSize = true,
+                Dock = DockStyle.Top
+            };
+            _chkTaskbarHotkeyEnabled.CheckedChanged += (_, _) =>
+            {
+                _taskbarHotkeyRecorder.Enabled = _chkTaskbarHotkeyEnabled.Checked;
+            };
+
+            _taskbarHotkeyRecorder = new HotkeyRecorderControl
+            {
+                Dock = DockStyle.Top,
+                Height = 32
+            };
+            _taskbarHotkeyRecorder.RecordingStarted += (s, e) => HotkeyRecordingStarted?.Invoke(this, EventArgs.Empty);
+            _taskbarHotkeyRecorder.RecordingStopped += (s, e) => HotkeyRecordingStopped?.Invoke(this, EventArgs.Empty);
+
+            taskbarHotkeyGroup.Controls.Add(_taskbarHotkeyRecorder);
+            taskbarHotkeyGroup.Controls.Add(_chkTaskbarHotkeyEnabled);
+            layout.Controls.Add(taskbarHotkeyGroup, 0, 2);
 
             tab.Controls.Add(layout);
             return tab;
@@ -281,6 +316,10 @@ namespace HintOverlay
             _hotkeyRecorder.Enabled = _options.Hotkey.Enabled;
             _hotkeyRecorder.SetHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
 
+            _chkTaskbarHotkeyEnabled.Checked = _options.TaskbarHotkey.Enabled;
+            _taskbarHotkeyRecorder.Enabled = _options.TaskbarHotkey.Enabled;
+            _taskbarHotkeyRecorder.SetHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
+
             // Window rules
             var rules = _options.WindowRules ?? WindowRuleRegistry.GetDefaultRules();
             _rulesBindingList = new BindingList<WindowRule>(
@@ -301,6 +340,10 @@ namespace HintOverlay
             _options.Hotkey.Enabled = _chkHotkeyEnabled.Checked;
             _options.Hotkey.Modifiers = _hotkeyRecorder.HotkeyModifiers;
             _options.Hotkey.VirtualKey = _hotkeyRecorder.HotkeyVirtualKey;
+
+            _options.TaskbarHotkey.Enabled = _chkTaskbarHotkeyEnabled.Checked;
+            _options.TaskbarHotkey.Modifiers = _taskbarHotkeyRecorder.HotkeyModifiers;
+            _options.TaskbarHotkey.VirtualKey = _taskbarHotkeyRecorder.HotkeyVirtualKey;
 
             // Collect window rules from the grid (exclude incomplete new-row entries)
             _options.WindowRules = _rulesBindingList

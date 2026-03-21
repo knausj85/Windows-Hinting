@@ -15,10 +15,12 @@ namespace HintOverlay
         private string _filterPrefix = "";
 
         private const int HOTKEY_ID = 1;
+        private const int TASKBAR_HOTKEY_ID = 2;
 
         private readonly Font _font = new("Segoe UI", 9, FontStyle.Bold);
 
         public event EventHandler? ToggleRequested;
+        public event EventHandler? TaskbarToggleRequested;
 
         public bool ShowRectangles { get; set; } = false;
 
@@ -88,6 +90,17 @@ namespace HintOverlay
         public void UnregisterGlobalHotkey()
         {
             UnregisterHotKey(Handle, HOTKEY_ID);
+        }
+
+        public void RegisterTaskbarHotkey(int modifiers, int virtualKey)
+        {
+            UnregisterTaskbarHotkey();
+            RegisterHotKey(Handle, TASKBAR_HOTKEY_ID, modifiers, virtualKey);
+        }
+
+        public void UnregisterTaskbarHotkey()
+        {
+            UnregisterHotKey(Handle, TASKBAR_HOTKEY_ID);
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -210,7 +223,15 @@ namespace HintOverlay
             const int WM_HOTKEY = 0x0312;
             if (m.Msg == WM_HOTKEY)
             {
-                ToggleRequested?.Invoke(this, EventArgs.Empty);
+                int hotkeyId = m.WParam.ToInt32();
+                if (hotkeyId == HOTKEY_ID)
+                {
+                    ToggleRequested?.Invoke(this, EventArgs.Empty);
+                }
+                else if (hotkeyId == TASKBAR_HOTKEY_ID)
+                {
+                    TaskbarToggleRequested?.Invoke(this, EventArgs.Empty);
+                }
                 return;
             }
             base.WndProc(ref m);

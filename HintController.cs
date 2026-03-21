@@ -77,6 +77,7 @@ namespace HintOverlay
                 // Wire up events
                 _logger.Debug("Wiring up event handlers");
                 _overlay.ToggleRequested += (s, e) => Toggle();
+                _overlay.TaskbarToggleRequested += (s, e) => ToggleTaskbar();
                 _trayIcon.ToggleRequested += (s, e) => Toggle();
                 _trayIcon.PreferencesRequested += OnPreferencesRequested;
                 _trayIcon.ExitRequested += (s, e) => Application.Exit();
@@ -114,6 +115,11 @@ namespace HintOverlay
             else
                 _overlay.UnregisterGlobalHotkey();
 
+            if (_options.TaskbarHotkey.Enabled)
+                _overlay.RegisterTaskbarHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
+            else
+                _overlay.UnregisterTaskbarHotkey();
+
             var rules = _options.WindowRules ?? WindowRuleRegistry.GetDefaultRules();
             _ruleRegistry.SetRules(rules);
             _logger.Debug($"Window rules applied: {rules.Count} rule(s)");
@@ -127,6 +133,10 @@ namespace HintOverlay
             {
                 case CommandType.Toggle:
                     Toggle();
+                    break;
+
+                case CommandType.ToggleTaskbar:
+                    ToggleTaskbar();
                     break;
 
                 case CommandType.Select:
@@ -188,16 +198,68 @@ namespace HintOverlay
 
                 _lastToggleTicks = now;
 
-                if (_stateManager.CurrentMode == HintMode.Inactive)
+                if (_stateManager.CurrentMode != HintMode.Inactive)
                 {
-                    _logger.Info("Activating hint mode");
-                    _stateManager.Activate();
-                    ScanForHints();
+                    if (_stateManager.CurrentSource == HintSource.Taskbar)
+                    {
+                        // Taskbar hints showing — dismiss them and show foreground window hints instead
+                        _logger.Info("Switching from taskbar hints to foreground window hints");
+                        _stateManager.Deactivate();
+                        _stateManager.Activate(HintSource.ForegroundWindow);
+                        ScanForHints();
+                    }
+                    else
+                    {
+                        _logger.Info("Deactivating hint mode");
+                        _stateManager.Deactivate();
+                    }
                 }
                 else
                 {
-                    _logger.Info("Deactivating hint mode");
-                    _stateManager.Deactivate();
+                    _logger.Info("Activating hint mode (foreground window)");
+                    _stateManager.Activate(HintSource.ForegroundWindow);
+                    ScanForHints();
+                }
+            }
+        }
+
+        public void ToggleTaskbar()
+        {
+            using (PerformanceMetrics.Start("ToggleTaskbar", _logger, LogLevel.Debug))
+            {
+                long now = Stopwatch.GetTimestamp();
+                long elapsedMs = (now - _lastToggleTicks) * 1000 / Stopwatch.Frequency;
+
+                if (elapsedMs < ToggleDebounceMs)
+                {
+                    _logger.Debug($"ToggleTaskbar debounced - only {elapsedMs}ms since last toggle");
+                    return;
+                }
+
+                _lastToggleTicks = now;
+
+                if (_stateManager.CurrentMode != HintMode.Inactive)
+                {
+                    if (_stateManager.CurrentSource == HintSource.Taskbar)
+                    {
+                        // Taskbar hints already showing — toggle off
+                        _logger.Info("Deactivating taskbar hints");
+                        _stateManager.Deactivate();
+                    }
+                    else
+                    {
+                        // Global hints showing — dismiss and show taskbar hints instead
+                        _logger.Info("Switching from foreground window hints to taskbar hints");
+                        _stateManager.Deactivate();
+                        _stateManager.Activate(HintSource.Taskbar);
+                        ScanTaskbarForHints();
+                    }
+                }
+                else
+                {
+                    _logger.Info("Activating taskbar hint mode");
+                    _stateManager.Activate(HintSource.Taskbar);
+                    ScanTaskbarForHints();
                 }
             }
         }
@@ -260,6 +322,64 @@ namespace HintOverlay
             }
         }
 
+        private void ScanTaskbarForHints()
+        {
+            using (PerformanceMetrics.Start("ScanTaskbarForHints", _logger, LogLevel.Info))
+            {
+                var hwnd = _windowManager.GetTaskbarWindow();
+                if (!_windowManager.IsWindowValid(hwnd))
+                {
+                    _logger.Warning("Taskbar window not found");
+                    _stateManager.Deactivate();
+                    return;
+                }
+
+                _logger.Debug($"Scanning taskbar window: {hwnd}");
+
+                // Ensure overlay is topmost before scanning
+                _overlay.EnsureTopmost();
+
+                var elements = PerformanceMetricsExtensions.MeasureExecution(
+                    "FindClickableElements(Taskbar)",
+                    () => _uiaService.FindClickableElements(hwnd),
+                    _logger,
+                    LogLevel.Info);
+
+                _logger.Info($"Found {elements.Count} taskbar clickable elements");
+
+                if (elements.Count == 0)
+                {
+                    _logger.Info("No taskbar clickable elements found, deactivating");
+                    _stateManager.Deactivate();
+                    return;
+                }
+
+                // Generate labels
+                var labels = PerformanceMetricsExtensions.MeasureExecution(
+                    "GenerateLabels(Taskbar)",
+                    () => LabelGenerator.Generate(elements.Count),
+                    _logger,
+                    LogLevel.Debug);
+
+                // Create hint items
+                var hints = PerformanceMetricsExtensions.MeasureExecution(
+                    "CreateHintItems(Taskbar)",
+                    () => elements.Select((e, i) => new HintItem
+                    {
+                        Rect = e.Bounds,
+                        Element = e.Element,
+                        Label = labels[i],
+                        CurrentOpacity = 1.0f,
+                        TargetOpacity = 1.0f
+                    }).ToList(),
+                    _logger,
+                    LogLevel.Debug);
+
+                _logger.Debug($"Created {hints.Count} taskbar hint items");
+                _stateManager.SetHints(hints);
+            }
+        }
+
         private void OnModeChanged(object? sender, HintMode mode)
         {
             _logger.Info($"Mode changed: {mode}");
@@ -296,20 +416,30 @@ namespace HintOverlay
         {
             if (_stateManager.CurrentMode == HintMode.Inactive)
                 return;
-            
-            // Check if this is the hotkey
-            int expectedModifiers = _options.Hotkey.Modifiers;
+
             KeyModifiers actualMods = e.Modifiers;
-            
+
+            // Check if this is the global hotkey
             bool hotkeyMatches = e.VirtualKeyCode == _options.Hotkey.VirtualKey &&
-                                CheckModifiersMatch(expectedModifiers, actualMods);
-            
+                                CheckModifiersMatch(_options.Hotkey.Modifiers, actualMods);
+
             if (hotkeyMatches)
             {
                 _logger.Debug("Hotkey pressed, not consuming");
                 return;
             }
-            
+
+            // Check if this is the taskbar hotkey
+            bool taskbarHotkeyMatches = _options.TaskbarHotkey.Enabled &&
+                                       e.VirtualKeyCode == _options.TaskbarHotkey.VirtualKey &&
+                                       CheckModifiersMatch(_options.TaskbarHotkey.Modifiers, actualMods);
+
+            if (taskbarHotkeyMatches)
+            {
+                _logger.Debug("Taskbar hotkey pressed, not consuming");
+                return;
+            }
+
             // Let the input handler process it
             bool handled = _inputHandler.ProcessKeyDown(e.VirtualKeyCode, e.Modifiers);
             _logger.Debug($"Key pressed: VK={e.VirtualKeyCode}, Mods={e.Modifiers}, Handled={handled}");
@@ -384,13 +514,17 @@ namespace HintOverlay
                 var dialog = new PreferencesDialog(_options);
                 dialog.HotkeyRecordingStarted += (_, _) =>
                 {
-                    _logger.Debug("Hotkey recording started, unregistering global hotkey");
+                    _logger.Debug("Hotkey recording started, unregistering global hotkeys");
                     _overlay.UnregisterGlobalHotkey();
+                    _overlay.UnregisterTaskbarHotkey();
                 };
                 dialog.HotkeyRecordingStopped += (_, _) =>
                 {
-                    _logger.Debug("Hotkey recording stopped, re-registering global hotkey");
-                    _overlay.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
+                    _logger.Debug("Hotkey recording stopped, re-registering global hotkeys");
+                    if (_options.Hotkey.Enabled)
+                        _overlay.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
+                    if (_options.TaskbarHotkey.Enabled)
+                        _overlay.RegisterTaskbarHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
                 };
                 if (dialog.ShowDialog() == DialogResult.OK)
                 {

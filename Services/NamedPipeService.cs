@@ -152,6 +152,7 @@ namespace HintOverlay.Services
                 return command switch
                 {
                     "TOGGLE" => new NamedPipeCommand { CommandType = CommandType.Toggle },
+                    "TOGGLETASKBAR" => new NamedPipeCommand { CommandType = CommandType.ToggleTaskbar },
                     "SELECT" => parts.Length > 1 ? new NamedPipeCommand 
                     { 
                         CommandType = CommandType.Select, 
@@ -184,6 +185,7 @@ namespace HintOverlay.Services
     internal enum CommandType
     {
         Toggle,
+        ToggleTaskbar,
         Select,
         Deactivate
     }
