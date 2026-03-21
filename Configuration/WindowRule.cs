@@ -18,6 +18,11 @@ namespace HintOverlay.Configuration
         public string? WindowTitle { get; set; }
 
         /// <summary>
+        /// How <see cref="WindowTitle"/> is matched against the actual window title.
+        /// </summary>
+        public TitleMatchMode TitleMatchMode { get; set; } = TitleMatchMode.Exact;
+
+        /// <summary>
         /// The root element strategy to use when this rule matches.
         /// </summary>
         public RootStrategy Strategy { get; set; }

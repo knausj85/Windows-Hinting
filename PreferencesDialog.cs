@@ -330,6 +330,15 @@ namespace HintOverlay
                 FillWeight = 20
             });
 
+            var titleMatchColumn = new DataGridViewComboBoxColumn
+            {
+                HeaderText = "Title Match",
+                DataPropertyName = "TitleMatchMode",
+                DataSource = Enum.GetValues<TitleMatchMode>(),
+                FillWeight = 15
+            };
+            _rulesGrid.Columns.Add(titleMatchColumn);
+
             var strategyColumn = new DataGridViewComboBoxColumn
             {
                 HeaderText = "Strategy",
@@ -398,6 +407,7 @@ namespace HintOverlay
                     ExecutableName = r.ExecutableName,
                     ClassName = r.ClassName,
                     WindowTitle = r.WindowTitle,
+                    TitleMatchMode = r.TitleMatchMode,
                     Strategy = r.Strategy
                 }).ToList()
             );

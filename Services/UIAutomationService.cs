@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HintOverlay.Configuration;
 using HintOverlay.Logging;
@@ -69,8 +70,9 @@ namespace HintOverlay.Services
             IUIAutomationCondition? statusAndCondition = null;
             IUIAutomationCondition? controlTypeOrCondition = null;
             IUIAutomationCacheRequest? cache = null;
-            IUIAutomationElementArray? foundElements = null;
             var conditionsToRelease = new List<IUIAutomationCondition>();
+            var elementArraysToRelease = new List<IUIAutomationElementArray>();
+            var roots = new List<IUIAutomationElement>();
 
             try
             {
@@ -84,8 +86,8 @@ namespace HintOverlay.Services
                     }
                 }
 
-                // Resolve the root element strategy based on window rules
-                root = ResolveRootElement(windowHandle, root);
+                // Resolve the root element(s) strategy based on window rules
+                roots = ResolveRootElements(windowHandle, root);
 
                 var clickableControlTypes = new int[]
                 {
@@ -146,70 +148,90 @@ namespace HintOverlay.Services
                     cache.AddPattern(UIA_PatternIds.UIA_TogglePatternId);
                 }
 
+                var results = new List<ClickableElement>();
+
                 using (PerformanceMetrics.Start("FindAllBuildCache", _logger, LogLevel.Info))
                 {
-                    foundElements = root.FindAllBuildCache(TreeScope.TreeScope_Descendants, combinedCondition, cache);
-                    if (foundElements == null)
+                    foreach (var scanRoot in roots)
                     {
-                        _logger.Debug("FindAllBuildCache returned null");
+                        IUIAutomationElementArray? found = null;
+                        try
+                        {
+                            found = scanRoot.FindAllBuildCache(TreeScope.TreeScope_Descendants, combinedCondition, cache);
+                        }
+                        catch (COMException ex)
+                        {
+                            _logger.Debug($"FindAllBuildCache failed for a root: {ex.Message}");
+                        }
+
+                        if (found != null)
+                            elementArraysToRelease.Add(found);
+                    }
+
+                    if (elementArraysToRelease.Count == 0)
+                    {
+                        _logger.Debug("FindAllBuildCache returned no results");
                         return Array.Empty<ClickableElement>();
                     }
                 }
 
-                var results = new List<ClickableElement>();
-                int elementCount = foundElements.Length;
-                _logger.Debug($"Processing {elementCount} found elements");
+                int totalElements = elementArraysToRelease.Sum(a => a.Length);
+                _logger.Debug($"Processing {totalElements} found elements across {elementArraysToRelease.Count} root(s)");
 
-                using (PerformanceMetrics.Start($"ProcessElements({elementCount})", _logger, LogLevel.Debug))
+                using (PerformanceMetrics.Start($"ProcessElements({totalElements})", _logger, LogLevel.Debug))
                 {
-                    for (int i = 0; i < elementCount; i++)
+                    foreach (var elemArray in elementArraysToRelease)
                     {
-                        IUIAutomationElement? element = null;
-                        try
+                        int elementCount = elemArray.Length;
+                        for (int i = 0; i < elementCount; i++)
                         {
-                            element = foundElements.GetElement(i);
-                            if (element == null)
-                                continue;
-
-                            var rectObj = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
-                            if (rectObj == null)
-                                continue;
-
-                            if (rectObj is double[] rectArray && rectArray.Length == 4)
+                            IUIAutomationElement? element = null;
+                            try
                             {
-                                var rect = new Rectangle(
-                                    (int)rectArray[0],
-                                    (int)rectArray[1],
-                                    (int)rectArray[2],
-                                    (int)rectArray[3]
-                                );
+                                element = elemArray.GetElement(i);
+                                if (element == null)
+                                    continue;
 
-                                if (rect.Width > 0 && rect.Height > 0
-                                    && HasActivatablePattern(element))
+                                var rectObj = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+                                if (rectObj == null)
+                                    continue;
+
+                                if (rectObj is double[] rectArray && rectArray.Length == 4)
                                 {
-                                    results.Add(new ClickableElement
+                                    var rect = new Rectangle(
+                                        (int)rectArray[0],
+                                        (int)rectArray[1],
+                                        (int)rectArray[2],
+                                        (int)rectArray[3]
+                                    );
+
+                                    if (rect.Width > 0 && rect.Height > 0
+                                        && HasActivatablePattern(element))
                                     {
-                                        Element = element,
-                                        Bounds = rect
-                                    });
-                                    element = null; // Don't release - ownership transferred to ClickableElement
+                                        results.Add(new ClickableElement
+                                        {
+                                            Element = element,
+                                            Bounds = rect
+                                        });
+                                        element = null; // Don't release - ownership transferred to ClickableElement
+                                    }
                                 }
                             }
-                        }
-                        catch (COMException ex)
-                        {
-                            _logger.Debug($"COM exception processing element {i}: {ex.Message}");
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.Debug($"Exception processing element {i}: {ex.Message}");
-                        }
-                        finally
-                        {
-                            // Only release if we didn't transfer ownership
-                            if (element != null && Marshal.IsComObject(element))
+                            catch (COMException ex)
                             {
-                                Marshal.ReleaseComObject(element);
+                                _logger.Debug($"COM exception processing element {i}: {ex.Message}");
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Debug($"Exception processing element {i}: {ex.Message}");
+                            }
+                            finally
+                            {
+                                // Only release if we didn't transfer ownership
+                                if (element != null && Marshal.IsComObject(element))
+                                {
+                                    Marshal.ReleaseComObject(element);
+                                }
                             }
                         }
                     }
@@ -221,39 +243,48 @@ namespace HintOverlay.Services
             finally
             {
                 // Release all COM objects
-                if (foundElements != null && Marshal.IsComObject(foundElements))
-                    Marshal.ReleaseComObject(foundElements);
-                
+                foreach (var elemArray in elementArraysToRelease)
+                {
+                    if (elemArray != null && Marshal.IsComObject(elemArray))
+                        Marshal.ReleaseComObject(elemArray);
+                }
+
                 if (cache != null && Marshal.IsComObject(cache))
                     Marshal.ReleaseComObject(cache);
-                
+
                 if (combinedCondition != null && Marshal.IsComObject(combinedCondition))
                     Marshal.ReleaseComObject(combinedCondition);
-                
+
                 if (controlTypeOrCondition != null && Marshal.IsComObject(controlTypeOrCondition))
                     Marshal.ReleaseComObject(controlTypeOrCondition);
-                
+
                 if (statusAndCondition != null && Marshal.IsComObject(statusAndCondition))
                     Marshal.ReleaseComObject(statusAndCondition);
-                
+
                 foreach (var condition in conditionsToRelease)
                 {
                     if (condition != null && Marshal.IsComObject(condition))
                         Marshal.ReleaseComObject(condition);
                 }
-                
-                if (root != null && Marshal.IsComObject(root))
-                    Marshal.ReleaseComObject(root);
+
+                foreach (var r in roots)
+                {
+                    if (r != null && Marshal.IsComObject(r))
+                    {
+                        try { Marshal.ReleaseComObject(r); } catch { }
+                    }
+                }
             }
         }
 
         /// <summary>
-        /// Resolves the root element to search based on the configured <see cref="WindowRuleRegistry"/> rules.
+        /// Resolves the root element(s) to search based on the configured <see cref="WindowRuleRegistry"/> rules.
+        /// Most strategies return a single root; <see cref="RootStrategy.FileExplorerCustomStrategy"/> may return multiple.
         /// </summary>
-        private IUIAutomationElement ResolveRootElement(IntPtr windowHandle, IUIAutomationElement root)
+        private List<IUIAutomationElement> ResolveRootElements(IntPtr windowHandle, IUIAutomationElement root)
         {
             if (root == null)
-                return root;
+                return [root];
 
             try
             {
@@ -265,7 +296,10 @@ namespace HintOverlay.Services
                 _logger.Debug($"Window rule resolved: exe={executableName}, class={className}, title={windowTitle}, strategy={strategy}");
 
                 if (strategy == RootStrategy.ActiveWindow)
-                    return root;
+                    return [root];
+
+                if (strategy == RootStrategy.FileExplorerCustomStrategy)
+                    return ResolveFileExplorerActiveTab(root, windowTitle);
 
                 var resolved = ApplyStrategy(strategy, root);
                 if (resolved != null && resolved != root)
@@ -274,19 +308,101 @@ namespace HintOverlay.Services
                     {
                         try { Marshal.ReleaseComObject(root); } catch { }
                     }
-                    return resolved;
+                    return [resolved];
                 }
             }
             catch (COMException ex)
             {
-                _logger.Debug($"COM exception in ResolveRootElement: {ex.Message}");
+                _logger.Debug($"COM exception in ResolveRootElements: {ex.Message}");
             }
             catch (Exception ex)
             {
-                _logger.Debug($"Exception in ResolveRootElement: {ex.Message}");
+                _logger.Debug($"Exception in ResolveRootElements: {ex.Message}");
             }
 
-            return root;
+            return [root];
+        }
+
+        private static readonly Regex MoreTabsPattern = new(@"\s+and\s+\d+\s+more\s+tab.*", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// For File Explorer with tabs, returns only the children that belong to the active tab
+        /// (matched by window title) plus any unnamed children (chrome elements like toolbars/address bar).
+        /// This avoids scanning the UIA subtrees of inactive tabs.
+        /// </summary>
+        private List<IUIAutomationElement> ResolveFileExplorerActiveTab(IUIAutomationElement root, string? windowTitle)
+        {
+            var targets = new List<IUIAutomationElement>();
+            var walker = _automation.ControlViewWalker;
+
+            string activeTabName = "";
+            if (!string.IsNullOrEmpty(windowTitle))
+            {
+                activeTabName = windowTitle.Replace("- File Explorer", "").Trim();
+                activeTabName = MoreTabsPattern.Replace(activeTabName, "").Trim();
+            }
+
+            _logger.Debug($"FileExplorerActiveTab: active tab name = \"{activeTabName}\"");
+
+            bool matchFound = false;
+            var child = walker.GetFirstChildElement(root);
+            while (child != null)
+            {
+                // Get next sibling before we potentially release child
+                IUIAutomationElement? next = null;
+                try
+                {
+                    next = walker.GetNextSiblingElement(child);
+                }
+                catch (COMException) { }
+
+                string childName;
+                try
+                {
+                    childName = child.CurrentName ?? "";
+                }
+                catch (COMException)
+                {
+                    childName = "";
+                }
+
+                if (string.IsNullOrEmpty(childName))
+                {
+                    targets.Add(child);
+                }
+                else if (!matchFound
+                    && !string.IsNullOrEmpty(activeTabName)
+                    && childName.Trim().Equals(activeTabName, StringComparison.OrdinalIgnoreCase))
+                {
+                    targets.Add(child);
+                    matchFound = true;
+                }
+                else
+                {
+                    if (Marshal.IsComObject(child))
+                    {
+                        try { Marshal.ReleaseComObject(child); } catch { }
+                    }
+                }
+
+                child = next;
+            }
+
+            if (Marshal.IsComObject(root))
+            {
+                try { Marshal.ReleaseComObject(root); } catch { }
+            }
+
+            _logger.Debug($"FileExplorerActiveTab: resolved {targets.Count} root(s) (matchFound={matchFound})");
+
+            if (targets.Count == 0)
+            {
+                _logger.Debug("FileExplorerActiveTab: no targets found, re-acquiring root");
+                // Can't reuse released root — return empty; caller handles gracefully
+                return targets;
+            }
+
+            return targets;
         }
 
         private IUIAutomationElement? ApplyStrategy(RootStrategy strategy, IUIAutomationElement root)

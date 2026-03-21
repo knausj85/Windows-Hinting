@@ -6,6 +6,7 @@ namespace HintOverlay.Configuration
         ActiveWindowParent,
         FocusedElement,
         FocusedElementParent,
-        FocusedElementFirstParentWindow
+        FocusedElementFirstParentWindow,
+        FileExplorerCustomStrategy
     }
 }

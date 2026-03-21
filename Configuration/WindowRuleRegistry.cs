@@ -40,8 +40,20 @@ namespace HintOverlay.Configuration
                 bool classMatch = string.IsNullOrEmpty(rule.ClassName) ||
                     string.Equals(rule.ClassName, className, StringComparison.OrdinalIgnoreCase);
 
-                bool titleMatch = string.IsNullOrEmpty(rule.WindowTitle) ||
-                    string.Equals(rule.WindowTitle, windowTitle, StringComparison.OrdinalIgnoreCase);
+                bool titleMatch;
+                if (string.IsNullOrEmpty(rule.WindowTitle))
+                {
+                    titleMatch = true;
+                }
+                else if (rule.TitleMatchMode == TitleMatchMode.Contains)
+                {
+                    titleMatch = windowTitle != null &&
+                        windowTitle.Contains(rule.WindowTitle, StringComparison.OrdinalIgnoreCase);
+                }
+                else
+                {
+                    titleMatch = string.Equals(rule.WindowTitle, windowTitle, StringComparison.OrdinalIgnoreCase);
+                }
 
                 if (execMatch && classMatch && titleMatch)
                     return rule.Strategy;
@@ -60,6 +72,14 @@ namespace HintOverlay.Configuration
                 ExecutableName = "SearchHost",
                 ClassName = "Windows.UI.Core.CoreWindow",
                 Strategy = RootStrategy.ActiveWindowParent
+            },
+            new WindowRule
+            {
+                ExecutableName = "explorer",
+                ClassName = "CabinetWClass",
+                WindowTitle = "File Explorer",
+                TitleMatchMode = TitleMatchMode.Contains,
+                Strategy = RootStrategy.FileExplorerCustomStrategy
             }
         ];
     }
