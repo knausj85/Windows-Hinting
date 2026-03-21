@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HintOverlay.Models;
 
 namespace HintOverlay.Services
 {
@@ -11,35 +12,57 @@ namespace HintOverlay.Services
         Active,
         Selecting
     }
-    
+
+    internal enum HintSource
+    {
+        None,
+        ForegroundWindow,
+        Taskbar
+    }
+
     internal sealed class HintStateManager
     {
         private HintMode _mode = HintMode.Inactive;
         private List<HintItem> _currentHints = new();
         private string _filterText = "";
-        
+
         public HintMode CurrentMode => _mode;
+        public HintSource CurrentSource { get; private set; } = HintSource.None;
         public IReadOnlyList<HintItem> CurrentHints => _currentHints;
         public string FilterText => _filterText;
-        
+        public ClickAction PendingAction { get; private set; } = ClickAction.Default;
+
         public event EventHandler<HintMode>? ModeChanged;
         public event EventHandler<IReadOnlyList<HintItem>>? HintsChanged;
         public event EventHandler<string>? FilterChanged;
-        
-        public void Activate()
+        public event EventHandler<ClickAction>? ClickActionChanged;
+
+        public void SetPendingAction(ClickAction action)
         {
-            if (_mode == HintMode.Inactive)
+            if (PendingAction != action)
             {
-                SetMode(HintMode.Scanning);
+                PendingAction = action;
+                ClickActionChanged?.Invoke(this, action);
             }
         }
         
+        public void Activate(HintSource source = HintSource.ForegroundWindow)
+        {
+            if (_mode == HintMode.Inactive)
+            {
+                CurrentSource = source;
+                SetMode(HintMode.Scanning);
+            }
+        }
+
         public void Deactivate()
         {
             if (_mode != HintMode.Inactive)
             {
                 _filterText = "";
                 _currentHints.Clear();
+                CurrentSource = HintSource.None;
+                SetPendingAction(ClickAction.Default);
                 SetMode(HintMode.Inactive);
                 FilterChanged?.Invoke(this, _filterText);
                 HintsChanged?.Invoke(this, _currentHints);

@@ -1,18 +1,14 @@
 using System;
-using System.Runtime.InteropServices;
+using HintOverlay.Services.Native;
 
 namespace HintOverlay.Services
 {
     internal sealed class WindowManager : IWindowManager
     {
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
+        IntPtr IWindowManager.GetForegroundWindow() => NativeMethods.GetForegroundWindow();
 
-        [DllImport("user32.dll")]
-        private static extern bool IsWindow(IntPtr hWnd);
+        public IntPtr GetTaskbarWindow() => NativeMethods.FindWindow("Shell_TrayWnd", null);
 
-        IntPtr IWindowManager.GetForegroundWindow() => GetForegroundWindow();
-
-        public bool IsWindowValid(IntPtr hwnd) => hwnd != IntPtr.Zero && IsWindow(hwnd);
+        public bool IsWindowValid(IntPtr hwnd) => hwnd != IntPtr.Zero && NativeMethods.IsWindow(hwnd);
     }
 }

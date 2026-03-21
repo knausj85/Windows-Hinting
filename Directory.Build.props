@@ -1,0 +1,13 @@
+<Project>
+  <!-- Version is injected by CI via the BUILD_VERSION environment variable.
+       Falls back to 1.0.0 for local development builds.
+       Scoped to .csproj only — WiX reads its version from the compiled exe's FileVersion. -->
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
+    <BuildVersion Condition="'$(BUILD_VERSION)' != ''">$(BUILD_VERSION)</BuildVersion>
+    <BuildVersion Condition="'$(BUILD_VERSION)' == ''">1.0.0</BuildVersion>
+    <Version>$(BuildVersion)</Version>
+    <AssemblyVersion>$(BuildVersion).0</AssemblyVersion>
+    <FileVersion>$(BuildVersion).0</FileVersion>
+    <InformationalVersion>$(BuildVersion)</InformationalVersion>
+  </PropertyGroup>
+</Project>

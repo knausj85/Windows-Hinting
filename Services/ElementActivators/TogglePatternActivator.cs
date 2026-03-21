@@ -17,27 +17,34 @@ namespace HintOverlay.Services.ElementActivators
         public bool TryActivate(IUIAutomationElement element)
         {
             IUIAutomationTogglePattern? pattern = null;
-            try
+
+            bool isAvailable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
+
+            if (isAvailable)
             {
-                pattern = element.GetCachedPattern(UIA_PatternIds.UIA_TogglePatternId) as IUIAutomationTogglePattern;
-                if (pattern != null)
+                try
                 {
-                    pattern.Toggle();
-                    _logger.Info("Successfully toggled element");
-                    return true;
+                    pattern = element.GetCachedPattern(UIA_PatternIds.UIA_TogglePatternId) as IUIAutomationTogglePattern;
+                    if (pattern != null)
+                    {
+                        pattern.Toggle();
+                        _logger.Info($"Successfully toggled element {element.CachedName}");
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug($"ExpandCollapsePattern failed: {ex.Message}");
+                }
+                finally
+                {
+                    if (pattern != null && Marshal.IsComObject(pattern))
+                    {
+                        Marshal.ReleaseComObject(pattern);
+                    }
                 }
             }
-            catch (Exception ex)
-            {
-                _logger.Debug($"TogglePattern failed: {ex.Message}");
-            }
-            finally
-            {
-                if (pattern != null && Marshal.IsComObject(pattern))
-                {
-                    Marshal.ReleaseComObject(pattern);
-                }
-            }
+
             return false;
         }
     }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace HintOverlay
 {
@@ -12,18 +13,18 @@ namespace HintOverlay
         private List<HintItem> _hints = new();
         private bool _enabled;
         private string _filterPrefix = "";
+        private string _actionLabel = "";
 
         private const int HOTKEY_ID = 1;
+        private const int TASKBAR_HOTKEY_ID = 2;
 
         private readonly Font _font = new("Segoe UI", 9, FontStyle.Bold);
-
-        // animation
-        private readonly System.Windows.Forms.Timer _animTimer;
-        private const float FadeLerp = 0.22f; // easing factor per frame (16ms)
+        private readonly Font _actionFont = new("Segoe UI", 10, FontStyle.Bold);
 
         public event EventHandler? ToggleRequested;
+        public event EventHandler? TaskbarToggleRequested;
 
-        public bool ShowRectangles { get; set; } = true;
+        public bool ShowRectangles { get; set; } = false;
 
         private int _hotkeyModifiers;
         private int _hotkeyVirtualKey;
@@ -41,9 +42,6 @@ namespace HintOverlay
 
             BackColor = Color.LimeGreen;
             TransparencyKey = Color.LimeGreen;
-
-            _animTimer = new System.Windows.Forms.Timer { Interval = 16 };
-            _animTimer.Tick += (_, __) => AnimateStep();
         }
 
         public void SetEnabled(bool enabled)
@@ -54,8 +52,8 @@ namespace HintOverlay
             if (!enabled)
             {
                 _filterPrefix = "";
+                _actionLabel = "";
                 _hints.Clear();
-                _animTimer.Stop();
             }
 
             Invalidate();
@@ -66,8 +64,6 @@ namespace HintOverlay
             Debug.WriteLine($"SetHints {hints.Count}");
             _hints = hints;
 
-            // ensure animation progresses toward current targets
-            StartAnimationIfNeeded();
             Invalidate();
         }
 
@@ -86,39 +82,10 @@ namespace HintOverlay
             Invalidate(); // redraw text highlight immediately
         }
 
-        public void StartAnimationIfNeeded()
+        public void SetClickAction(string actionLabel)
         {
-            if (!_enabled || _hints.Count == 0) return;
-            _animTimer.Start();
-        }
-
-        private void AnimateStep()
-        {
-            if (!_enabled || _hints.Count == 0)
-            {
-                _animTimer.Stop();
-                return;
-            }
-
-            bool anyAnimating = false;
-            foreach (var h in _hints)
-            {
-                var diff = h.TargetOpacity - h.CurrentOpacity;
-                if (Math.Abs(diff) > 0.01f)
-                {
-                    h.CurrentOpacity += diff * FadeLerp;
-                    anyAnimating = true;
-                }
-                else
-                {
-                    h.CurrentOpacity = h.TargetOpacity;
-                }
-            }
-
+            _actionLabel = actionLabel ?? "";
             Invalidate();
-
-            if (!anyAnimating)
-                _animTimer.Stop();
         }
 
         public void RegisterGlobalHotkey(int modifiers, int virtualKey)
@@ -132,6 +99,17 @@ namespace HintOverlay
         public void UnregisterGlobalHotkey()
         {
             UnregisterHotKey(Handle, HOTKEY_ID);
+        }
+
+        public void RegisterTaskbarHotkey(int modifiers, int virtualKey)
+        {
+            UnregisterTaskbarHotkey();
+            RegisterHotKey(Handle, TASKBAR_HOTKEY_ID, modifiers, virtualKey);
+        }
+
+        public void UnregisterTaskbarHotkey()
+        {
+            UnregisterHotKey(Handle, TASKBAR_HOTKEY_ID);
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -162,14 +140,18 @@ namespace HintOverlay
                     g.DrawRectangle(pen, h.Rect);
                 }
 
-                // label background size based on full label
+                // label background size based on full label, centered in rect
                 var size = g.MeasureString(h.Label, _font);
-                var bg = new RectangleF(h.Rect.Left, h.Rect.Top, size.Width + 6, size.Height + 2);
+                float bgWidth = size.Width + 6;
+                float bgHeight = size.Height + 2;
+                float bgX = h.Rect.Left + (h.Rect.Width - bgWidth) / 2;
+                float bgY = h.Rect.Top + (h.Rect.Height - bgHeight) / 2;
+                var bg = new RectangleF(bgX, bgY, bgWidth, bgHeight);
                 g.FillRectangle(labelBg, bg);
 
                 // draw label with highlighted matching prefix
-                float x = h.Rect.Left + 3;
-                float y = h.Rect.Top + 1;
+                float x = bgX + 3;
+                float y = bgY + 1;
 
                 string match = "";
                 string suffix = h.Label;
@@ -196,21 +178,73 @@ namespace HintOverlay
                 x += matchSize.Width;
                 g.DrawString(suffix, _font, labelFg, x, y);
             }
+
+            // Draw click action indicator above the tray notification area
+            if (!string.IsNullOrEmpty(_actionLabel))
+            {
+                var actionSize = g.MeasureString(_actionLabel, _actionFont);
+                var workArea = Screen.PrimaryScreen!.WorkingArea;
+                float indicatorWidth = actionSize.Width + 16;
+                float indicatorHeight = actionSize.Height + 8;
+                float indicatorX = workArea.Right - indicatorWidth - 8;
+                float indicatorY = workArea.Bottom - indicatorHeight - 8;
+
+                using var bgBrush = new SolidBrush(Color.FromArgb(220, 30, 30, 30));
+                using var fgBrush = new SolidBrush(Color.FromArgb(255, 255, 200, 0));
+                using var border = new Pen(Color.FromArgb(200, 255, 200, 0), 1.5f);
+
+                var indicatorRect = new RectangleF(indicatorX, indicatorY, indicatorWidth, indicatorHeight);
+                g.FillRectangle(bgBrush, indicatorRect);
+                g.DrawRectangle(border, indicatorX, indicatorY, indicatorWidth, indicatorHeight);
+                g.DrawString(_actionLabel, _actionFont, fgBrush, indicatorX + 8, indicatorY + 4);
+            }
+        }
+
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+        
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOACTIVATE = 0x0010;
+        private const uint SWP_SHOWWINDOW = 0x0040;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(
+            IntPtr hWnd,
+            IntPtr hWndInsertAfter,
+            int X,
+            int Y,
+            int cx,
+            int cy,
+            uint uFlags);
+
+        public void EnsureTopmost()
+        {
+            SetWindowPos(
+                Handle,
+                HWND_TOPMOST,
+                0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
         }
 
         protected override CreateParams CreateParams
         {
             get
             {
-                const int WS_EX_TRANSPARENT = 0x20;
-                const int WS_EX_TOOLWINDOW = 0x80;
-                const int WS_EX_NOACTIVATE = 0x08000000;
-                const int WS_EX_LAYERED = 0x80000;
-
-                var cp = base.CreateParams;
-                cp.ExStyle |= WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= 0x00000020; // WS_EX_TRANSPARENT
+                cp.ExStyle |= 0x00000080; // WS_EX_TOOLWINDOW
+                cp.ExStyle |= 0x00080000; // WS_EX_LAYERED
+                cp.ExStyle |= 0x00000008; // WS_EX_TOPMOST
+                cp.ExStyle |= 0x08000000; // WS_EX_NOACTIVATE
                 return cp;
             }
+        }
+        
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            EnsureTopmost();
         }
 
         protected override void WndProc(ref Message m)
@@ -218,7 +252,15 @@ namespace HintOverlay
             const int WM_HOTKEY = 0x0312;
             if (m.Msg == WM_HOTKEY)
             {
-                ToggleRequested?.Invoke(this, EventArgs.Empty);
+                int hotkeyId = m.WParam.ToInt32();
+                if (hotkeyId == HOTKEY_ID)
+                {
+                    ToggleRequested?.Invoke(this, EventArgs.Empty);
+                }
+                else if (hotkeyId == TASKBAR_HOTKEY_ID)
+                {
+                    TaskbarToggleRequested?.Invoke(this, EventArgs.Empty);
+                }
                 return;
             }
             base.WndProc(ref m);

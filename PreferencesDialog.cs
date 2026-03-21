@@ -1,6 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
+using HintOverlay.Configuration;
+using HintOverlay.Controls;
 using HintOverlay.Models;
 using HintOverlay.Services;
 
@@ -9,13 +14,31 @@ namespace HintOverlay
     internal sealed class PreferencesDialog : Form
     {
         private readonly HintOverlayOptions _options;
+
+        // General tab controls
         private CheckBox _chkShowRectangles = null!;
-        private CheckBox _chkCtrl = null!;
-        private CheckBox _chkAlt = null!;
-        private CheckBox _chkShift = null!;
-        private ComboBox _cmbKey = null!;
+        private CheckBox _chkHotkeyEnabled = null!;
+        private HotkeyRecorderControl _hotkeyRecorder = null!;
+        private CheckBox _chkTaskbarHotkeyEnabled = null!;
+        private HotkeyRecorderControl _taskbarHotkeyRecorder = null!;
+        private CheckBox _chkClickActionShortcutsEnabled = null!;
+        private KeyRecorderControl _leftClickKeyRecorder = null!;
+        private KeyRecorderControl _rightClickKeyRecorder = null!;
+        private KeyRecorderControl _doubleClickKeyRecorder = null!;
+
+        // Window Rules tab controls
+        private DataGridView _rulesGrid = null!;
+        private BindingList<WindowRule> _rulesBindingList = null!;
+
+        // Dialog buttons
         private Button _btnOk = null!;
         private Button _btnCancel = null!;
+
+        /// <summary>Raised when the hotkey recorder begins capturing a shortcut.</summary>
+        public event EventHandler? HotkeyRecordingStarted;
+
+        /// <summary>Raised when the hotkey recorder stops capturing.</summary>
+        public event EventHandler? HotkeyRecordingStopped;
 
         public PreferencesDialog(HintOverlayOptions options)
         {
@@ -28,100 +51,38 @@ namespace HintOverlay
         {
             Text = "Preferences";
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
+            FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = false;
             MinimizeBox = false;
 
+            var workArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1920, 1080);
+            ClientSize = new Size(
+                Math.Max(640, (int)(workArea.Width * 0.35)),
+                Math.Max(420, (int)(workArea.Height * 0.45)));
+            MinimumSize = new Size(520, 360);
+
+            // Main layout: TabControl + button row
             var mainLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 4,
-                Padding = new Padding(10)
-            };
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-
-            // Show rectangles checkbox
-            _chkShowRectangles = new CheckBox
-            {
-                Text = "Show element rectangles",
-                AutoSize = true,
-                Dock = DockStyle.Fill
-            };
-            mainLayout.Controls.Add(_chkShowRectangles, 0, 0);
-
-            // Hotkey configuration
-            var hotkeyGroup = new GroupBox
-            {
-                Text = "Global Hotkey",
-                AutoSize = true,
-                Dock = DockStyle.Fill,
-                Padding = new Padding(5)
-            };
-
-            var hotkeyLayout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
                 RowCount = 2,
-                AutoSize = true
+                Padding = new Padding(8)
             };
-            hotkeyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));
-            hotkeyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-            var modifiersLabel = new Label
-            {
-                Text = "Modifiers:",
-                AutoSize = true,
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            hotkeyLayout.Controls.Add(modifiersLabel, 0, 0);
+            var tabControl = new TabControl { Dock = DockStyle.Fill };
 
-            var modifiersPanel = new FlowLayoutPanel
-            {
-                AutoSize = true,
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight
-            };
-            _chkCtrl = new CheckBox { Text = "Ctrl", AutoSize = true };
-            _chkAlt = new CheckBox { Text = "Alt", AutoSize = true };
-            _chkShift = new CheckBox { Text = "Shift", AutoSize = true };
-            modifiersPanel.Controls.Add(_chkCtrl);
-            modifiersPanel.Controls.Add(_chkAlt);
-            modifiersPanel.Controls.Add(_chkShift);
-            hotkeyLayout.Controls.Add(modifiersPanel, 1, 0);
+            // ── General Tab ──────────────────────────────────────────
+            tabControl.TabPages.Add(CreateGeneralTab());
 
-            var keyLabel = new Label
-            {
-                Text = "Key:",
-                AutoSize = true,
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            hotkeyLayout.Controls.Add(keyLabel, 0, 1);
+            // ── Window Rules Tab ─────────────────────────────────────
+            tabControl.TabPages.Add(CreateWindowRulesTab());
 
-            _cmbKey = new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Dock = DockStyle.Fill
-            };
-            for (char c = 'A'; c <= 'Z'; c++)
-                _cmbKey.Items.Add(c.ToString());
-            for (char c = '0'; c <= '9'; c++)
-                _cmbKey.Items.Add(c.ToString());
-            hotkeyLayout.Controls.Add(_cmbKey, 1, 1);
+            mainLayout.Controls.Add(tabControl, 0, 0);
 
-            hotkeyGroup.Controls.Add(hotkeyLayout);
-            mainLayout.Controls.Add(hotkeyGroup, 0, 1);
-
-            // Spacer
-            mainLayout.Controls.Add(new Panel { Height = 10 }, 0, 2);
-
-            // Buttons
+            // ── Buttons ──────────────────────────────────────────────
             var buttonPanel = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.RightToLeft,
@@ -148,67 +109,323 @@ namespace HintOverlay
             _btnOk.Click += BtnOk_Click;
             buttonPanel.Controls.Add(_btnOk);
 
-            mainLayout.Controls.Add(buttonPanel, 0, 3);
-
+            mainLayout.Controls.Add(buttonPanel, 0, 1);
             Controls.Add(mainLayout);
 
             AcceptButton = _btnOk;
             CancelButton = _btnCancel;
+        }
 
-            // Set minimum size and auto-size the form
-            AutoSize = true;
-            AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            MinimumSize = new Size(350, 0);
+        private TabPage CreateGeneralTab()
+        {
+            var tab = new TabPage("General");
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 5,
+                Padding = new Padding(10)
+            };
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            // Show rectangles checkbox
+            _chkShowRectangles = new CheckBox
+            {
+                Text = "Show element rectangles",
+                AutoSize = true,
+                Dock = DockStyle.Fill
+            };
+            layout.Controls.Add(_chkShowRectangles, 0, 0);
+
+            // Hotkey configuration
+            var hotkeyGroup = new GroupBox
+            {
+                Text = "Global Hotkey",
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10)
+            };
+
+            _chkHotkeyEnabled = new CheckBox
+            {
+                Text = "Enable global hotkey",
+                AutoSize = true,
+                Dock = DockStyle.Top
+            };
+            _chkHotkeyEnabled.CheckedChanged += (_, _) =>
+            {
+                _hotkeyRecorder.Enabled = _chkHotkeyEnabled.Checked;
+            };
+
+            _hotkeyRecorder = new HotkeyRecorderControl
+            {
+                Dock = DockStyle.Top,
+                Height = 32
+            };
+            _hotkeyRecorder.RecordingStarted += (s, e) => HotkeyRecordingStarted?.Invoke(this, EventArgs.Empty);
+            _hotkeyRecorder.RecordingStopped += (s, e) => HotkeyRecordingStopped?.Invoke(this, EventArgs.Empty);
+
+            hotkeyGroup.Controls.Add(_hotkeyRecorder);
+            hotkeyGroup.Controls.Add(_chkHotkeyEnabled);
+            layout.Controls.Add(hotkeyGroup, 0, 1);
+
+            // Taskbar hotkey configuration
+            var taskbarHotkeyGroup = new GroupBox
+            {
+                Text = "Taskbar Hotkey",
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10)
+            };
+
+            _chkTaskbarHotkeyEnabled = new CheckBox
+            {
+                Text = "Enable taskbar hotkey",
+                AutoSize = true,
+                Dock = DockStyle.Top
+            };
+            _chkTaskbarHotkeyEnabled.CheckedChanged += (_, _) =>
+            {
+                _taskbarHotkeyRecorder.Enabled = _chkTaskbarHotkeyEnabled.Checked;
+            };
+
+            _taskbarHotkeyRecorder = new HotkeyRecorderControl
+            {
+                Dock = DockStyle.Top,
+                Height = 32
+            };
+            _taskbarHotkeyRecorder.RecordingStarted += (s, e) => HotkeyRecordingStarted?.Invoke(this, EventArgs.Empty);
+            _taskbarHotkeyRecorder.RecordingStopped += (s, e) => HotkeyRecordingStopped?.Invoke(this, EventArgs.Empty);
+
+            taskbarHotkeyGroup.Controls.Add(_taskbarHotkeyRecorder);
+            taskbarHotkeyGroup.Controls.Add(_chkTaskbarHotkeyEnabled);
+            layout.Controls.Add(taskbarHotkeyGroup, 0, 2);
+
+            // Click action shortcuts configuration
+            var clickActionGroup = new GroupBox
+            {
+                Text = "Click Action Shortcuts",
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10)
+            };
+
+            var clickActionLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 4,
+                AutoSize = true
+            };
+            clickActionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            clickActionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            _chkClickActionShortcutsEnabled = new CheckBox
+            {
+                Text = "Enable click action shortcuts (Shift + key while hints are active)",
+                AutoSize = true,
+                Dock = DockStyle.Fill
+            };
+            _chkClickActionShortcutsEnabled.CheckedChanged += (_, _) =>
+            {
+                bool enabled = _chkClickActionShortcutsEnabled.Checked;
+                _leftClickKeyRecorder.Enabled = enabled;
+                _rightClickKeyRecorder.Enabled = enabled;
+                _doubleClickKeyRecorder.Enabled = enabled;
+            };
+            clickActionLayout.SetColumnSpan(_chkClickActionShortcutsEnabled, 2);
+            clickActionLayout.Controls.Add(_chkClickActionShortcutsEnabled, 0, 0);
+
+            var lblLeft = new Label { Text = "Left click:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
+            _leftClickKeyRecorder = new KeyRecorderControl { Dock = DockStyle.Fill, Height = 28 };
+            clickActionLayout.Controls.Add(lblLeft, 0, 1);
+            clickActionLayout.Controls.Add(_leftClickKeyRecorder, 1, 1);
+
+            var lblRight = new Label { Text = "Right click:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
+            _rightClickKeyRecorder = new KeyRecorderControl { Dock = DockStyle.Fill, Height = 28 };
+            clickActionLayout.Controls.Add(lblRight, 0, 2);
+            clickActionLayout.Controls.Add(_rightClickKeyRecorder, 1, 2);
+
+            var lblDouble = new Label { Text = "Double click:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
+            _doubleClickKeyRecorder = new KeyRecorderControl { Dock = DockStyle.Fill, Height = 28 };
+            clickActionLayout.Controls.Add(lblDouble, 0, 3);
+            clickActionLayout.Controls.Add(_doubleClickKeyRecorder, 1, 3);
+
+            clickActionGroup.Controls.Add(clickActionLayout);
+            layout.Controls.Add(clickActionGroup, 0, 3);
+
+            tab.Controls.Add(layout);
+            return tab;
+        }
+
+        private TabPage CreateWindowRulesTab()
+        {
+            var tab = new TabPage("Window Rules");
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 3,
+                Padding = new Padding(10)
+            };
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            var description = new Label
+            {
+                Text = "Rules control how UI elements are discovered for each application.\n" +
+                       "Leave a field empty to match any value. Rules are evaluated top to bottom.",
+                AutoSize = true,
+                Dock = DockStyle.Top,
+                Padding = new Padding(0, 0, 0, 6)
+            };
+            layout.Controls.Add(description, 0, 0);
+
+            // DataGridView
+            _rulesGrid = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AutoGenerateColumns = false,
+                AllowUserToAddRows = true,
+                AllowUserToDeleteRows = true,
+                AllowUserToResizeRows = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                EditMode = DataGridViewEditMode.EditOnEnter,
+                BackgroundColor = SystemColors.Window,
+                BorderStyle = BorderStyle.Fixed3D,
+                RowHeadersWidth = 30,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+            };
+
+            _rulesGrid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                HeaderText = "Executable",
+                DataPropertyName = "ExecutableName",
+                FillWeight = 25
+            });
+
+            _rulesGrid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                HeaderText = "Class Name",
+                DataPropertyName = "ClassName",
+                FillWeight = 35
+            });
+
+            _rulesGrid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                HeaderText = "Window Title",
+                DataPropertyName = "WindowTitle",
+                FillWeight = 20
+            });
+
+            var strategyColumn = new DataGridViewComboBoxColumn
+            {
+                HeaderText = "Strategy",
+                DataPropertyName = "Strategy",
+                DataSource = Enum.GetValues<RootStrategy>(),
+                FillWeight = 20
+            };
+            _rulesGrid.Columns.Add(strategyColumn);
+
+            _rulesGrid.DataError += (_, e) => e.ThrowException = false;
+
+            layout.Controls.Add(_rulesGrid, 0, 1);
+
+            // Bottom button bar
+            var bottomPanel = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                AutoSize = true,
+                Dock = DockStyle.Fill
+            };
+
+            var btnResetDefaults = new Button
+            {
+                Text = "Reset to Defaults",
+                AutoSize = true,
+                Padding = new Padding(6, 2, 6, 2)
+            };
+            btnResetDefaults.Click += (_, _) =>
+            {
+                _rulesBindingList.Clear();
+                foreach (var rule in WindowRuleRegistry.GetDefaultRules())
+                    _rulesBindingList.Add(rule);
+            };
+            bottomPanel.Controls.Add(btnResetDefaults);
+
+            layout.Controls.Add(bottomPanel, 0, 2);
+
+            tab.Controls.Add(layout);
+            return tab;
         }
 
         private void LoadPreferences()
         {
             _chkShowRectangles.Checked = _options.ShowRectangles;
+            _chkHotkeyEnabled.Checked = _options.Hotkey.Enabled;
+            _hotkeyRecorder.Enabled = _options.Hotkey.Enabled;
+            _hotkeyRecorder.SetHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
 
-            const int MOD_CONTROL = 0x0002;
-            const int MOD_ALT = 0x0001;
-            const int MOD_SHIFT = 0x0004;
+            _chkTaskbarHotkeyEnabled.Checked = _options.TaskbarHotkey.Enabled;
+            _taskbarHotkeyRecorder.Enabled = _options.TaskbarHotkey.Enabled;
+            _taskbarHotkeyRecorder.SetHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
 
-            _chkCtrl.Checked = (_options.Hotkey.Modifiers & MOD_CONTROL) != 0;
-            _chkAlt.Checked = (_options.Hotkey.Modifiers & MOD_ALT) != 0;
-            _chkShift.Checked = (_options.Hotkey.Modifiers & MOD_SHIFT) != 0;
+            _chkClickActionShortcutsEnabled.Checked = _options.ClickActionShortcuts.Enabled;
+            _leftClickKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
+            _leftClickKeyRecorder.SetKey(_options.ClickActionShortcuts.LeftClickKey);
+            _rightClickKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
+            _rightClickKeyRecorder.SetKey(_options.ClickActionShortcuts.RightClickKey);
+            _doubleClickKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
+            _doubleClickKeyRecorder.SetKey(_options.ClickActionShortcuts.DoubleClickKey);
 
-            // Map virtual key code to character
-            if (_options.Hotkey.VirtualKey >= 0x41 && _options.Hotkey.VirtualKey <= 0x5A)
-            {
-                char keyChar = (char)_options.Hotkey.VirtualKey;
-                _cmbKey.SelectedItem = keyChar.ToString();
-            }
-            else if (_options.Hotkey.VirtualKey >= 0x30 && _options.Hotkey.VirtualKey <= 0x39)
-            {
-                char keyChar = (char)_options.Hotkey.VirtualKey;
-                _cmbKey.SelectedItem = keyChar.ToString();
-            }
-            else
-            {
-                _cmbKey.SelectedIndex = 7; // Default to 'H'
-            }
+            // Window rules
+            var rules = _options.WindowRules ?? WindowRuleRegistry.GetDefaultRules();
+            _rulesBindingList = new BindingList<WindowRule>(
+                rules.Select(r => new WindowRule
+                {
+                    ExecutableName = r.ExecutableName,
+                    ClassName = r.ClassName,
+                    WindowTitle = r.WindowTitle,
+                    Strategy = r.Strategy
+                }).ToList()
+            );
+            _rulesGrid.DataSource = _rulesBindingList;
         }
 
         private void BtnOk_Click(object? sender, EventArgs e)
         {
-            const int MOD_CONTROL = 0x0002;
-            const int MOD_ALT = 0x0001;
-            const int MOD_SHIFT = 0x0004;
-
             _options.ShowRectangles = _chkShowRectangles.Checked;
+            _options.Hotkey.Enabled = _chkHotkeyEnabled.Checked;
+            _options.Hotkey.Modifiers = _hotkeyRecorder.HotkeyModifiers;
+            _options.Hotkey.VirtualKey = _hotkeyRecorder.HotkeyVirtualKey;
 
-            int modifiers = 0;
-            if (_chkCtrl.Checked) modifiers |= MOD_CONTROL;
-            if (_chkAlt.Checked) modifiers |= MOD_ALT;
-            if (_chkShift.Checked) modifiers |= MOD_SHIFT;
-            _options.Hotkey.Modifiers = modifiers;
+            _options.TaskbarHotkey.Enabled = _chkTaskbarHotkeyEnabled.Checked;
+            _options.TaskbarHotkey.Modifiers = _taskbarHotkeyRecorder.HotkeyModifiers;
+            _options.TaskbarHotkey.VirtualKey = _taskbarHotkeyRecorder.HotkeyVirtualKey;
 
-            if (_cmbKey.SelectedItem != null)
-            {
-                string keyStr = _cmbKey.SelectedItem.ToString() ?? "H";
-                _options.Hotkey.VirtualKey = keyStr[0];
-            }
+            _options.ClickActionShortcuts.Enabled = _chkClickActionShortcutsEnabled.Checked;
+            _options.ClickActionShortcuts.LeftClickKey = _leftClickKeyRecorder.VirtualKey;
+            _options.ClickActionShortcuts.RightClickKey = _rightClickKeyRecorder.VirtualKey;
+            _options.ClickActionShortcuts.DoubleClickKey = _doubleClickKeyRecorder.VirtualKey;
+
+            // Collect window rules from the grid (exclude incomplete new-row entries)
+            _options.WindowRules = _rulesBindingList
+                .Where(r => !string.IsNullOrWhiteSpace(r.ExecutableName)
+                          || !string.IsNullOrWhiteSpace(r.ClassName)
+                          || !string.IsNullOrWhiteSpace(r.WindowTitle))
+                .ToList();
 
             var prefsService = new PreferencesService();
             prefsService.Save(_options);

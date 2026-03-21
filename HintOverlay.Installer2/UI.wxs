@@ -1,0 +1,10 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <!-- Simplified UI configuration for HintOverlay installer -->
+    <!-- This uses basic MSI UI without custom dialogs -->
+
+    <!-- Property definitions for UI -->
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+  </Fragment>
+</Wix>

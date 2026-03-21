@@ -1,0 +1,219 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <!-- Main application files component group -->
+    <ComponentGroup Id="MainApplicationFiles" Directory="INSTALLFOLDER">
+      <!-- Main HintOverlay.exe executable -->
+      <Component Id="HintOverlayExecutable" Bitness="always64">
+        <File
+          Id="HintOverlayExe"
+          Source="$(var.HintOverlay.TargetDir)HintOverlay.exe"
+          KeyPath="yes"
+          Checksum="yes" />
+
+        <!-- Registry entry for Run key to auto-start -->
+        <RegistryValue
+          Root="HKLM"
+          Key="Software\Microsoft\Windows\CurrentVersion\Run"
+          Name="HintOverlay"
+          Type="string"
+          Value="[INSTALLFOLDER]HintOverlay.exe" />
+
+        <!-- Uninstall registry entries -->
+        <RegistryValue
+          Root="HKLM"
+          Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\[ProductName]"
+          Name="DisplayName"
+          Type="string"
+          Value="[ProductName]"
+          KeyPath="no" />
+
+        <RegistryValue
+          Root="HKLM"
+          Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\[ProductName]"
+          Name="DisplayVersion"
+          Type="string"
+          Value="1.0.0.0" />
+
+        <RegistryValue
+          Root="HKLM"
+          Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\[ProductName]"
+          Name="Publisher"
+          Type="string"
+          Value="[Manufacturer]" />
+
+        <RegistryValue
+          Root="HKLM"
+          Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\[ProductName]"
+          Name="InstallLocation"
+          Type="string"
+          Value="[INSTALLFOLDER]" />
+      </Component>
+
+      <!-- Application Runtime Files -->
+      <Component Id="HintOverlayDll" Bitness="always64">
+        <File
+          Id="HintOverlayDll"
+          Source="$(var.HintOverlay.TargetDir)HintOverlay.dll"
+          KeyPath="yes" />
+      </Component>
+
+      <!-- Runtime configuration -->
+      <Component Id="HintOverlayRuntimeConfig" Bitness="always64">
+        <File
+          Id="HintOverlayRuntimeconfigJson"
+          Source="$(var.HintOverlay.TargetDir)HintOverlay.runtimeconfig.json"
+          KeyPath="yes" />
+      </Component>
+
+      <!-- Dependencies metadata -->
+      <Component Id="HintOverlayDepsJson" Bitness="always64">
+        <File
+          Id="HintOverlayDepsJson"
+          Source="$(var.HintOverlay.TargetDir)HintOverlay.deps.json"
+          KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- All runtime dependencies in a single DirectoryRef for simplified management -->
+    <DirectoryRef Id="INSTALLFOLDER">
+      <!-- .NET Runtime Libraries - packaged as-is from build output -->
+      <Component Id="DotNetRuntimeLibraries" Bitness="always64" Guid="11111111-2222-3333-4444-555555555501">
+        <!-- Microsoft.Extensions packages -->
+        <File
+          Id="MicrosoftExtensionsHostingDll"
+          Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Hosting.dll"
+          KeyPath="yes" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Hosting.Abstractions.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.DependencyInjection.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.DependencyInjection.Abstractions.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Configuration.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Configuration.Abstractions.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Configuration.Binder.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Configuration.EnvironmentVariables.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Configuration.FileExtensions.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Configuration.Json.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Configuration.CommandLine.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Configuration.UserSecrets.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Logging.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Logging.Abstractions.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Logging.Configuration.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Logging.Console.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Logging.Debug.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Logging.EventLog.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Logging.EventSource.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Options.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Options.ConfigurationExtensions.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Primitives.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Diagnostics.Abstractions.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.Diagnostics.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.FileProviders.Abstractions.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.FileProviders.Physical.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)Microsoft.Extensions.FileSystemGlobbing.dll" />
+
+        <!-- System runtime libraries (excluding platform-specific versions in runtimes folder) -->
+        <File Source="$(var.HintOverlay.TargetDir)System.Diagnostics.DiagnosticSource.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)System.IO.Pipelines.dll" />
+        <File Source="$(var.HintOverlay.TargetDir)System.Text.Json.dll" />
+      </Component>
+
+      <!-- Runtime installation marker -->
+      <Component Id="RuntimeRegistry" Bitness="always64" Guid="22222222-3333-4444-5555-666666666502">
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\Windows-Hinting\HintOverlay"
+          Name="RuntimeFilesInstalled"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Platform-specific runtime files - Windows x64 -->
+    <ComponentGroup Id="RuntimesWinFiles" Directory="RuntimesWinLibNet80Folder">
+      <Component Id="RuntimesWin" Bitness="always64" Guid="33333333-4444-5555-6666-777777777503">
+        <File
+          Id="SystemDiagnosticsEventLogDllWin"
+          Source="$(var.HintOverlay.TargetDir)runtimes\win\lib\net8.0\System.Diagnostics.EventLog.dll"
+          KeyPath="yes" />
+        <File Source="$(var.HintOverlay.TargetDir)runtimes\win\lib\net8.0\System.Diagnostics.EventLog.Messages.dll" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Browser-specific runtime files -->
+    <ComponentGroup Id="RuntimesBrowserFiles" Directory="RuntimesBrowserLibNet80Folder">
+      <Component Id="RuntimesBrowser" Bitness="always64" Guid="44444444-5555-6666-7777-888888888504">
+        <File
+          Id="SystemTextEncodingsWebDllBrowser"
+          Source="$(var.HintOverlay.TargetDir)runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll"
+          KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Desktop and Program Menu shortcuts -->
+    <ComponentGroup Id="DesktopShortcuts" Directory="INSTALLFOLDER">
+      <!-- Desktop Shortcut -->
+      <Component Id="DesktopShortcut" Directory="DesktopFolder" Bitness="always64">
+        <Shortcut
+          Id="DesktopShortcutRef"
+          Target="[INSTALLFOLDER]HintOverlay.exe"
+          Name="HintOverlay"
+          WorkingDirectory="INSTALLFOLDER" />
+
+        <RemoveFolder Id="DesktopFolderRemoveOnUninstall" On="uninstall" />
+
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\Windows-Hinting\HintOverlay"
+          Name="DesktopShortcut"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+
+      <!-- Program Menu Shortcut -->
+      <Component Id="ProgramMenuShortcut" Directory="ApplicationProgramsFolder" Bitness="always64">
+        <Shortcut
+          Id="ProgramMenuShortcutRef"
+          Target="[INSTALLFOLDER]HintOverlay.exe"
+          Name="HintOverlay"
+          WorkingDirectory="INSTALLFOLDER" />
+
+        <RemoveFolder Id="ApplicationProgramsFolderRemoveOnUninstall" On="uninstall" />
+
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\Windows-Hinting\HintOverlay"
+          Name="ProgramMenuShortcut"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Registry configuration for UIAccess -->
+    <ComponentGroup Id="RegistryConfiguration" Directory="INSTALLFOLDER">
+      <Component Id="RegistryEntries" Bitness="always64">
+        <RegistryKey
+          Root="HKLM"
+          Key="Software\Windows-Hinting\HintOverlay">
+          <RegistryValue
+            Name="InstallPath"
+            Type="string"
+            Value="[INSTALLFOLDER]" />
+          <RegistryValue
+            Name="Version"
+            Type="string"
+            Value="1.0.0.0" />
+          <RegistryValue
+            Name="UIAccessEnabled"
+            Type="integer"
+            Value="1" />
+        </RegistryKey>
+        <RemoveRegistryKey
+          Root="HKLM"
+          Key="Software\Windows-Hinting\HintOverlay"
+          Action="removeOnUninstall" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

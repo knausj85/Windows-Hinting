@@ -2,19 +2,14 @@
 using System.Runtime.InteropServices;
 using HintOverlay.Models;
 using HintOverlay.Services;
+using HintOverlay.Services.Native;
 
 namespace HintOverlay.NativeInterop
 {
     internal sealed class KeyboardHook : IDisposable
     {
-        private const int WH_KEYBOARD_LL = 13;
-        private const int WM_KEYDOWN = 0x0100;
-        private const int WM_KEYUP = 0x0101;
-        private const int WM_SYSKEYDOWN = 0x0104;
-        private const int WM_SYSKEYUP = 0x0105;
-        
         private IntPtr _hookHandle;
-        private readonly LowLevelKeyboardProc _hookProc;
+        private readonly NativeMethods.LowLevelKeyboardProc _hookProc;
         private bool _disposed;
         
         public event EventHandler<KeyboardEventArgs>? KeyPressed;
@@ -30,7 +25,11 @@ namespace HintOverlay.NativeInterop
             if (_hookHandle != IntPtr.Zero)
                 return;
                 
-            _hookHandle = SetWindowsHookEx(WH_KEYBOARD_LL, _hookProc, GetModuleHandle(null), 0);
+            _hookHandle = NativeMethods.SetWindowsHookEx(
+                WindowsConstants.WH_KEYBOARD_LL, 
+                _hookProc, 
+                NativeMethods.GetModuleHandle(null), 
+                0);
             
             if (_hookHandle == IntPtr.Zero)
             {
@@ -42,7 +41,7 @@ namespace HintOverlay.NativeInterop
         {
             if (_hookHandle != IntPtr.Zero)
             {
-                UnhookWindowsHookEx(_hookHandle);
+                NativeMethods.UnhookWindowsHookEx(_hookHandle);
                 _hookHandle = IntPtr.Zero;
             }
         }
@@ -53,8 +52,10 @@ namespace HintOverlay.NativeInterop
             {
                 int vkCode = Marshal.ReadInt32(lParam);
                 
-                bool isKeyDown = wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN;
-                bool isKeyUp = wParam == (IntPtr)WM_KEYUP || wParam == (IntPtr)WM_SYSKEYUP;
+                bool isKeyDown = wParam == (IntPtr)WindowsConstants.WM_KEYDOWN || 
+                                wParam == (IntPtr)WindowsConstants.WM_SYSKEYDOWN;
+                bool isKeyUp = wParam == (IntPtr)WindowsConstants.WM_KEYUP || 
+                              wParam == (IntPtr)WindowsConstants.WM_SYSKEYUP;
                 
                 if (isKeyDown || isKeyUp)
                 {
@@ -76,48 +77,36 @@ namespace HintOverlay.NativeInterop
                 }
             }
             
-            return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+            return NativeMethods.CallNextHookEx(_hookHandle, nCode, wParam, lParam);
         }
         
         private KeyModifiers GetCurrentModifiers()
         {
             var mods = KeyModifiers.None;
             
-            if ((GetAsyncKeyState(0x11) & 0x8000) != 0) // VK_CONTROL
+            if ((NativeMethods.GetAsyncKeyState(WindowsConstants.VK_CONTROL) & WindowsConstants.KEY_PRESSED) != 0)
                 mods |= KeyModifiers.Control;
-            if ((GetAsyncKeyState(0x12) & 0x8000) != 0) // VK_MENU (Alt)
+            
+            if ((NativeMethods.GetAsyncKeyState(WindowsConstants.VK_MENU) & WindowsConstants.KEY_PRESSED) != 0)
                 mods |= KeyModifiers.Alt;
-            if ((GetAsyncKeyState(0x10) & 0x8000) != 0) // VK_SHIFT
+            
+            if ((NativeMethods.GetAsyncKeyState(WindowsConstants.VK_SHIFT) & WindowsConstants.KEY_PRESSED) != 0)
                 mods |= KeyModifiers.Shift;
+            
+            if ((NativeMethods.GetAsyncKeyState(WindowsConstants.VK_LWIN) & WindowsConstants.KEY_PRESSED) != 0 ||
+                (NativeMethods.GetAsyncKeyState(WindowsConstants.VK_RWIN) & WindowsConstants.KEY_PRESSED) != 0)
+                mods |= KeyModifiers.Win;
             
             return mods;
         }
         
         public void Dispose()
         {
-            if (!_disposed)
-            {
-                Uninstall();
-                _disposed = true;
-            }
+            if (_disposed)
+                return;
+                
+            Uninstall();
+            _disposed = true;
         }
-        
-        // P/Invoke declarations
-        private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
-        
-        [DllImport("user32.dll")]
-        private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
-        
-        [DllImport("user32.dll")]
-        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
-        
-        [DllImport("user32.dll")]
-        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
-        
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr GetModuleHandle(string? lpModuleName);
-        
-        [DllImport("user32.dll")]
-        private static extern short GetAsyncKeyState(int vKey);
     }
 }
