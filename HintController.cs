@@ -142,7 +142,7 @@ namespace HintOverlay
                 case CommandType.Select:
                     if (!string.IsNullOrEmpty(command.HintLabel))
                     {
-                        SelectHintByLabel(command.HintLabel);
+                        SelectHintByLabel(command.HintLabel, command.Action);
                     }
                     break;
 
@@ -152,9 +152,9 @@ namespace HintOverlay
             }
         }
 
-        private void SelectHintByLabel(string label)
+        private void SelectHintByLabel(string label, ClickAction action = ClickAction.Default)
         {
-            _logger.Info($"Attempting to select hint with label: {label}");
+            _logger.Info($"Attempting to select hint with label: {label}, action: {action}");
 
             var hint = _stateManager.CurrentHints.FirstOrDefault(h => 
                 h.Label.Equals(label, StringComparison.OrdinalIgnoreCase));
@@ -165,11 +165,18 @@ namespace HintOverlay
                 return;
             }
 
-            _logger.Info($"Activating hint: {hint.Label}");
+            _logger.Info($"Activating hint: {hint.Label}, action: {action}");
 
             try
             {
-                _activatorChain.TryActivate(hint.Element);
+                if (action == ClickAction.Default)
+                {
+                    _activatorChain.TryActivate(hint.Element);
+                }
+                else
+                {
+                    _mouseClickService.PerformClick(hint.Rect, action);
+                }
             }
             catch (Exception ex)
             {

@@ -189,5 +189,39 @@ namespace HintOverlay.Examples
 
             Console.WriteLine("Automation test completed");
         }
+
+        /// <summary>
+        /// Example: Select a hint with a specific click action
+        /// Actions: "LEFT" (left click), "RIGHT" (right click), "DOUBLE" (double click), or null for default activation
+        /// </summary>
+        public static void ClickActionExample()
+        {
+            using var client = new HintOverlayClient();
+
+            // First, ensure hints are active
+            client.Toggle();
+            System.Threading.Thread.Sleep(500);
+
+            // Default activation (uses UI Automation invoke pattern)
+            client.SelectHint("A");
+
+            // Or equivalently
+            client.SelectHint("A", null);
+
+            // Left click the element
+            client.Toggle();
+            System.Threading.Thread.Sleep(500);
+            client.SelectHint("A", "LEFT");
+
+            // Right click the element (e.g., to open context menu)
+            client.Toggle();
+            System.Threading.Thread.Sleep(500);
+            client.SelectHint("B", "RIGHT");
+
+            // Double click the element
+            client.Toggle();
+            System.Threading.Thread.Sleep(500);
+            client.SelectHint("C", "DOUBLE");
+        }
     }
 }

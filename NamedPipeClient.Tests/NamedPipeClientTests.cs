@@ -258,6 +258,85 @@ namespace HintOverlay.NamedPipeClient.Tests
         }
 
         /// <summary>
+        /// Test 11: Verify client can send SELECT command with LEFT click action
+        /// Requirements: HintOverlay must be running with hints visible
+        /// </summary>
+        public static bool TestSelectWithLeftClick()
+        {
+            try
+            {
+                using var client = new HintOverlayClient();
+                bool result = client.SelectHint("A", "LEFT");
+                Console.WriteLine($"✓ Select with LEFT click: {(result ? "PASS" : "FAIL")}");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Select with LEFT click: FAIL - {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Test 12: Verify client can send SELECT command with RIGHT click action
+        /// Requirements: HintOverlay must be running with hints visible
+        /// </summary>
+        public static bool TestSelectWithRightClick()
+        {
+            try
+            {
+                using var client = new HintOverlayClient();
+                bool result = client.SelectHint("A", "RIGHT");
+                Console.WriteLine($"✓ Select with RIGHT click: {(result ? "PASS" : "FAIL")}");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Select with RIGHT click: FAIL - {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Test 13: Verify client can send SELECT command with DOUBLE click action
+        /// Requirements: HintOverlay must be running with hints visible
+        /// </summary>
+        public static bool TestSelectWithDoubleClick()
+        {
+            try
+            {
+                using var client = new HintOverlayClient();
+                bool result = client.SelectHint("A", "DOUBLE");
+                Console.WriteLine($"✓ Select with DOUBLE click: {(result ? "PASS" : "FAIL")}");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Select with DOUBLE click: FAIL - {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Test 14: Verify client sends default action when null action provided
+        /// </summary>
+        public static bool TestSelectWithNullAction()
+        {
+            try
+            {
+                using var client = new HintOverlayClient();
+                bool result = client.SelectHint("A", null);
+                Console.WriteLine($"✓ Select with null action (default): {(result ? "PASS" : "FAIL")}");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"✗ Select with null action (default): FAIL - {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Run all tests
         /// </summary>
         public static void RunAllTests()
@@ -278,6 +357,10 @@ namespace HintOverlay.NamedPipeClient.Tests
             total++; if (TestMultipleCommands()) passed++;
             total++; if (TestMultipleClients()) passed++;
             total++; if (TestCaseInsensitivity()) passed++;
+            total++; if (TestSelectWithLeftClick()) passed++;
+            total++; if (TestSelectWithRightClick()) passed++;
+            total++; if (TestSelectWithDoubleClick()) passed++;
+            total++; if (TestSelectWithNullAction()) passed++;
 
             Console.WriteLine("\n--- Tests with HintOverlay NOT running ---");
             Console.WriteLine("(This test takes ~5 seconds)");

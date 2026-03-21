@@ -28,7 +28,7 @@ namespace HintOverlay.NamedPipeClient
         }
 
         /// <summary>
-        /// Selects a hint by its label and activates the associated element.
+        /// Selects a hint by its label and activates the associated element using the default action.
         /// </summary>
         /// <param name="hintLabel">The label of the hint to select (e.g., "A", "B", "AB", etc.)</param>
         /// <returns>True if the command was sent successfully, false otherwise.</returns>
@@ -38,6 +38,23 @@ namespace HintOverlay.NamedPipeClient
                 throw new ArgumentException("Hint label cannot be null or empty", nameof(hintLabel));
 
             return SendCommand($"SELECT {hintLabel}");
+        }
+
+        /// <summary>
+        /// Selects a hint by its label and performs the specified click action.
+        /// </summary>
+        /// <param name="hintLabel">The label of the hint to select (e.g., "A", "B", "AB", etc.)</param>
+        /// <param name="action">The click action to perform: "LEFT", "RIGHT", "DOUBLE", or null/empty for default activation.</param>
+        /// <returns>True if the command was sent successfully, false otherwise.</returns>
+        public bool SelectHint(string hintLabel, string? action)
+        {
+            if (string.IsNullOrWhiteSpace(hintLabel))
+                throw new ArgumentException("Hint label cannot be null or empty", nameof(hintLabel));
+
+            if (string.IsNullOrWhiteSpace(action))
+                return SendCommand($"SELECT {hintLabel}");
+
+            return SendCommand($"SELECT {hintLabel} {action}");
         }
 
         /// <summary>

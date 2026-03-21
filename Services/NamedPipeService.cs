@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using HintOverlay.Logging;
+using HintOverlay.Models;
 
 namespace HintOverlay.Services
 {
@@ -156,7 +157,8 @@ namespace HintOverlay.Services
                     "SELECT" => parts.Length > 1 ? new NamedPipeCommand 
                     { 
                         CommandType = CommandType.Select, 
-                        HintLabel = parts[1] 
+                        HintLabel = parts[1],
+                        Action = ParseClickAction(parts.Length > 2 ? parts[2] : null)
                     } : null,
                     "DEACTIVATE" => new NamedPipeCommand { CommandType = CommandType.Deactivate },
                     _ => null
@@ -167,6 +169,20 @@ namespace HintOverlay.Services
                 _logger.Warning($"Error parsing named pipe command '{line}': {ex.Message}");
                 return null;
             }
+        }
+
+        private static ClickAction ParseClickAction(string? value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return ClickAction.Default;
+
+            return value.ToUpperInvariant() switch
+            {
+                "LEFT" => ClickAction.LeftClick,
+                "RIGHT" => ClickAction.RightClick,
+                "DOUBLE" => ClickAction.DoubleClick,
+                _ => ClickAction.Default
+            };
         }
 
         public void Dispose()
@@ -194,5 +210,6 @@ namespace HintOverlay.Services
     {
         public CommandType CommandType { get; set; }
         public string? HintLabel { get; set; }
+        public ClickAction Action { get; set; } = ClickAction.Default;
     }
 }
