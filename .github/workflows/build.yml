@@ -33,11 +33,17 @@ jobs:
       - name: Build Debug (exe only)
         run: build\build-complete.bat Debug --exe-only
 
+      - name: Clean Debug output
+        shell: pwsh
+        run: |
+          $outDir = "bin\Debug\net8.0-windows"
+          Remove-Item "$outDir\xunit.*" -Force -ErrorAction SilentlyContinue
+
       - name: Upload Debug artifact
         uses: actions/upload-artifact@v7
         with:
           name: Windows-Hinting-Debug
-          path: bin\Debug\net8.0-windows\Windows-Hinting.exe
+          path: bin\Debug\net8.0-windows\
           if-no-files-found: error
 
   build-release:
@@ -147,11 +153,14 @@ jobs:
       contents: write
 
     steps:
-      - name: Download Debug exe
+      - name: Download Debug build
         uses: actions/download-artifact@v8
         with:
           name: Windows-Hinting-Debug
-          path: artifacts
+          path: artifacts/Windows-Hinting-Debug
+
+      - name: Zip Debug build
+        run: cd artifacts && zip -r Windows-Hinting-Debug.zip Windows-Hinting-Debug/
 
       - name: Download MSI installer
         uses: actions/download-artifact@v8
@@ -171,8 +180,8 @@ jobs:
 
             | Asset | Description |
             |---|---|
-            | **Windows-Hinting.exe** | Debug build — no UIAccess required, runs without certificate installation. Use this for quick testing. |
+            | **Windows-Hinting-Debug.zip** | Debug build (portable) — no UIAccess, no certificate required. Extract the zip and run `Windows-Hinting.exe`. Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). |
             | **Windows-Hinting.msi** | Installer (Release build with UIAccess) — requires the signing certificate to be manually installed as a trusted root certificate. See the [UIAccess setup guide](https://github.com/knausj85/Windows-Hinting/blob/main/UIACCESS_QUICKSTART.md) for instructions. |
           artifacts: |
-            artifacts/Windows-Hinting.exe
+            artifacts/Windows-Hinting-Debug.zip
             artifacts/Windows-Hinting.msi
