@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  BUILD_VERSION: 1.0.${{ github.run_number }}
+  BUILD_VERSION: 0.1.${{ github.run_number }}
 
 jobs:
   build-debug:
@@ -147,10 +147,10 @@ jobs:
       contents: write
 
     steps:
-      - name: Download Release exe
+      - name: Download Debug exe
         uses: actions/download-artifact@v8
         with:
-          name: Windows-Hinting-Release
+          name: Windows-Hinting-Debug
           path: artifacts
 
       - name: Download MSI installer
@@ -166,5 +166,13 @@ jobs:
           name: v${{ env.BUILD_VERSION }}
           generateReleaseNotes: true
           makeLatest: true
+          body: |
+            ## Downloads
+
+            | Asset | Description |
+            |---|---|
+            | **Windows-Hinting.exe** | Debug build — no UIAccess required, runs without certificate installation. Use this for quick testing. |
+            | **Windows-Hinting.msi** | Installer (Release build with UIAccess) — requires the signing certificate to be manually installed as a trusted root certificate. See the [UIAccess setup guide](https://github.com/knausj85/Windows-Hinting/blob/main/UIACCESS_QUICKSTART.md) for instructions. |
           artifacts: |
+            artifacts/Windows-Hinting.exe
             artifacts/Windows-Hinting.msi
