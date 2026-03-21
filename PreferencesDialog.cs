@@ -285,7 +285,8 @@ namespace HintOverlay
             var description = new Label
             {
                 Text = "Rules control how UI elements are discovered for each application.\n" +
-                       "Leave a field empty to match any value. Rules are evaluated top to bottom.",
+                       "Leave a field empty to match any value. Rules are evaluated top to bottom.\n" +
+                       "Built-in rules cannot be removed but their properties can be modified.",
                 AutoSize = true,
                 Dock = DockStyle.Top,
                 Padding = new Padding(0, 0, 0, 6)
@@ -311,23 +312,31 @@ namespace HintOverlay
 
             _rulesGrid.Columns.Add(new DataGridViewTextBoxColumn
             {
+                HeaderText = "Name",
+                DataPropertyName = "Name",
+                FillWeight = 18,
+                ReadOnly = true
+            });
+
+            _rulesGrid.Columns.Add(new DataGridViewTextBoxColumn
+            {
                 HeaderText = "Executable",
                 DataPropertyName = "ExecutableName",
-                FillWeight = 25
+                FillWeight = 18
             });
 
             _rulesGrid.Columns.Add(new DataGridViewTextBoxColumn
             {
                 HeaderText = "Class Name",
                 DataPropertyName = "ClassName",
-                FillWeight = 35
+                FillWeight = 22
             });
 
             _rulesGrid.Columns.Add(new DataGridViewTextBoxColumn
             {
                 HeaderText = "Window Title",
                 DataPropertyName = "WindowTitle",
-                FillWeight = 20
+                FillWeight = 15
             });
 
             var titleMatchColumn = new DataGridViewComboBoxColumn
@@ -335,7 +344,7 @@ namespace HintOverlay
                 HeaderText = "Title Match",
                 DataPropertyName = "TitleMatchMode",
                 DataSource = Enum.GetValues<TitleMatchMode>(),
-                FillWeight = 15
+                FillWeight = 12
             };
             _rulesGrid.Columns.Add(titleMatchColumn);
 
@@ -344,11 +353,37 @@ namespace HintOverlay
                 HeaderText = "Strategy",
                 DataPropertyName = "Strategy",
                 DataSource = Enum.GetValues<RootStrategy>(),
-                FillWeight = 20
+                FillWeight = 15
             };
             _rulesGrid.Columns.Add(strategyColumn);
 
             _rulesGrid.DataError += (_, e) => e.ThrowException = false;
+
+            // Prevent deleting built-in default rules
+            _rulesGrid.UserDeletingRow += (_, e) =>
+            {
+                if (e.Row?.DataBoundItem is WindowRule rule && rule.IsDefault)
+                    e.Cancel = true;
+            };
+
+            // Style default rows with a subtle background
+            _rulesGrid.RowPrePaint += (_, e) =>
+            {
+                if (e.RowIndex < 0 || e.RowIndex >= _rulesBindingList.Count)
+                    return;
+                var rule = _rulesBindingList[e.RowIndex];
+                var row = _rulesGrid.Rows[e.RowIndex];
+                if (rule.IsDefault)
+                {
+                    row.DefaultCellStyle.BackColor = SystemColors.Control;
+                    row.DefaultCellStyle.ForeColor = SystemColors.ControlText;
+                }
+                else
+                {
+                    row.DefaultCellStyle.BackColor = SystemColors.Window;
+                    row.DefaultCellStyle.ForeColor = SystemColors.WindowText;
+                }
+            };
 
             layout.Controls.Add(_rulesGrid, 0, 1);
 
@@ -399,18 +434,9 @@ namespace HintOverlay
             _doubleClickKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
             _doubleClickKeyRecorder.SetKey(_options.ClickActionShortcuts.DoubleClickKey);
 
-            // Window rules
-            var rules = _options.WindowRules ?? WindowRuleRegistry.GetDefaultRules();
-            _rulesBindingList = new BindingList<WindowRule>(
-                rules.Select(r => new WindowRule
-                {
-                    ExecutableName = r.ExecutableName,
-                    ClassName = r.ClassName,
-                    WindowTitle = r.WindowTitle,
-                    TitleMatchMode = r.TitleMatchMode,
-                    Strategy = r.Strategy
-                }).ToList()
-            );
+            // Window rules — always merge with defaults so built-in rules are present
+            var rules = WindowRuleRegistry.MergeWithDefaults(_options.WindowRules);
+            _rulesBindingList = new BindingList<WindowRule>(rules);
             _rulesGrid.DataSource = _rulesBindingList;
         }
 
@@ -432,7 +458,8 @@ namespace HintOverlay
 
             // Collect window rules from the grid (exclude incomplete new-row entries)
             _options.WindowRules = _rulesBindingList
-                .Where(r => !string.IsNullOrWhiteSpace(r.ExecutableName)
+                .Where(r => r.IsDefault
+                          || !string.IsNullOrWhiteSpace(r.ExecutableName)
                           || !string.IsNullOrWhiteSpace(r.ClassName)
                           || !string.IsNullOrWhiteSpace(r.WindowTitle))
                 .ToList();

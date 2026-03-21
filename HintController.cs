@@ -123,7 +123,7 @@ namespace HintOverlay
 
             _inputHandler.ApplyOptions(_options.ClickActionShortcuts);
 
-            var rules = _options.WindowRules ?? WindowRuleRegistry.GetDefaultRules();
+            var rules = WindowRuleRegistry.MergeWithDefaults(_options.WindowRules);
             _ruleRegistry.SetRules(rules);
             _logger.Debug($"Window rules applied: {rules.Count} rule(s)");
         }

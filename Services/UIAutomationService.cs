@@ -293,22 +293,29 @@ namespace HintOverlay.Services
                 var windowTitle = GetWindowTitle(windowHandle);
                 var strategy = _ruleRegistry.ResolveStrategy(executableName, className, windowTitle);
 
-                _logger.Debug($"Window rule resolved: exe={executableName}, class={className}, title={windowTitle}, strategy={strategy}");
+                _logger.Info($"Window rule resolved: exe={executableName}, class={className}, title={windowTitle}, strategy={strategy}");
 
-                if (strategy == RootStrategy.ActiveWindow)
-                    return [root];
-
-                if (strategy == RootStrategy.FileExplorerCustomStrategy)
-                    return ResolveFileExplorerActiveTab(root, windowTitle);
-
-                var resolved = ApplyStrategy(strategy, root);
-                if (resolved != null && resolved != root)
+                switch (strategy)
                 {
-                    if (Marshal.IsComObject(root))
+                    case RootStrategy.ActiveWindow:
+                        return [root];
+
+                    case RootStrategy.FileExplorerCustomStrategy:
+                        return ResolveFileExplorerActiveTab(root, windowTitle);
+
+                    default:
                     {
-                        try { Marshal.ReleaseComObject(root); } catch { }
+                        var resolved = ApplyStrategy(strategy, root);
+                        if (resolved != null && resolved != root)
+                        {
+                            if (Marshal.IsComObject(root))
+                            {
+                                try { Marshal.ReleaseComObject(root); } catch { }
+                            }
+                            return [resolved];
+                        }
+                        break;
                     }
-                    return [resolved];
                 }
             }
             catch (COMException ex)
@@ -354,34 +361,45 @@ namespace HintOverlay.Services
                 {
                     next = walker.GetNextSiblingElement(child);
                 }
-                catch (COMException) { }
+                catch (COMException) 
+                { 
 
-                string childName;
-                try
-                {
-                    childName = child.CurrentName ?? "";
-                }
-                catch (COMException)
-                {
-                    childName = "";
                 }
 
-                if (string.IsNullOrEmpty(childName))
+                //int controlType = 0;
+                //try
+                //{
+                //    controlType = child.CurrentControlType;
+                //}
+                //catch (COMException) { }
+
+                //bool isTabItem = controlType == UIA_ControlTypeIds.UIA_TabItemControlTypeId;
+
+                //if (!isTabItem)
+                //{
+
+                //    targets.Add(child);
+                //}
+                //else
                 {
-                    targets.Add(child);
-                }
-                else if (!matchFound
-                    && !string.IsNullOrEmpty(activeTabName)
-                    && childName.Trim().Equals(activeTabName, StringComparison.OrdinalIgnoreCase))
-                {
-                    targets.Add(child);
-                    matchFound = true;
-                }
-                else
-                {
-                    if (Marshal.IsComObject(child))
+                    string childName;
+                    try { childName = child.CurrentName ?? ""; } catch (COMException) { childName = ""; }
+
+                    if (!matchFound
+                        && !string.IsNullOrEmpty(activeTabName)
+                        && childName.Trim().Equals(activeTabName, StringComparison.OrdinalIgnoreCase))
                     {
-                        try { Marshal.ReleaseComObject(child); } catch { }
+                        _logger.Info($"FileExplorerActiveTab: matched active tab \"{childName}\"");
+                        targets.Add(child);
+                        matchFound = true;
+                    }
+                    else
+                    {
+                        _logger.Info($"FileExplorerActiveTab: skipping inactive tab \"{childName}\"");
+                        if (Marshal.IsComObject(child))
+                        {
+                            try { Marshal.ReleaseComObject(child); } catch { }
+                        }
                     }
                 }
 
