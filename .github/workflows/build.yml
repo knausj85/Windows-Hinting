@@ -17,15 +17,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       - name: Restore NuGet packages
         run: dotnet restore Windows-Hinting.csproj
@@ -34,7 +34,7 @@ jobs:
         run: build\build-complete.bat Debug --exe-only
 
       - name: Upload Debug artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Windows-Hinting-Debug
           path: bin\Debug\net8.0-windows\Windows-Hinting.exe
@@ -46,15 +46,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       - name: Install WiX Toolset
         # Version must match WixToolset.Sdk version in Windows-Hinting.Installer.wixproj
@@ -124,14 +124,14 @@ jobs:
           Write-Host "------------------------------"
 
       - name: Upload Release exe artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Windows-Hinting-Release
           path: bin\Release\net8.0-windows\Windows-Hinting.exe
           if-no-files-found: error
 
       - name: Upload MSI artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Windows-Hinting-Installer
           path: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
@@ -148,19 +148,19 @@ jobs:
 
     steps:
       - name: Download Release exe
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Windows-Hinting-Release
           path: artifacts
 
       - name: Download MSI installer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Windows-Hinting-Installer
           path: artifacts
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.6.1
         with:
           tag_name: v${{ env.BUILD_VERSION }}
           name: v${{ env.BUILD_VERSION }}
