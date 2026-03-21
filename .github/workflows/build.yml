@@ -160,12 +160,11 @@ jobs:
           path: artifacts
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2.6.1
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: v${{ env.BUILD_VERSION }}
+          tag: v${{ env.BUILD_VERSION }}
           name: v${{ env.BUILD_VERSION }}
-          generate_release_notes: true
-          make_latest: true
-          files: |
-            artifacts/Windows-Hinting.exe
+          generateReleaseNotes: true
+          makeLatest: true
+          artifacts: |
             artifacts/Windows-Hinting.msi
