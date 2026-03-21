@@ -1,6 +1,9 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
+using HintOverlay.Logging;
 using HintOverlay.Models;
 
 namespace HintOverlay
@@ -9,13 +12,17 @@ namespace HintOverlay
     {
         private readonly NotifyIcon _trayIcon;
         private Icon? _currentIcon;
+        private readonly DebugLogger? _debugLogger;
+        private LogViewerForm? _logViewer;
 
         public event EventHandler? ToggleRequested;
         public event EventHandler? PreferencesRequested;
         public event EventHandler? ExitRequested;
 
-        public TrayIconManager()
+        public TrayIconManager(ILogger logger)
         {
+            _debugLogger = logger as DebugLogger;
+
             _currentIcon = CreateTrayIcon("H");
             _trayIcon = new NotifyIcon
             {
@@ -26,11 +33,106 @@ namespace HintOverlay
 
             var contextMenu = new ContextMenuStrip();
             contextMenu.Items.Add("Preferences...", null, (s, e) => PreferencesRequested?.Invoke(this, EventArgs.Empty));
+
+            // Logging submenu
+            contextMenu.Items.Add(CreateLoggingMenu(logger));
+
             contextMenu.Items.Add("-");
             contextMenu.Items.Add("Exit", null, (s, e) => ExitRequested?.Invoke(this, EventArgs.Empty));
 
             _trayIcon.ContextMenuStrip = contextMenu;
             _trayIcon.DoubleClick += (s, e) => ToggleRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        private ToolStripMenuItem CreateLoggingMenu(ILogger logger)
+        {
+            var loggingMenu = new ToolStripMenuItem("Logging");
+
+            // Log level submenu items
+            var levelItems = new ToolStripMenuItem[4];
+            var levels = new[] { LogLevel.Debug, LogLevel.Info, LogLevel.Warning, LogLevel.Error };
+
+            for (int i = 0; i < levels.Length; i++)
+            {
+                var level = levels[i];
+                var item = new ToolStripMenuItem(level.ToString())
+                {
+                    Checked = logger.MinimumLevel == level,
+                    Tag = level
+                };
+                item.Click += (s, e) =>
+                {
+                    logger.MinimumLevel = level;
+                    foreach (var li in levelItems)
+                        li!.Checked = (LogLevel)li.Tag! == level;
+                    logger.Info($"Log level changed to {level}");
+                };
+                levelItems[i] = item;
+            }
+
+            var levelMenu = new ToolStripMenuItem("Level");
+            levelMenu.DropDownItems.AddRange(levelItems!);
+            loggingMenu.DropDownItems.Add(levelMenu);
+
+            // File logging toggle
+            if (_debugLogger != null)
+            {
+                var fileLoggingItem = new ToolStripMenuItem("Log to File")
+                {
+                    Checked = _debugLogger.FileLoggingEnabled,
+                    CheckOnClick = true
+                };
+                fileLoggingItem.CheckedChanged += (s, e) =>
+                {
+                    _debugLogger.FileLoggingEnabled = fileLoggingItem.Checked;
+                    if (fileLoggingItem.Checked)
+                        logger.Info($"File logging enabled: {_debugLogger.CurrentLogFilePath}");
+                    else
+                        logger.Info("File logging disabled");
+                };
+                loggingMenu.DropDownItems.Add(fileLoggingItem);
+
+                // View log (live tail)
+                var viewLogItem = new ToolStripMenuItem("View Log");
+                viewLogItem.ShortcutKeys = Keys.Control | Keys.L;
+                viewLogItem.ShowShortcutKeys = true;
+                viewLogItem.Click += (s, e) => ShowLogViewer();
+                loggingMenu.DropDownItems.Add(viewLogItem);
+
+                loggingMenu.DropDownItems.Add(new ToolStripSeparator());
+
+                // Open log folder
+                var openLogFolder = new ToolStripMenuItem("Open Log Folder");
+                openLogFolder.Click += (s, e) =>
+                {
+                    var logDir = DebugLogger.LogDirectoryPath;
+                    Directory.CreateDirectory(logDir);
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = logDir,
+                        UseShellExecute = true
+                    });
+                };
+                loggingMenu.DropDownItems.Add(openLogFolder);
+            }
+
+            return loggingMenu;
+        }
+
+        private void ShowLogViewer()
+        {
+            if (_debugLogger == null)
+                return;
+
+            if (_logViewer != null && !_logViewer.IsDisposed)
+            {
+                _logViewer.Activate();
+                return;
+            }
+
+            _logViewer = new LogViewerForm(_debugLogger);
+            _logViewer.FormClosed += (_, _) => _logViewer = null;
+            _logViewer.Show();
         }
 
         public void SetClickAction(ClickAction action)

@@ -4,16 +4,55 @@ using System.Runtime.CompilerServices;
 
 namespace HintOverlay.Logging
 {
-    internal sealed class DebugLogger : ILogger
+    internal sealed class DebugLogger : ILogger, IDisposable
     {
+        private static readonly string LogDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Windows-Hinting",
+            "logs");
+
         private LogLevel _minLevel = LogLevel.Debug;
         private readonly object _lock = new();
+        private StreamWriter? _fileWriter;
+        private bool _fileLoggingEnabled;
+
+        /// <summary>
+        /// Raised after every log message is written, regardless of output target.
+        /// The event argument is the fully formatted log line.
+        /// </summary>
+        public event EventHandler<LogMessageEventArgs>? LogMessageWritten;
 
         public LogLevel MinimumLevel
         {
             get => _minLevel;
             set => _minLevel = value;
         }
+
+        public bool FileLoggingEnabled
+        {
+            get => _fileLoggingEnabled;
+            set
+            {
+                if (_fileLoggingEnabled == value)
+                    return;
+
+                _fileLoggingEnabled = value;
+                if (value)
+                    OpenLogFile();
+                else
+                    CloseLogFile();
+            }
+        }
+
+        /// <summary>
+        /// Returns the path to the current log file, or null if file logging is not active.
+        /// </summary>
+        public string? CurrentLogFilePath { get; private set; }
+
+        /// <summary>
+        /// Returns the directory where log files are stored.
+        /// </summary>
+        public static string LogDirectoryPath => LogDirectory;
 
         public void Debug(string message, [CallerMemberName] string memberName = "", [CallerFilePath] string filePath = "")
         {
@@ -48,7 +87,55 @@ namespace HintOverlay.Logging
             lock (_lock)
             {
                 System.Diagnostics.Debug.WriteLine(logMessage);
+
+                if (_fileLoggingEnabled && _fileWriter != null)
+                {
+                    try
+                    {
+                        _fileWriter.WriteLine(logMessage);
+                        _fileWriter.Flush();
+                    }
+                    catch
+                    {
+                        // Don't let logging failures crash the app
+                    }
+                }
             }
+
+            LogMessageWritten?.Invoke(this, new LogMessageEventArgs(level, logMessage));
+        }
+
+        private void OpenLogFile()
+        {
+            lock (_lock)
+            {
+                try
+                {
+                    Directory.CreateDirectory(LogDirectory);
+                    var logFileName = $"Windows-Hinting_{DateTime.Now:yyyy-MM-dd_HHmmss}.log";
+                    CurrentLogFilePath = Path.Combine(LogDirectory, logFileName);
+                    _fileWriter = new StreamWriter(CurrentLogFilePath, append: true) { AutoFlush = true };
+                }
+                catch
+                {
+                    _fileWriter = null;
+                    CurrentLogFilePath = null;
+                }
+            }
+        }
+
+        private void CloseLogFile()
+        {
+            lock (_lock)
+            {
+                _fileWriter?.Dispose();
+                _fileWriter = null;
+            }
+        }
+
+        public void Dispose()
+        {
+            CloseLogFile();
         }
     }
 }
