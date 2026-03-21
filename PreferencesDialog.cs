@@ -21,6 +21,10 @@ namespace HintOverlay
         private HotkeyRecorderControl _hotkeyRecorder = null!;
         private CheckBox _chkTaskbarHotkeyEnabled = null!;
         private HotkeyRecorderControl _taskbarHotkeyRecorder = null!;
+        private CheckBox _chkClickActionShortcutsEnabled = null!;
+        private KeyRecorderControl _leftClickKeyRecorder = null!;
+        private KeyRecorderControl _rightClickKeyRecorder = null!;
+        private KeyRecorderControl _doubleClickKeyRecorder = null!;
 
         // Window Rules tab controls
         private DataGridView _rulesGrid = null!;
@@ -120,9 +124,10 @@ namespace HintOverlay
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 4,
+                RowCount = 5,
                 Padding = new Padding(10)
             };
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -200,6 +205,63 @@ namespace HintOverlay
             taskbarHotkeyGroup.Controls.Add(_taskbarHotkeyRecorder);
             taskbarHotkeyGroup.Controls.Add(_chkTaskbarHotkeyEnabled);
             layout.Controls.Add(taskbarHotkeyGroup, 0, 2);
+
+            // Click action shortcuts configuration
+            var clickActionGroup = new GroupBox
+            {
+                Text = "Click Action Shortcuts",
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10)
+            };
+
+            var clickActionLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 4,
+                AutoSize = true
+            };
+            clickActionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            clickActionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            _chkClickActionShortcutsEnabled = new CheckBox
+            {
+                Text = "Enable click action shortcuts (Shift + key while hints are active)",
+                AutoSize = true,
+                Dock = DockStyle.Fill
+            };
+            _chkClickActionShortcutsEnabled.CheckedChanged += (_, _) =>
+            {
+                bool enabled = _chkClickActionShortcutsEnabled.Checked;
+                _leftClickKeyRecorder.Enabled = enabled;
+                _rightClickKeyRecorder.Enabled = enabled;
+                _doubleClickKeyRecorder.Enabled = enabled;
+            };
+            clickActionLayout.SetColumnSpan(_chkClickActionShortcutsEnabled, 2);
+            clickActionLayout.Controls.Add(_chkClickActionShortcutsEnabled, 0, 0);
+
+            var lblLeft = new Label { Text = "Left click:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
+            _leftClickKeyRecorder = new KeyRecorderControl { Dock = DockStyle.Fill, Height = 28 };
+            clickActionLayout.Controls.Add(lblLeft, 0, 1);
+            clickActionLayout.Controls.Add(_leftClickKeyRecorder, 1, 1);
+
+            var lblRight = new Label { Text = "Right click:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
+            _rightClickKeyRecorder = new KeyRecorderControl { Dock = DockStyle.Fill, Height = 28 };
+            clickActionLayout.Controls.Add(lblRight, 0, 2);
+            clickActionLayout.Controls.Add(_rightClickKeyRecorder, 1, 2);
+
+            var lblDouble = new Label { Text = "Double click:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
+            _doubleClickKeyRecorder = new KeyRecorderControl { Dock = DockStyle.Fill, Height = 28 };
+            clickActionLayout.Controls.Add(lblDouble, 0, 3);
+            clickActionLayout.Controls.Add(_doubleClickKeyRecorder, 1, 3);
+
+            clickActionGroup.Controls.Add(clickActionLayout);
+            layout.Controls.Add(clickActionGroup, 0, 3);
 
             tab.Controls.Add(layout);
             return tab;
@@ -320,6 +382,14 @@ namespace HintOverlay
             _taskbarHotkeyRecorder.Enabled = _options.TaskbarHotkey.Enabled;
             _taskbarHotkeyRecorder.SetHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
 
+            _chkClickActionShortcutsEnabled.Checked = _options.ClickActionShortcuts.Enabled;
+            _leftClickKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
+            _leftClickKeyRecorder.SetKey(_options.ClickActionShortcuts.LeftClickKey);
+            _rightClickKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
+            _rightClickKeyRecorder.SetKey(_options.ClickActionShortcuts.RightClickKey);
+            _doubleClickKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
+            _doubleClickKeyRecorder.SetKey(_options.ClickActionShortcuts.DoubleClickKey);
+
             // Window rules
             var rules = _options.WindowRules ?? WindowRuleRegistry.GetDefaultRules();
             _rulesBindingList = new BindingList<WindowRule>(
@@ -344,6 +414,11 @@ namespace HintOverlay
             _options.TaskbarHotkey.Enabled = _chkTaskbarHotkeyEnabled.Checked;
             _options.TaskbarHotkey.Modifiers = _taskbarHotkeyRecorder.HotkeyModifiers;
             _options.TaskbarHotkey.VirtualKey = _taskbarHotkeyRecorder.HotkeyVirtualKey;
+
+            _options.ClickActionShortcuts.Enabled = _chkClickActionShortcutsEnabled.Checked;
+            _options.ClickActionShortcuts.LeftClickKey = _leftClickKeyRecorder.VirtualKey;
+            _options.ClickActionShortcuts.RightClickKey = _rightClickKeyRecorder.VirtualKey;
+            _options.ClickActionShortcuts.DoubleClickKey = _doubleClickKeyRecorder.VirtualKey;
 
             // Collect window rules from the grid (exclude incomplete new-row entries)
             _options.WindowRules = _rulesBindingList

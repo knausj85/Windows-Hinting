@@ -85,6 +85,7 @@ namespace HintOverlay
                 _stateManager.ModeChanged += OnModeChanged;
                 _stateManager.HintsChanged += OnHintsChanged;
                 _stateManager.FilterChanged += OnFilterChanged;
+                _stateManager.ClickActionChanged += OnClickActionChanged;
 
                 _inputHandler.SelectionCommitted += OnSelectionCommitted;
 
@@ -119,6 +120,8 @@ namespace HintOverlay
                 _overlay.RegisterTaskbarHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
             else
                 _overlay.UnregisterTaskbarHotkey();
+
+            _inputHandler.ApplyOptions(_options.ClickActionShortcuts);
 
             var rules = _options.WindowRules ?? WindowRuleRegistry.GetDefaultRules();
             _ruleRegistry.SetRules(rules);
@@ -417,6 +420,19 @@ namespace HintOverlay
         {
             _logger.Debug($"Filter changed: '{filter}'");
             _overlay.SetFilterPrefix(filter);
+        }
+
+        private void OnClickActionChanged(object? sender, ClickAction action)
+        {
+            _logger.Debug($"Click action changed: {action}");
+            string label = action switch
+            {
+                ClickAction.LeftClick => "Left Click",
+                ClickAction.RightClick => "Right Click",
+                ClickAction.DoubleClick => "Double Click",
+                _ => ""
+            };
+            _overlay.SetClickAction(label);
         }
 
         private void OnKeyPressed(object? sender, KeyboardEventArgs e)

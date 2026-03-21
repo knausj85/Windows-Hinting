@@ -19,11 +19,24 @@ namespace HintOverlay.Services
         private readonly HashSet<int> _pressedKeys = new();
         private readonly HintStateManager _stateManager;
 
+        private bool _clickActionShortcutsEnabled = true;
+        private int _leftClickKey = 0x4C;   // L
+        private int _rightClickKey = 0x52;  // R
+        private int _doubleClickKey = 0x44; // D
+
         public event EventHandler<SelectionCommittedEventArgs>? SelectionCommitted;
 
         public HintInputHandler(HintStateManager stateManager)
         {
             _stateManager = stateManager ?? throw new ArgumentNullException(nameof(stateManager));
+        }
+
+        public void ApplyOptions(ClickActionShortcutOptions options)
+        {
+            _clickActionShortcutsEnabled = options.Enabled;
+            _leftClickKey = options.LeftClickKey;
+            _rightClickKey = options.RightClickKey;
+            _doubleClickKey = options.DoubleClickKey;
         }
 
         public bool ProcessKeyDown(int vkCode, KeyModifiers modifiers)
@@ -34,8 +47,32 @@ namespace HintOverlay.Services
 
             _pressedKeys.Add(vkCode);
 
+            bool shiftHeld = (modifiers & KeyModifiers.Shift) != 0;
+            bool ctrlHeld = (modifiers & KeyModifiers.Control) != 0;
+            bool altHeld = (modifiers & KeyModifiers.Alt) != 0;
+
+            // Shift+key toggles click action (no Ctrl/Alt)
+            if (_clickActionShortcutsEnabled && shiftHeld && !ctrlHeld && !altHeld)
+            {
+                if (vkCode == _leftClickKey)
+                {
+                    ToggleAction(ClickAction.LeftClick);
+                    return true;
+                }
+                if (vkCode == _rightClickKey)
+                {
+                    ToggleAction(ClickAction.RightClick);
+                    return true;
+                }
+                if (vkCode == _doubleClickKey)
+                {
+                    ToggleAction(ClickAction.DoubleClick);
+                    return true;
+                }
+            }
+
             // Handle A-Z keys (only when no modifiers held)
-            if (vkCode >= 0x41 && vkCode <= 0x5A && (modifiers & (KeyModifiers.Alt | KeyModifiers.Control)) == 0)
+            if (vkCode >= 0x41 && vkCode <= 0x5A && !shiftHeld && !ctrlHeld && !altHeld)
             {
                 char c = (char)vkCode;
                 var candidate = _stateManager.FilterText + c;
@@ -64,18 +101,13 @@ namespace HintOverlay.Services
                 return true;
             }
 
-            // Handle Space - commit selection
-            // Modifier determines click action:
-            //   No modifier  = Default (UIA pattern)
-            //   Shift        = Left click
-            //   Ctrl         = Right click
-            //   Alt          = Double click
+            // Handle Space - commit selection with the pending action
             if (vkCode == 0x20)
             {
                 var match = _stateManager.GetExactMatch();
                 if (match != null)
                 {
-                    var action = ResolveClickAction(modifiers);
+                    var action = _stateManager.PendingAction;
                     SelectionCommitted?.Invoke(this, new SelectionCommittedEventArgs(action));
                 }
                 return true;
@@ -94,15 +126,12 @@ namespace HintOverlay.Services
             _pressedKeys.Clear();
         }
 
-        private static ClickAction ResolveClickAction(KeyModifiers modifiers)
+        private void ToggleAction(ClickAction action)
         {
-            if ((modifiers & KeyModifiers.Alt) != 0)
-                return ClickAction.DoubleClick;
-            if ((modifiers & KeyModifiers.Control) != 0)
-                return ClickAction.RightClick;
-            if ((modifiers & KeyModifiers.Shift) != 0)
-                return ClickAction.LeftClick;
-            return ClickAction.Default;
+            if (_stateManager.PendingAction == action)
+                _stateManager.SetPendingAction(ClickAction.Default);
+            else
+                _stateManager.SetPendingAction(action);
         }
     }
 }

@@ -13,11 +13,13 @@ namespace HintOverlay
         private List<HintItem> _hints = new();
         private bool _enabled;
         private string _filterPrefix = "";
+        private string _actionLabel = "";
 
         private const int HOTKEY_ID = 1;
         private const int TASKBAR_HOTKEY_ID = 2;
 
         private readonly Font _font = new("Segoe UI", 9, FontStyle.Bold);
+        private readonly Font _actionFont = new("Segoe UI", 10, FontStyle.Bold);
 
         public event EventHandler? ToggleRequested;
         public event EventHandler? TaskbarToggleRequested;
@@ -50,6 +52,7 @@ namespace HintOverlay
             if (!enabled)
             {
                 _filterPrefix = "";
+                _actionLabel = "";
                 _hints.Clear();
             }
 
@@ -77,6 +80,12 @@ namespace HintOverlay
             }
 
             Invalidate(); // redraw text highlight immediately
+        }
+
+        public void SetClickAction(string actionLabel)
+        {
+            _actionLabel = actionLabel ?? "";
+            Invalidate();
         }
 
         public void RegisterGlobalHotkey(int modifiers, int virtualKey)
@@ -168,6 +177,26 @@ namespace HintOverlay
 
                 x += matchSize.Width;
                 g.DrawString(suffix, _font, labelFg, x, y);
+            }
+
+            // Draw click action indicator above the tray notification area
+            if (!string.IsNullOrEmpty(_actionLabel))
+            {
+                var actionSize = g.MeasureString(_actionLabel, _actionFont);
+                var workArea = Screen.PrimaryScreen!.WorkingArea;
+                float indicatorWidth = actionSize.Width + 16;
+                float indicatorHeight = actionSize.Height + 8;
+                float indicatorX = workArea.Right - indicatorWidth - 8;
+                float indicatorY = workArea.Bottom - indicatorHeight - 8;
+
+                using var bgBrush = new SolidBrush(Color.FromArgb(220, 30, 30, 30));
+                using var fgBrush = new SolidBrush(Color.FromArgb(255, 255, 200, 0));
+                using var border = new Pen(Color.FromArgb(200, 255, 200, 0), 1.5f);
+
+                var indicatorRect = new RectangleF(indicatorX, indicatorY, indicatorWidth, indicatorHeight);
+                g.FillRectangle(bgBrush, indicatorRect);
+                g.DrawRectangle(border, indicatorX, indicatorY, indicatorWidth, indicatorHeight);
+                g.DrawString(_actionLabel, _actionFont, fgBrush, indicatorX + 8, indicatorY + 4);
             }
         }
 

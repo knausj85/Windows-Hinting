@@ -92,18 +92,20 @@ namespace HintOverlay.Services
                     UIA_ControlTypeIds.UIA_ButtonControlTypeId,
                     UIA_ControlTypeIds.UIA_CheckBoxControlTypeId,
                     UIA_ControlTypeIds.UIA_ComboBoxControlTypeId,
+                    UIA_ControlTypeIds.UIA_DataGridControlTypeId,
+                    UIA_ControlTypeIds.UIA_DataItemControlTypeId,
                     UIA_ControlTypeIds.UIA_EditControlTypeId,
+                    UIA_ControlTypeIds.UIA_GroupControlTypeId,
                     UIA_ControlTypeIds.UIA_HyperlinkControlTypeId,
+                    UIA_ControlTypeIds.UIA_ListControlTypeId,
                     UIA_ControlTypeIds.UIA_ListItemControlTypeId,
                     UIA_ControlTypeIds.UIA_MenuControlTypeId,
                     UIA_ControlTypeIds.UIA_MenuItemControlTypeId,
                     UIA_ControlTypeIds.UIA_RadioButtonControlTypeId,
-                    UIA_ControlTypeIds.UIA_TabItemControlTypeId,
-                    UIA_ControlTypeIds.UIA_TreeItemControlTypeId,
                     UIA_ControlTypeIds.UIA_SplitButtonControlTypeId,
-                    UIA_ControlTypeIds.UIA_GroupControlTypeId,
-                    UIA_ControlTypeIds.UIA_ListControlTypeId,
+                    UIA_ControlTypeIds.UIA_TabItemControlTypeId,
                     UIA_ControlTypeIds.UIA_TreeControlTypeId,
+                    UIA_ControlTypeIds.UIA_TreeItemControlTypeId
                 };
 
                 using (PerformanceMetrics.Start("BuildSearchConditions", _logger, LogLevel.Debug))
