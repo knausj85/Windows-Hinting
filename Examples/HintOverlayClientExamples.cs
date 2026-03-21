@@ -4,7 +4,7 @@ using HintOverlay.NamedPipeClient;
 namespace HintOverlay.Examples
 {
     /// <summary>
-    /// Example usage of the HintOverlayClient for controlling HintOverlay from external applications.
+    /// Example usage of the HintOverlayClient for controlling Windows-Hinting from external applications.
     /// </summary>
     internal static class HintOverlayClientExamples
     {
@@ -17,11 +17,11 @@ namespace HintOverlay.Examples
 
             if (client.Toggle())
             {
-                Console.WriteLine("Successfully toggled HintOverlay");
+                Console.WriteLine("Successfully toggled Windows-Hinting");
             }
             else
             {
-                Console.WriteLine("Failed to connect to HintOverlay");
+                Console.WriteLine("Failed to connect to Windows-Hinting");
             }
         }
 
@@ -75,13 +75,13 @@ namespace HintOverlay.Examples
         {
             using var client = new HintOverlayClient();
 
-            // This will work even if HintOverlay is starting up
+            // This will work even if Windows-Hinting is starting up
             // The client will retry for up to 5 seconds automatically
             bool success = client.Toggle();
 
             if (success)
             {
-                Console.WriteLine("Command sent (HintOverlay may have been starting)");
+                Console.WriteLine("Command sent (Windows-Hinting may have been starting)");
             }
             else
             {
@@ -98,7 +98,7 @@ namespace HintOverlay.Examples
 
             if (client.Deactivate())
             {
-                Console.WriteLine("Successfully deactivated HintOverlay");
+                Console.WriteLine("Successfully deactivated Windows-Hinting");
             }
         }
 
@@ -113,11 +113,11 @@ namespace HintOverlay.Examples
             {
                 if (!client.SelectHint("XYZ"))
                 {
-                    Console.WriteLine("Failed to send command - HintOverlay not responding?");
+                    Console.WriteLine("Failed to send command - Windows-Hinting not responding?");
                 }
                 else
                 {
-                    Console.WriteLine("Command sent - check HintOverlay logs for result");
+                    Console.WriteLine("Command sent - check Windows-Hinting logs for result");
                 }
             }
             catch (ArgumentException ex)
@@ -128,7 +128,7 @@ namespace HintOverlay.Examples
 
         /// <summary>
         /// Example: Integration with keyboard shortcuts
-        /// Could be used by a global hotkey handler to control HintOverlay
+        /// Could be used by a global hotkey handler to control Windows-Hinting
         /// </summary>
         public static void KeyboardIntegrationExample()
         {
@@ -141,13 +141,13 @@ namespace HintOverlay.Examples
             // You could log the result
             if (!success)
             {
-                Console.WriteLine("Warning: Unable to toggle HintOverlay");
+                Console.WriteLine("Warning: Unable to toggle Windows-Hinting");
             }
         }
 
         /// <summary>
         /// Example: UI Control Integration
-        /// You could have a UI element that controls HintOverlay
+        /// You could have a UI element that controls Windows-Hinting
         /// </summary>
         public static void UIControlExample()
         {
@@ -165,7 +165,7 @@ namespace HintOverlay.Examples
             else
             {
                 // Show error to user
-                Console.WriteLine("Could not reach HintOverlay service");
+                Console.WriteLine("Could not reach Windows-Hinting service");
             }
         }
 

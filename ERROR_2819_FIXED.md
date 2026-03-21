@@ -10,13 +10,13 @@
 
 Changed the UI template from `WixUI_InstallDir` (which provides directory selection) to `WixUI_Minimal` (which is simpler and doesn't require the directory dialog binding).
 
-### Changed In: `HintOverlay.Installer\Product.wxs`
+### Changed In: `Windows-Hinting.Installer\Product.wxs`
 
 **Before:**
 ```xml
 <UIRef Id="WixUI_InstallDir" />
 <UIRef Id="WixUI_ErrorProgressText" />
-<Property Id="INSTALLFOLDER" Value="C:\Program Files\HintOverlay" />
+<Property Id="INSTALLFOLDER" Value="C:\Program Files\Windows-Hinting" />
 ```
 
 **After:**
@@ -54,29 +54,29 @@ The rebuilt MSI now includes:
 
 ### Standard Installation (Recommended)
 ```powershell
-msiexec /i "HintOverlay.Installer\bin\Release\HintOverlay.msi"
+msiexec /i "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi"
 ```
 
 ### Silent Installation
 ```powershell
-msiexec /i "HintOverlay.Installer\bin\Release\HintOverlay.msi" /quiet
+msiexec /i "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi" /quiet
 ```
 
 ### Quiet with Basic UI
 ```powershell
-msiexec /i "HintOverlay.Installer\bin\Release\HintOverlay.msi" /qb
+msiexec /i "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi" /qb
 ```
 
 ### With Logging
 ```powershell
-msiexec /i "HintOverlay.Installer\bin\Release\HintOverlay.msi" /l*v install.log
+msiexec /i "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi" /l*v install.log
 ```
 
 ## Installation Location
 
 The application installs to:
 ```
-C:\Program Files\HintOverlay\HintOverlay.exe
+C:\Program Files\Windows-Hinting\Windows-Hinting.exe
 ```
 
 ## What Was Fixed
@@ -96,22 +96,22 @@ The MSI is now fully functional and ready for distribution.
 
 1. Run silent install to verify:
    ```powershell
-   msiexec /i "HintOverlay.Installer\bin\Release\HintOverlay.msi" /quiet
+   msiexec /i "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi" /quiet
    ```
 
 2. Verify installation:
    ```powershell
-   Get-Item "C:\Program Files\HintOverlay\HintOverlay.exe"
+   Get-Item "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
    ```
 
 3. Test the application:
    ```powershell
-   & "C:\Program Files\HintOverlay\HintOverlay.exe"
+   & "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
    ```
 
 4. Check shortcuts:
    ```powershell
-   Get-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\HintOverlay\HintOverlay.lnk"
+   Get-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Windows-Hinting\Windows-Hinting.lnk"
    ```
 
 ## Why This Works

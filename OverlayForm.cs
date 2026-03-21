@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using HintOverlay.Models;
 
 namespace HintOverlay
 {
@@ -23,6 +24,7 @@ namespace HintOverlay
         public event EventHandler? TaskbarToggleRequested;
 
         public bool ShowRectangles { get; set; } = false;
+        public HintPosition HintPosition { get; set; } = HintPosition.UpperLeft;
 
         private int _hotkeyModifiers;
         private int _hotkeyVirtualKey;
@@ -131,12 +133,43 @@ namespace HintOverlay
                     g.DrawRectangle(pen, h.Rect);
                 }
 
-                // label background size based on full label, centered in rect
+                // label background size based on full label, positioned per HintPosition
                 var size = g.MeasureString(h.Label, _font);
                 float bgWidth = size.Width + 6;
                 float bgHeight = size.Height + 2;
-                float bgX = h.Rect.Left + (h.Rect.Width - bgWidth) / 2;
-                float bgY = h.Rect.Top + (h.Rect.Height - bgHeight) / 2;
+
+                float bgX, bgY;
+                switch (HintPosition)
+                {
+                    case HintPosition.UpperLeft:
+                        bgX = h.Rect.Left;
+                        bgY = h.Rect.Top;
+                        break;
+                    case HintPosition.UpperCenter:
+                        bgX = h.Rect.Left + (h.Rect.Width - bgWidth) / 2;
+                        bgY = h.Rect.Top;
+                        break;
+                    case HintPosition.UpperRight:
+                        bgX = h.Rect.Right - bgWidth;
+                        bgY = h.Rect.Top;
+                        break;
+                    case HintPosition.BottomLeft:
+                        bgX = h.Rect.Left;
+                        bgY = h.Rect.Bottom - bgHeight;
+                        break;
+                    case HintPosition.BottomCenter:
+                        bgX = h.Rect.Left + (h.Rect.Width - bgWidth) / 2;
+                        bgY = h.Rect.Bottom - bgHeight;
+                        break;
+                    case HintPosition.BottomRight:
+                        bgX = h.Rect.Right - bgWidth;
+                        bgY = h.Rect.Bottom - bgHeight;
+                        break;
+                    default:
+                        bgX = h.Rect.Left;
+                        bgY = h.Rect.Top;
+                        break;
+                }
                 var bg = new RectangleF(bgX, bgY, bgWidth, bgHeight);
                 g.FillRectangle(labelBg, bg);
 

@@ -11,7 +11,7 @@ namespace HintOverlay.Services
 {
     internal sealed class NamedPipeService : IDisposable
     {
-        private const string PipeName = "HintOverlay_Pipe";
+        private const string PipeName = "WindowsHinting_Pipe";
         private const int MaxConnections = 10;
         private readonly ILogger _logger;
         private NamedPipeServerStream? _pipeServer;

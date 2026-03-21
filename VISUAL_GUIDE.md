@@ -7,15 +7,15 @@ Your Application
       ↓
 app.manifest (declares uiAccess="true")
       ↓
-HintOverlay.csproj (embeds manifest)
+Windows-Hinting.csproj (embeds manifest)
       ↓
 dotnet build / Visual Studio
       ↓
-HintOverlay.exe (with manifest inside)
+Windows-Hinting.exe (with manifest inside)
       ↓
-Sign-HintOverlay.ps1 (signs with certificate)
+Sign-WindowsHinting.ps1 (signs with certificate)
       ↓
-SIGNED HintOverlay.exe (with uiAccess enabled)
+SIGNED Windows-Hinting.exe (with uiAccess enabled)
       ↓
 Windows trusts it → grants uiAccess privileges
       ↓
@@ -40,21 +40,21 @@ Can interact with elevated UI elements ✨
                │
                ▼
    ┌───────────────────────────────┐
-   │  HintOverlay.exe (unsigned)   │
+   │  Windows-Hinting.exe (unsigned)   │
    │  Contains embedded manifest   │
    │  with uiAccess="true"         │
    └──────────────┬────────────────┘
                   │
      ┌────────────▼────────────┐
-     │ Sign-HintOverlay.ps1    │ ← One command:
-     │ .\Sign-HintOverlay.ps1  │   .\Sign-HintOverlay.ps1
+     │ Sign-WindowsHinting.ps1    │ ← One command:
+     │ .\Sign-WindowsHinting.ps1  │   .\Sign-WindowsHinting.ps1
      │ -BuildConfiguration     │      -BuildConfiguration Release
      │ Release                 │
      └────────────┬────────────┘
                   │
                   ▼
     ┌─────────────────────────────┐
-    │  HintOverlay.exe (signed)   │
+    │  Windows-Hinting.exe (signed)   │
     │  ✅ Digital signature       │
     │  ✅ Certificate chain       │
     │  ✅ Manifest embedded       │
@@ -87,13 +87,13 @@ Project Root
 ├── 📄 app.manifest                      ← What: Manifest with uiAccess
 │                                          When: Use: Always (embedded in .exe)
 │
-├── 📄 HintOverlay.csproj                ← What: References manifest
+├── 📄 Windows-Hinting.csproj                ← What: References manifest
 │                                          When: Use: Always (build config)
 │
 ├── 🔧 Create-CodeSigningCert.ps1        ← What: Create certificates
 │                                          When: Use: Once at setup
 │
-├── 🔧 Sign-HintOverlay.ps1              ← What: Sign executables
+├── 🔧 Sign-WindowsHinting.ps1              ← What: Sign executables
 │                                          When: Use: After each build
 │
 ├── 📚 README_UIACCESS_SETUP.md           ← You are here! Quick summary
@@ -129,7 +129,7 @@ NOW                          FIRST BUILD                    ONGOING
 ```
 Do you want uiAccess?
     │
-    ├─ YES (typical for HintOverlay)
+    ├─ YES (typical for Windows-Hinting)
     │   │
     │   ├─ Create certificate
     │   │  └─ .\Create-CodeSigningCert.ps1
@@ -138,10 +138,10 @@ Do you want uiAccess?
     │   │  └─ Visual Studio: Ctrl+Shift+B
     │   │
     │   ├─ Sign executable
-    │   │  └─ .\Sign-HintOverlay.ps1 -BuildConfiguration Release
+    │   │  └─ .\Sign-WindowsHinting.ps1 -BuildConfiguration Release
     │   │
     │   └─ Deploy
-    │      └─ Share HintOverlay.exe (signed, with uiAccess)
+    │      └─ Share Windows-Hinting.exe (signed, with uiAccess)
     │
     └─ NO
         └─ Don't add manifest, don't sign, proceed normally
@@ -191,7 +191,7 @@ Certificate (PFX)
     ┌──────┴──────────────────────┐
     │                             │
     ▼                             ▼
-HintOverlay.exe          SHA256 Hash
+Windows-Hinting.exe          SHA256 Hash
 Calculate Hash                │
     │                         │
     │                         ▼
@@ -223,7 +223,7 @@ Calculate Hash                │
 ## Signature Verification (Windows)
 
 ```
-User launches HintOverlay.exe
+User launches Windows-Hinting.exe
     │
     ▼
 Windows Loader Checks:
@@ -302,15 +302,15 @@ Windows Loader Checks:
 ║ ONE-TIME SETUP                                             ║
 ╠════════════════════════════════════════════════════════════╣
 ║ .\Create-CodeSigningCert.ps1                               ║
-║   → Creates: HintOverlay_CodeSign.pfx                      ║
+║   → Creates: WindowsHinting_CodeSign.pfx                      ║
 ║   → Saves password (you'll need it later)                  ║
 ╚════════════════════════════════════════════════════════════╝
 
 ╔════════════════════════════════════════════════════════════╗
 ║ AFTER EACH BUILD                                           ║
 ╠════════════════════════════════════════════════════════════╣
-║ .\Sign-HintOverlay.ps1 -BuildConfiguration Release        ║
-║   → Signs: bin\Release\net8.0-windows\HintOverlay.exe      ║
+║ .\Sign-WindowsHinting.ps1 -BuildConfiguration Release        ║
+║   → Signs: bin\Release\net8.0-windows\Windows-Hinting.exe      ║
 ║   → Verifies: Signature automatically checked             ║
 ╚════════════════════════════════════════════════════════════╝
 
@@ -318,7 +318,7 @@ Windows Loader Checks:
 ║ VERIFY SIGNATURE                                           ║
 ╠════════════════════════════════════════════════════════════╣
 ║ Get-AuthenticodeSignature bin\Release\net8.0-windows\    ║
-║   HintOverlay.exe                                          ║
+║   Windows-Hinting.exe                                          ║
 ║   → Shows: Status, Certificate, Thumbprint, etc.         ║
 ╚════════════════════════════════════════════════════════════╝
 ```
@@ -331,11 +331,11 @@ Windows Loader Checks:
 Setup Phase
   ☐ Run .\Create-CodeSigningCert.ps1
   ☐ Save the password somewhere
-  ☐ Verify PFX file exists: C:\Users\knausj\HintOverlay_CodeSign.pfx
+  ☐ Verify PFX file exists: C:\Users\knausj\WindowsHinting_CodeSign.pfx
 
 Build & Sign Phase (after first build, then repeat after each build)
   ☐ Build in Visual Studio (Ctrl+Shift+B) [Release mode]
-  ☐ Run .\Sign-HintOverlay.ps1 -BuildConfiguration Release
+  ☐ Run .\Sign-WindowsHinting.ps1 -BuildConfiguration Release
   ☐ Enter password from setup phase
   ☐ Verify ✓ Signature successful message
   ☐ Verify ✓ Signed executable location
@@ -348,7 +348,7 @@ Testing Phase
 
 Deployment Phase
   ☐ Sign executable [done above]
-  ☐ Share bin\Release\net8.0-windows\HintOverlay.exe
+  ☐ Share bin\Release\net8.0-windows\Windows-Hinting.exe
   ☐ Application can now use uiAccess
 ```
 
@@ -381,7 +381,7 @@ NOW (5 min)
           ↓
 AFTER FIRST BUILD (1 min)
 ┌──────────────────────────────────────┐
-│ .\Sign-HintOverlay.ps1                │
+│ .\Sign-WindowsHinting.ps1                │
 │ -BuildConfiguration Release           │
 │ → Signs your executable              │
 │ → Ready to use                        │
@@ -400,11 +400,11 @@ EVERY FUTURE BUILD (1 min)
 
 ```
 ✅ Certificate Created
-   • File exists: C:\Users\knausj\HintOverlay_CodeSign.pfx
+   • File exists: C:\Users\knausj\WindowsHinting_CodeSign.pfx
    • Can be imported in Windows
 
 ✅ Executable Built
-   • File exists: bin\Release\net8.0-windows\HintOverlay.exe
+   • File exists: bin\Release\net8.0-windows\Windows-Hinting.exe
    • Contains embedded manifest
 
 ✅ Executable Signed

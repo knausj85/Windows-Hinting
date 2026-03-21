@@ -1,52 +1,52 @@
-# HintOverlay.Installer2 - UIAccess Installation Configuration
+# Windows-Hinting.Installer - UIAccess Installation Configuration
 
 ## ✅ Build Status
 
-The HintOverlay.Installer2 project has been successfully configured and built with the latest WiX v6.0.2 toolset.
+The Windows-Hinting.Installer project has been successfully configured and built with the latest WiX v6.0.2 toolset.
 
-**Output MSI**: `HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi` (73,728 bytes)
+**Output MSI**: `Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi` (73,728 bytes)
 
 ## Installation Configuration
 
 ### Application Installation
 
-**Installation Directory**: `C:\Program Files\HintOverlay\`
+**Installation Directory**: `C:\Program Files\Windows-Hinting\`
 
 **Files Installed**:
-- ✅ HintOverlay.exe (main application executable with embedded UIAccess manifest)
+- ✅ Windows-Hinting.exe (main application executable with embedded UIAccess manifest)
 - ✅ License.rtf (displayed during installation)
 
 **Shortcuts Created**:
-- ✅ Desktop shortcut: "HintOverlay"
-- ✅ Start Menu folder: "HintOverlay" 
-- ✅ Start Menu shortcut: "HintOverlay"
+- ✅ Desktop shortcut: "Windows-Hinting"
+- ✅ Start Menu folder: "Windows-Hinting" 
+- ✅ Start Menu shortcut: "Windows-Hinting"
 
 ### Registry Configuration
 
 The installer creates and registers the following registry entries:
 
 ```
-HKEY_LOCAL_MACHINE\Software\Windows-Hinting\HintOverlay\
-  InstallPath = C:\Program Files\HintOverlay\
+HKEY_LOCAL_MACHINE\Software\Windows-Hinting\Windows-Hinting\
+  InstallPath = C:\Program Files\Windows-Hinting\
   Version = 1.0.0.0
   UIAccessEnabled = 1
 
 HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run\
-  HintOverlay = C:\Program Files\HintOverlay\HintOverlay.exe
+  Windows-Hinting = C:\Program Files\Windows-Hinting\Windows-Hinting.exe
   [Optional - enables auto-start]
 
-HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Uninstall\HintOverlay\
-  DisplayName = HintOverlay
+HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Uninstall\Windows-Hinting\
+  DisplayName = Windows-Hinting
   DisplayVersion = 1.0.0.0
   Publisher = Windows-Hinting
-  InstallLocation = C:\Program Files\HintOverlay\
+  InstallLocation = C:\Program Files\Windows-Hinting\
 ```
 
 ## UIAccess Requirements & Signing
 
 ### ⚠️ CRITICAL: Code Signing is Required
 
-For UIAccess functionality to work properly, **HintOverlay.exe must be code-signed** with a valid certificate.
+For UIAccess functionality to work properly, **Windows-Hinting.exe must be code-signed** with a valid certificate.
 
 #### Why Code Signing is Required
 
@@ -57,7 +57,7 @@ UIAccess is a Windows security feature that grants elevated privileges to intera
 
 #### Current Status
 
-- ✅ Manifest is correctly embedded in HintOverlay.exe:
+- ✅ Manifest is correctly embedded in Windows-Hinting.exe:
   ```xml
   <requestedExecutionLevel level="asInvoker" uiAccess="true" />
   ```
@@ -70,10 +70,10 @@ UIAccess is a Windows security feature that grants elevated privileges to intera
 
 ```powershell
 # Using a certificate from a certificate authority
-signtool sign /f certificate.pfx /p password /fd SHA256 /tr http://timestamp.digicert.com bin\Release\net8.0-windows\HintOverlay.exe
+signtool sign /f certificate.pfx /p password /fd SHA256 /tr http://timestamp.digicert.com bin\Release\net8.0-windows\Windows-Hinting.exe
 
 # Verify the signature
-signtool verify /pa bin\Release\net8.0-windows\HintOverlay.exe
+signtool verify /pa bin\Release\net8.0-windows\Windows-Hinting.exe
 ```
 
 ##### Option 2: Self-Signed Certificate (Development/Testing)
@@ -93,7 +93,7 @@ $pwd = ConvertTo-SecureString -String "your-password" -Force -AsPlainText
 Export-PfxCertificate -Cert $cert -FilePath cert.pfx -Password $pwd -ChainOption BuildChain
 
 # Sign the executable
-signtool sign /f cert.pfx /p your-password /fd SHA256 bin\Release\net8.0-windows\HintOverlay.exe
+signtool sign /f cert.pfx /p your-password /fd SHA256 bin\Release\net8.0-windows\Windows-Hinting.exe
 
 # Trust the certificate (for testing)
 # Import the certificate to Trusted Root:
@@ -102,19 +102,19 @@ Import-Certificate -FilePath cert.cer -CertStoreLocation Cert:\LocalMachine\Root
 
 #### Build Process with Signing
 
-1. **Build HintOverlay**:
+1. **Build Windows-Hinting**:
    ```powershell
-   msbuild HintOverlay.csproj -p:Configuration=Release
+   msbuild Windows-Hinting.csproj -p:Configuration=Release
    ```
 
 2. **Sign the executable**:
    ```powershell
-   signtool sign /f certificate.pfx /p password /fd SHA256 /tr http://timestamp.server bin\Release\net8.0-windows\HintOverlay.exe
+   signtool sign /f certificate.pfx /p password /fd SHA256 /tr http://timestamp.server bin\Release\net8.0-windows\Windows-Hinting.exe
    ```
 
 3. **Build the installer**:
    ```powershell
-   msbuild HintOverlay.Installer2/HintOverlay.Installer2.wixproj -p:Configuration=Release
+   msbuild Windows-Hinting.Installer/Windows-Hinting.Installer.wixproj -p:Configuration=Release
    ```
 
 ### Manifest Configuration
@@ -132,7 +132,7 @@ This allows the application to:
 ### Platform Configuration
 
 - **Target**: 64-bit (x64)
-- **Program Files**: `C:\Program Files\HintOverlay\` (native x64 location)
+- **Program Files**: `C:\Program Files\Windows-Hinting\` (native x64 location)
 - **Architecture**: Always64 components throughout
 
 ## WiX Configuration Files
@@ -167,10 +167,10 @@ After installation, verify UIAccess is working:
 
 ```powershell
 # Check if executable is signed
-signtool verify /pa "C:\Program Files\HintOverlay\HintOverlay.exe"
+signtool verify /pa "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
 
 # Check registry entries
-Get-ItemProperty -Path "HKLM:\Software\Windows-Hinting\HintOverlay"
+Get-ItemProperty -Path "HKLM:\Software\Windows-Hinting\Windows-Hinting"
 
 # Verify manifest
 # Use Windows Resource Hacker or similar tool to inspect embedded manifest
@@ -180,7 +180,7 @@ Get-ItemProperty -Path "HKLM:\Software\Windows-Hinting\HintOverlay"
 
 ### Issue: "UIAccess is being ignored"
 **Cause**: Binary is not digitally signed
-**Solution**: Sign HintOverlay.exe with a valid code-signing certificate
+**Solution**: Sign Windows-Hinting.exe with a valid code-signing certificate
 
 ### Issue: "This program requires privilege elevation"
 **Cause**: UIAccess manifest not embedded correctly
@@ -212,9 +212,9 @@ Edit `ExampleComponents.wxs` and remove/comment out:
 <RegistryValue
   Root="HKLM"
   Key="Software\Microsoft\Windows\CurrentVersion\Run"
-  Name="HintOverlay"
+  Name="Windows-Hinting"
   Type="string"
-  Value="[INSTALLFOLDER]HintOverlay.exe" />
+  Value="[INSTALLFOLDER]Windows-Hinting.exe" />
 ```
 
 ### Add Additional Files
@@ -233,7 +233,7 @@ Edit `License.rtf` with any RTF editor
 ---
 
 **Next Steps**:
-1. ✅ Sign HintOverlay.exe with a code-signing certificate
+1. ✅ Sign Windows-Hinting.exe with a code-signing certificate
 2. ✅ Rebuild the installer project
 3. ✅ Test the MSI on a clean Windows system
 4. ✅ Verify UIAccess is functioning properly

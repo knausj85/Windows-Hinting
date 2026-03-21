@@ -1,8 +1,8 @@
-# HintOverlay Named Pipe Interface
+# Windows-Hinting Named Pipe Interface
 
 ## Overview
 
-The HintOverlay application now supports a named pipe interface that allows external applications to control hints remotely. This interface supports toggling hints, selecting specific hints, and deactivating the overlay.
+The Windows-Hinting application now supports a named pipe interface that allows external applications to control hints remotely. This interface supports toggling hints, selecting specific hints, and deactivating the overlay.
 
 ## Key Features
 
@@ -12,7 +12,7 @@ The HintOverlay application now supports a named pipe interface that allows exte
 
 ## Architecture
 
-### Server Side (HintOverlay)
+### Server Side (Windows-Hinting)
 
 The server is implemented in `Services/NamedPipeService.cs`:
 
@@ -55,7 +55,7 @@ bool success = client.Deactivate();
 
 You can also communicate with the named pipe directly from any language/platform:
 
-1. Connect to the named pipe: `\\.\pipe\HintOverlay_Pipe`
+1. Connect to the named pipe: `\\.\pipe\WindowsHinting_Pipe`
 2. Send commands as UTF-8 text strings followed by a newline
 3. Close the connection
 
@@ -81,7 +81,7 @@ You can also communicate with the named pipe directly from any language/platform
 ### Example: PowerShell
 
 ```powershell
-$pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "HintOverlay_Pipe", [System.IO.Pipes.PipeDirection]::Out)
+$pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "WindowsHinting_Pipe", [System.IO.Pipes.PipeDirection]::Out)
 $pipe.Connect(5000)
 $writer = New-Object System.IO.StreamWriter($pipe)
 $writer.WriteLine("TOGGLE")
@@ -99,7 +99,7 @@ import win32file
 
 try:
     handle = win32file.CreateFile(
-        r"\\.\pipe\HintOverlay_Pipe",
+        r"\\.\pipe\WindowsHinting_Pipe",
         win32file.GENERIC_WRITE,
         0,
         None,
@@ -110,7 +110,7 @@ try:
     win32file.WriteFile(handle, b"TOGGLE\n")
     handle.Close()
 except:
-    print("Failed to connect to HintOverlay pipe")
+    print("Failed to connect to Windows-Hinting pipe")
 ```
 
 ### Example: C++ / Win32
@@ -121,7 +121,7 @@ except:
 
 bool SendCommand(const std::string& command) {
     HANDLE hPipe = CreateFileA(
-        "\\\\.\\pipe\\HintOverlay_Pipe",
+        "\\\\.\\pipe\\WindowsHinting_Pipe",
         GENERIC_WRITE,
         0,
         NULL,
@@ -161,7 +161,7 @@ The client implements automatic connection retry logic to handle order-independe
 - **Total Max Wait Time**: ~5 seconds (50 retries × 100ms)
 
 This means:
-- If you start the client before the HintOverlay server, it will wait up to 5 seconds for the server to start
+- If you start the client before the Windows-Hinting server, it will wait up to 5 seconds for the server to start
 - If the server is already running, connections are established immediately
 - The caller doesn't need to worry about timing or wait times
 

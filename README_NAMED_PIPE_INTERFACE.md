@@ -2,7 +2,7 @@
 
 ## ✅ What Has Been Implemented
 
-A complete, production-ready named pipe interface that allows external applications to control HintOverlay remotely. The implementation ensures **order-independent execution** - meaning the connecting app can start before or after the main app.
+A complete, production-ready named pipe interface that allows external applications to control Windows-Hinting remotely. The implementation ensures **order-independent execution** - meaning the connecting app can start before or after the main app.
 
 ## 📦 Deliverables
 
@@ -89,7 +89,7 @@ client.Toggle(); // Just works!
 
 ### 📝 Simple Text Protocol
 ```
-Commands sent over named pipe: "HintOverlay_Pipe"
+Commands sent over named pipe: "WindowsHinting_Pipe"
 - TOGGLE
 - SELECT <label>
 - DEACTIVATE
@@ -138,7 +138,7 @@ client.Deactivate();
 
 ### PowerShell
 ```powershell
-$pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "HintOverlay_Pipe", [System.IO.Pipes.PipeDirection]::Out)
+$pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "WindowsHinting_Pipe", [System.IO.Pipes.PipeDirection]::Out)
 $pipe.Connect(5000)
 $writer = New-Object System.IO.StreamWriter($pipe)
 $writer.WriteLine("TOGGLE")
@@ -150,7 +150,7 @@ $pipe.Close()
 ### Python
 ```python
 import win32pipe, win32file
-handle = win32file.CreateFile(r"\\.\pipe\HintOverlay_Pipe", win32file.GENERIC_WRITE, 0, None, win32file.OPEN_EXISTING, 0, None)
+handle = win32file.CreateFile(r"\\.\pipe\WindowsHinting_Pipe", win32file.GENERIC_WRITE, 0, None, win32file.OPEN_EXISTING, 0, None)
 win32file.WriteFile(handle, b"TOGGLE\n")
 handle.Close()
 ```
@@ -162,7 +162,7 @@ External App (C#, PowerShell, Python, C++, etc.)
          ↓
 HintOverlayClient (auto-retry: 50x × 100ms)
          ↓
-Windows Named Pipe "HintOverlay_Pipe" (UTF-8 text)
+Windows Named Pipe "WindowsHinting_Pipe" (UTF-8 text)
          ↓
 NamedPipeService (async server, max 10 connections)
          ↓
@@ -193,7 +193,7 @@ Run tests: `NamedPipeClientTests.RunAllTests()`
 
 | Aspect | Value |
 |--------|-------|
-| Named Pipe Name | `HintOverlay_Pipe` |
+| Named Pipe Name | `WindowsHinting_Pipe` |
 | Protocol | UTF-8 text, newline-delimited |
 | Max Connections | 10 concurrent |
 | Client Retries | 50 attempts |
@@ -301,7 +301,7 @@ void TestAccessibility() {
 
 ### ✅ Cross-Process Communication
 ```csharp
-// Service controlling HintOverlay from separate process
+// Service controlling Windows-Hinting from separate process
 public class HintControlService {
     public void ToggleHints() {
         using var client = new HintOverlayClient();
@@ -316,13 +316,13 @@ All configuration is centralized:
 
 **In NamedPipeService.cs:**
 ```csharp
-private const string PipeName = "HintOverlay_Pipe";
+private const string PipeName = "WindowsHinting_Pipe";
 private const int MaxConnections = 10;
 ```
 
-**In HintOverlayClient.cs:**
+**In Windows-HintingClient.cs:**
 ```csharp
-private const string PipeName = "HintOverlay_Pipe";
+private const string PipeName = "WindowsHinting_Pipe";
 private const int ConnectionTimeoutMs = 5000;
 private const int RetryDelayMs = 100;
 private const int MaxRetries = 50;

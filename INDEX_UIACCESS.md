@@ -15,7 +15,7 @@
 ### "I just want to get started"
 1. Read: **README_UIACCESS_SETUP.md** (5 min)
 2. Run: `.\Create-CodeSigningCert.ps1`
-3. Build & Sign: `.\Sign-HintOverlay.ps1 -BuildConfiguration Release`
+3. Build & Sign: `.\Sign-WindowsHinting.ps1 -BuildConfiguration Release`
 4. Done!
 
 ### "I want to understand the architecture"
@@ -37,13 +37,13 @@
 ### Configuration Files
 ```
 app.manifest                      ← Manifest with uiAccess="true"
-HintOverlay.csproj               ← Updated to reference manifest
+Windows-Hinting.csproj               ← Updated to reference manifest
 ```
 
 ### Script Files
 ```
 Create-CodeSigningCert.ps1        ← Create certificates (one-time)
-Sign-HintOverlay.ps1             ← Sign executables (after each build)
+Sign-WindowsHinting.ps1             ← Sign executables (after each build)
 ```
 
 ### Documentation Files
@@ -61,7 +61,7 @@ UIACCESS_IMPLEMENTATION_COMPLETE.md         ← Implementation status
 ```powershell
 .\Create-CodeSigningCert.ps1
 # Answer: Enter a password (save it!)
-# Creates: HintOverlay_CodeSign.pfx
+# Creates: WindowsHinting_CodeSign.pfx
 ```
 
 ### Build Application
@@ -70,19 +70,19 @@ UIACCESS_IMPLEMENTATION_COMPLETE.md         ← Implementation status
 Ctrl+Shift+B (then set to Release mode)
 
 # Option B: Command line (once build issue is fixed)
-msbuild HintOverlay.sln /p:Configuration=Release
+msbuild Windows-Hinting.sln /p:Configuration=Release
 ```
 
 ### Sign Executable
 ```powershell
-.\Sign-HintOverlay.ps1 -BuildConfiguration Release
+.\Sign-WindowsHinting.ps1 -BuildConfiguration Release
 # Answer: Enter certificate password from Step 1
-# Creates: Signed HintOverlay.exe with uiAccess
+# Creates: Signed Windows-Hinting.exe with uiAccess
 ```
 
 ### Verify Signature
 ```powershell
-Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe"
+Get-AuthenticodeSignature "bin\Release\net8.0-windows\Windows-Hinting.exe"
 # Expected: Status = "Valid"
 ```
 
@@ -92,11 +92,11 @@ Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe"
 - [ ] Review: README_UIACCESS_SETUP.md
 - [ ] Create certificate: .\Create-CodeSigningCert.ps1
 - [ ] Save password securely
-- [ ] Verify PFX file: C:\Users\knausj\HintOverlay_CodeSign.pfx
+- [ ] Verify PFX file: C:\Users\knausj\WindowsHinting_CodeSign.pfx
 
 ### Phase 2: First Build
 - [ ] Build application: Ctrl+Shift+B (Release)
-- [ ] Sign: .\Sign-HintOverlay.ps1 -BuildConfiguration Release
+- [ ] Sign: .\Sign-WindowsHinting.ps1 -BuildConfiguration Release
 - [ ] Verify: Get-AuthenticodeSignature
 - [ ] Test: Run the executable
 
@@ -193,7 +193,7 @@ Do you want to automate signing?
 ├─ YES (for CI/CD)
 │  └─ See CODESIGNING_GUIDE.md → "CI/CD Integration"
 └─ NO (manual signing is fine)
-   └─ Just use Sign-HintOverlay.ps1 after each build
+   └─ Just use Sign-WindowsHinting.ps1 after each build
 
 Need more info?
 ├─ General questions → README_UIACCESS_SETUP.md
@@ -213,11 +213,11 @@ Time: ~5 seconds
 When: Run once at setup
 ```
 
-### Sign-HintOverlay.ps1
+### Sign-WindowsHinting.ps1
 ```
-Usage: .\Sign-HintOverlay.ps1 -BuildConfiguration Release
+Usage: .\Sign-WindowsHinting.ps1 -BuildConfiguration Release
 Params: -BuildConfiguration, -CertificatePath, -CertificatePassword
-Output: Signed HintOverlay.exe
+Output: Signed Windows-Hinting.exe
 Time: ~2 seconds
 When: After each build
 ```
@@ -226,13 +226,13 @@ When: After each build
 
 ### "I want to sign my executable"
 ```powershell
-.\Sign-HintOverlay.ps1 -BuildConfiguration Release
+.\Sign-WindowsHinting.ps1 -BuildConfiguration Release
 ```
 See: README_UIACCESS_SETUP.md
 
 ### "I want to verify the signature"
 ```powershell
-Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe"
+Get-AuthenticodeSignature "bin\Release\net8.0-windows\Windows-Hinting.exe"
 ```
 See: UIACCESS_QUICKSTART.md
 
@@ -282,9 +282,9 @@ Phase 3: Deployment
 
 ```
 Your Computer
-├─ Certificate: C:\Users\knausj\HintOverlay_CodeSign.pfx
+├─ Certificate: C:\Users\knausj\WindowsHinting_CodeSign.pfx
 ├─ Executable: C:\Users\knausj\git\Windows-Hinting\
-│               bin\Release\net8.0-windows\HintOverlay.exe
+│               bin\Release\net8.0-windows\Windows-Hinting.exe
 └─ Documentation: C:\Users\knausj\git\Windows-Hinting\
                   [various .md files]
 ```
@@ -294,7 +294,7 @@ Your Computer
 1. **Read**: README_UIACCESS_SETUP.md (5 min)
 2. **Run**: .\Create-CodeSigningCert.ps1 (5 min)
 3. **Build**: Ctrl+Shift+B (5 min)
-4. **Sign**: .\Sign-HintOverlay.ps1 -BuildConfiguration Release (1 min)
+4. **Sign**: .\Sign-WindowsHinting.ps1 -BuildConfiguration Release (1 min)
 5. **Verify**: Get-AuthenticodeSignature (1 min)
 6. **Done**: Signed executable with uiAccess! ✨
 

@@ -4,7 +4,7 @@ param(
     [switch]$ExeOnly,
     [switch]$SkipSigning,
     [string]$CertPath = "",
-    [string]$CertPassword = "HintOverlay_BuildCert_2024"
+    [string]$CertPassword = "WindowsHinting_BuildCert_2024"
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,11 +12,11 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 
 if ($CertPath -eq "" -and -not $SkipSigning -and $Configuration -eq "Release") {
-    $CertPath = "$RepoRoot\certs\HintOverlay_CodeSign.pfx"
+    $CertPath = "$RepoRoot\certs\WindowsHinting_CodeSign.pfx"
 }
 
 Write-Host "=========================================="
-Write-Host "HintOverlay Complete Build Script"
+Write-Host "Windows-Hinting Complete Build Script"
 Write-Host "=========================================="
 Write-Host "Configuration: $Configuration"
 Write-Host "Build Installer: $(if ($ExeOnly) { 'False' } else { 'True' })"
@@ -38,11 +38,11 @@ $IsBuildingMsi = (-not $ExeOnly -and $Configuration -eq "Release")
 $StepCount = if ($IsBuildingMsi) { '4' } elseif (-not $ExeOnly) { '3' } else { '1' }
 
 # Step 1: Build the executable (with signing if Release)
-Write-Host "[1/$StepCount] Building HintOverlay executable..."
+Write-Host "[1/$StepCount] Building Windows-Hinting executable..."
 Write-Host ""
 
 $BuildArgs = @(
-    "$RepoRoot\HintOverlay.csproj"
+    "$RepoRoot\Windows-Hinting.csproj"
     "/p:Configuration=$Configuration"
     "/nologo"
     "/v:minimal"
@@ -62,7 +62,7 @@ msbuild @BuildArgs
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
-    Write-Host "ERROR: HintOverlay build failed with exit code $LASTEXITCODE"
+    Write-Host "ERROR: Windows-Hinting build failed with exit code $LASTEXITCODE"
     exit 1
 }
 
@@ -73,7 +73,7 @@ Write-Host ""
 # Verify signature if Release build
 if (($Configuration -eq "Release") -and (-not $SkipSigning)) {
     Write-Host "[$(if ($IsBuildingMsi) { '2' } else { 'Verify' })/$StepCount] Verifying executable signature..."
-    $ExePath = "$RepoRoot\bin\$Configuration\net8.0-windows\HintOverlay.exe"
+    $ExePath = "$RepoRoot\bin\$Configuration\net8.0-windows\Windows-Hinting.exe"
 
     if (Test-Path $ExePath) {
         $sig = Get-AuthenticodeSignature -FilePath $ExePath
@@ -94,11 +94,11 @@ if (-not $ExeOnly) {
     Write-Host "[2/$StepCount] Building MSI installer..."
     Write-Host ""
 
-    $InstallerProject = "$RepoRoot\HintOverlay.Installer2\HintOverlay.Installer2.wixproj"
+    $InstallerProject = "$RepoRoot\Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj"
 
     if (-not (Test-Path $InstallerProject)) {
         Write-Host "ERROR: WiX installer project not found at: $InstallerProject"
-        Write-Host "Please ensure HintOverlay.Installer2 is set up with a valid .wixproj file"
+        Write-Host "Please ensure the installer project is set up with a valid .wixproj file"
         exit 1
     }
 
@@ -128,7 +128,7 @@ if (-not $ExeOnly) {
     Write-Host "[3/$StepCount] Verifying installer contents..."
     Write-Host ""
 
-    $MsiPath = "$RepoRoot\HintOverlay.Installer2\bin\$Configuration\en-US\HintOverlay.msi"
+    $MsiPath = "$RepoRoot\Windows-Hinting.Installer\bin\$Configuration\en-US\Windows-Hinting.msi"
 
     if (Test-Path $MsiPath) {
         $MsiSize = (Get-Item $MsiPath).Length / 1MB
@@ -160,7 +160,7 @@ if (-not $ExeOnly) {
             if ($LessMsi) {
                 & lessmsi x $MsiPath "$TempDir\" | Out-Null
 
-                $ExtractedExePath = Get-ChildItem -Path $TempDir -Recurse -Filter "HintOverlay.exe" | Select-Object -First 1
+                $ExtractedExePath = Get-ChildItem -Path $TempDir -Recurse -Filter "Windows-Hinting.exe" | Select-Object -First 1
 
                 if ($ExtractedExePath) {
                     $sig = Get-AuthenticodeSignature -FilePath $ExtractedExePath.FullName
@@ -196,17 +196,17 @@ Write-Host "=========================================="
 Write-Host ""
 Write-Host "Build Summary:"
 Write-Host "  Configuration: $Configuration"
-Write-Host "  Executable: bin\$Configuration\net8.0-windows\HintOverlay.exe"
+Write-Host "  Executable: bin\$Configuration\net8.0-windows\Windows-Hinting.exe"
 
 if (($Configuration -eq "Release") -and (-not $SkipSigning)) {
     Write-Host "  Signing: Enabled"
 }
 
 if (-not $ExeOnly) {
-    $InstallerPathFriendly = "HintOverlay.Installer2\bin\$Configuration\en-US\HintOverlay.msi"
+    $InstallerPathFriendly = "Windows-Hinting.Installer\bin\$Configuration\en-US\Windows-Hinting.msi"
     Write-Host "  Installer: $InstallerPathFriendly"
 
-    $ActualMsiPath = "$RepoRoot\HintOverlay.Installer2\bin\$Configuration\en-US\HintOverlay.msi"
+    $ActualMsiPath = "$RepoRoot\Windows-Hinting.Installer\bin\$Configuration\en-US\Windows-Hinting.msi"
     if (Test-Path $ActualMsiPath) {
         $MsiSize = (Get-Item $ActualMsiPath).Length / 1MB
         Write-Host "  Installer Size: $($MsiSize.ToString('0.0')) MB"

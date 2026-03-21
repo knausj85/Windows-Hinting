@@ -2,11 +2,11 @@
 
 ## Overview
 
-I've set up a complete MSI installer system for HintOverlay that:
+I've set up a complete MSI installer system for Windows-Hinting that:
 
 - ✅ Builds the signed application
 - ✅ Creates a Windows Installer (.msi) package
-- ✅ Installs to `C:\Program Files\HintOverlay\`
+- ✅ Installs to `C:\Program Files\Windows-Hinting\`
 - ✅ Creates Start Menu and Desktop shortcuts
 - ✅ Registers for Add/Remove Programs
 - ✅ Handles uninstall cleanly
@@ -17,15 +17,15 @@ I've set up a complete MSI installer system for HintOverlay that:
 
 ```
 Project Root/
-├── HintOverlay.Installer/
-│   ├── HintOverlay.Installer.wixproj    ← WiX project file
+├── Windows-Hinting.Installer/
+│   ├── Windows-Hinting.Installer.wixproj    ← WiX project file
 │   ├── Product.wxs                      ← MSI definition (XML)
 │   ├── License.rtf                      ← License file
 │   └── bin/Release/
-│       └── HintOverlay.msi              ← Output (generated)
+│       └── Windows-Hinting.msi              ← Output (generated)
 │
 ├── Build-InstallerMSI.ps1               ← Main build script
-├── New-HintOverlayMSI.ps1               ← Alternative builder
+├── New-WindowsHintingMSI.ps1               ← Alternative builder
 ├── Install-WiX.ps1                      ← WiX installer
 ├── MSI_INSTALLER_GUIDE.md               ← Detailed documentation
 └── INSTALL_WIX_GUIDE.md                 ← WiX setup guide
@@ -60,7 +60,7 @@ This will:
 1. Build the application (Release)
 2. Sign the executable with your certificate
 3. Create the MSI installer
-4. Output to: `HintOverlay.Installer\bin\Release\HintOverlay.msi`
+4. Output to: `Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi`
 
 **Done!** Your MSI is ready to install and distribute.
 
@@ -70,31 +70,31 @@ This will:
 
 ```powershell
 # Method 1: Using msiexec (recommended)
-msiexec /i "HintOverlay.Installer\bin\Release\HintOverlay.msi"
+msiexec /i "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi"
 
 # Method 2: Double-click the file in Explorer
-explorer HintOverlay.Installer\bin\Release\
-# Then double-click HintOverlay.msi
+explorer Windows-Hinting.Installer\bin\Release\
+# Then double-click Windows-Hinting.msi
 ```
 
 ### Verify Installation
 
 ```powershell
 # Check if installed
-Get-Item "C:\Program Files\HintOverlay\HintOverlay.exe"
+Get-Item "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
 
 # Check shortcuts
-Get-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\HintOverlay"
+Get-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Windows-Hinting"
 
 # Check registry
-Get-ItemProperty "HKCU:\Software\HintOverlay"
+Get-ItemProperty "HKCU:\Software\Windows-Hinting"
 ```
 
 ### Test Application
 
 ```powershell
 # Run from Program Files
-& "C:\Program Files\HintOverlay\HintOverlay.exe"
+& "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
 
 # Should have uiAccess privileges ✓
 ```
@@ -103,11 +103,11 @@ Get-ItemProperty "HKCU:\Software\HintOverlay"
 
 ```powershell
 # Method 1: Quiet uninstall
-msiexec /x "HintOverlay.Installer\bin\Release\HintOverlay.msi" /quiet
+msiexec /x "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi" /quiet
 
-# Method 2: Settings → Apps → Installed apps → HintOverlay → Uninstall
+# Method 2: Settings → Apps → Installed apps → Windows-Hinting → Uninstall
 
-# Method 3: Control Panel → Programs and Features → HintOverlay → Uninstall
+# Method 3: Control Panel → Programs and Features → Windows-Hinting → Uninstall
 ```
 
 ## How It Works
@@ -119,15 +119,15 @@ Source Code (C#)
        ↓
    dotnet build (via MSBuild)
        ↓
-   HintOverlay.exe (unsigned)
+   Windows-Hinting.exe (unsigned)
        ↓
    signtool sign (with certificate)
        ↓
-   HintOverlay.exe (signed with uiAccess)
+   Windows-Hinting.exe (signed with uiAccess)
        ↓
    WiX Toolset (candle + light)
        ↓
-   HintOverlay.msi (MSI package)
+   Windows-Hinting.msi (MSI package)
        ↓
    Ready for distribution!
 ```
@@ -135,13 +135,13 @@ Source Code (C#)
 ### Installation Process
 
 ```
-User downloads HintOverlay.msi
+User downloads Windows-Hinting.msi
        ↓
    Double-click or msiexec /i
        ↓
    Windows Installer service starts
        ↓
-   Copy files to C:\Program Files\HintOverlay\
+   Copy files to C:\Program Files\Windows-Hinting\
        ↓
    Create shortcuts
        ↓
@@ -152,43 +152,43 @@ User downloads HintOverlay.msi
 
 ## MSI Contents
 
-The MSI installs the following to `C:\Program Files\HintOverlay\`:
+The MSI installs the following to `C:\Program Files\Windows-Hinting\`:
 
 ```
-C:\Program Files\HintOverlay\
-├── HintOverlay.exe              (Signed with uiAccess)
+C:\Program Files\Windows-Hinting\
+├── Windows-Hinting.exe              (Signed with uiAccess)
 └── [Dependencies if bundled]
 ```
 
 The MSI also creates:
 
 ```
-C:\ProgramData\Microsoft\Windows\Start Menu\Programs\HintOverlay\
-└── HintOverlay.lnk
+C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Windows-Hinting\
+└── Windows-Hinting.lnk
 
 C:\Users\[YourUser]\Desktop\
-└── HintOverlay.lnk
+└── Windows-Hinting.lnk
 ```
 
 ## Customization
 
 ### Change Installation Directory
 
-Edit `HintOverlay.Installer\Product.wxs`:
+Edit `Windows-Hinting.Installer\Product.wxs`:
 
 ```xml
-<!-- Line 73: Change from "HintOverlay" to your name -->
-<Directory Id="INSTALLFOLDER" Name="HintOverlay" />
+<!-- Line 73: Change from "Windows-Hinting" to your name -->
+<Directory Id="INSTALLFOLDER" Name="Windows-Hinting" />
 ```
 
 ### Add Files to MSI
 
-Edit `HintOverlay.Installer\Product.wxs`:
+Edit `Windows-Hinting.Installer\Product.wxs`:
 
 ```xml
 <DirectoryRef Id="INSTALLFOLDER">
   <Component Id="MainExecutable" Guid="...">
-    <File Id="HintOverlayExe" Source="..." KeyPath="yes" />
+    <File Id="WindowsHintingExe" Source="..." KeyPath="yes" />
     <!-- Add more files here -->
     <File Id="ConfigFile" Source="config.json" />
     <File Id="DataFile" Source="data\important.dat" />
@@ -198,7 +198,7 @@ Edit `HintOverlay.Installer\Product.wxs`:
 
 ### Update License
 
-Replace `HintOverlay.Installer\License.rtf` with your own license file.
+Replace `Windows-Hinting.Installer\License.rtf` with your own license file.
 
 ## Advanced Options
 
@@ -206,19 +206,19 @@ Replace `HintOverlay.Installer\License.rtf` with your own license file.
 
 ```powershell
 # Quiet install
-msiexec /i HintOverlay.msi /quiet
+msiexec /i Windows-Hinting.msi /quiet
 
 # Quiet with basic UI
-msiexec /i HintOverlay.msi /qb
+msiexec /i Windows-Hinting.msi /qb
 
 # With logging
-msiexec /i HintOverlay.msi /l*v install.log
+msiexec /i Windows-Hinting.msi /l*v install.log
 
 # Custom install directory
-msiexec /i HintOverlay.msi INSTALLFOLDER="C:\MyApp\"
+msiexec /i Windows-Hinting.msi INSTALLFOLDER="C:\MyApp\"
 
 # Uninstall silently
-msiexec /x HintOverlay.msi /quiet
+msiexec /x Windows-Hinting.msi /quiet
 ```
 
 ### Sign the MSI Itself
@@ -229,11 +229,11 @@ For production distributions, you can sign the MSI:
 $signtool = "C:\Program Files (x86)\Microsoft Visual Studio\Shared\NuGetPackages\microsoft.windows.sdk.buildtools\10.0.26100.1742\bin\10.0.26100.0\x64\signtool.exe"
 
 & $signtool sign `
-  /f "C:\Users\knausj\HintOverlay_CodeSign.pfx" `
+  /f "C:\Users\knausj\WindowsHinting_CodeSign.pfx" `
   /p "test123" `
   /fd SHA256 `
   /v `
-  "HintOverlay.Installer\bin\Release\HintOverlay.msi"
+  "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi"
 ```
 
 ### Bundle .NET Runtime
@@ -262,7 +262,7 @@ Look in `build.log` for errors.
 
 Check installation log:
 ```powershell
-msiexec /i HintOverlay.msi /l*v msi-install.log
+msiexec /i Windows-Hinting.msi /l*v msi-install.log
 notepad msi-install.log
 ```
 
@@ -276,9 +276,9 @@ Ensure:
 ### "Shortcuts not appearing"
 
 Run as Administrator and check:
-1. Start Menu location: `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\HintOverlay\`
+1. Start Menu location: `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Windows-Hinting\`
 2. Desktop for shortcut file
-3. Reinstall: `msiexec /x HintOverlay.msi && msiexec /i HintOverlay.msi`
+3. Reinstall: `msiexec /x Windows-Hinting.msi && msiexec /i Windows-Hinting.msi`
 
 ## File Structure Explained
 
@@ -341,20 +341,20 @@ Generate new GUIDs:
 ```powershell
 # Build only (skip everything)
 & "C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\MSBuild.exe" `
-  HintOverlay.Installer\HintOverlay.Installer.wixproj /p:Configuration=Release
+  Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj /p:Configuration=Release
 
 # Sign MSI only
 $signtool = "..."
-& $signtool sign /f "C:\Users\knausj\HintOverlay_CodeSign.pfx" /p "test123" /fd SHA256 `
-  "HintOverlay.Installer\bin\Release\HintOverlay.msi"
+& $signtool sign /f "C:\Users\knausj\WindowsHinting_CodeSign.pfx" /p "test123" /fd SHA256 `
+  "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi"
 
 # Clean build artifacts
-rmdir "HintOverlay.Installer\bin" -Recurse -Force
-rmdir "HintOverlay.Installer\obj" -Recurse -Force
+rmdir "Windows-Hinting.Installer\bin" -Recurse -Force
+rmdir "Windows-Hinting.Installer\obj" -Recurse -Force
 
 # Check installed applications via registry
 Get-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" | 
-  Where-Object DisplayName -match "HintOverlay"
+  Where-Object DisplayName -match "Windows-Hinting"
 ```
 
 ## Summary

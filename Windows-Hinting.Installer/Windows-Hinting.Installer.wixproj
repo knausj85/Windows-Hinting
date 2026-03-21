@@ -2,7 +2,7 @@
   <PropertyGroup>
     <ProductVersion>1.0.0.0</ProductVersion>
     <ProjectGuid>b2c3d4e5-f6a7-8901-bcde-f1234567890a</ProjectGuid>
-    <OutputName>HintOverlay</OutputName>
+    <OutputName>Windows-Hinting</OutputName>
     <TargetFramework>net8.0-windows</TargetFramework>
     <!-- Configure for 64-bit installer -->
     <InstallerPlatform>x64</InstallerPlatform>
@@ -10,7 +10,7 @@
     <SignOutput>true</SignOutput>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\HintOverlay.csproj" />
+    <ProjectReference Include="..\Windows-Hinting.csproj" />
   </ItemGroup>
   <ItemGroup>
     <WixCompile Include="Package.wxs" />

@@ -1,5 +1,5 @@
 @echo off
-REM Build and Sign HintOverlay - Batch wrapper for PowerShell script
+REM Build and Sign Windows-Hinting - Batch wrapper for PowerShell script
 REM Usage: build-and-sign.bat [Release|Debug] [--regen-cert] [--skip-signing]
 
 setlocal enabledelayedexpansion
@@ -39,7 +39,7 @@ shift
 goto :parse_args
 
 :run_build
-echo Building HintOverlay...
+echo Building Windows-Hinting...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "!POWERSHELL_SCRIPT!" -Configuration !Configuration! !RegenerateCert! !SkipSigning!
 
 if %errorlevel% neq 0 (

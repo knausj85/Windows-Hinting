@@ -1,9 +1,9 @@
 # Create-CodeSigningCert.ps1
-# Creates a self-signed code signing certificate for HintOverlay
+# Creates a self-signed code signing certificate for Windows-Hinting
 
 <#
 .SYNOPSIS
-    Creates a self-signed code signing certificate for HintOverlay
+    Creates a self-signed code signing certificate for Windows-Hinting
 .DESCRIPTION
     This script creates a self-signed certificate suitable for code signing.
     The certificate is stored in the current user's certificate store and
@@ -11,9 +11,9 @@
 
     For production/distribution, use a commercial certificate instead.
 .PARAMETER CertificateName
-    Subject name for the certificate (default: "HintOverlay Development")
+    Subject name for the certificate (default: "Windows-Hinting Development")
 .PARAMETER FriendlyName
-    Friendly name for the certificate (default: "HintOverlay Code Signing")
+    Friendly name for the certificate (default: "Windows-Hinting Code Signing")
 .PARAMETER ValidityYears
     Number of years the certificate is valid (default: 10)
 .PARAMETER OutputPath
@@ -31,8 +31,8 @@
 #>
 
 param(
-    [string]$CertificateName = "HintOverlay Development",
-    [string]$FriendlyName = "HintOverlay Code Signing",
+    [string]$CertificateName = "Windows-Hinting Development",
+    [string]$FriendlyName = "Windows-Hinting Code Signing",
     [int]$ValidityYears = 10,
     [string]$OutputPath = $env:USERPROFILE,
     [string]$ExportPassword = ""
@@ -113,7 +113,7 @@ try {
 # Export to PFX File
 # ============================================================================
 
-$pfxPath = Join-Path $OutputPath "HintOverlay_CodeSign.pfx"
+$pfxPath = Join-Path $OutputPath "WindowsHinting_CodeSign.pfx"
 
 Write-Host "Exporting certificate to PFX file..." -ForegroundColor Yellow
 
@@ -139,7 +139,7 @@ try {
 # Export Certificate File (for adding to Trusted Publishers)
 # ============================================================================
 
-$cerPath = Join-Path $OutputPath "HintOverlay_CodeSign.cer"
+$cerPath = Join-Path $OutputPath "WindowsHinting_CodeSign.cer"
 
 Write-Host "Exporting certificate to CER file..." -ForegroundColor Yellow
 
@@ -224,7 +224,7 @@ Write-Host "  1. Build your application:" -ForegroundColor Cyan
 Write-Host "     dotnet build -c Release" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  2. Sign the executable:" -ForegroundColor Cyan
-Write-Host "     .\Sign-HintOverlay.ps1 -BuildConfiguration Release" -ForegroundColor Yellow
+Write-Host "     .\Sign-WindowsHinting.ps1 -BuildConfiguration Release" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  3. Distribute the signed executable" -ForegroundColor Cyan
 Write-Host ""

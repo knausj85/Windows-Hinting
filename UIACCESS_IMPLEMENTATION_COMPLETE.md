@@ -9,13 +9,13 @@
 - **Execution Level**: `asInvoker` (normal user privileges)
 
 ### ✅ Project Configuration
-- **File**: `HintOverlay.csproj`
+- **File**: `Windows-Hinting.csproj`
 - **Status**: Updated to reference manifest
 - **Setting**: `<ApplicationManifest>app.manifest</ApplicationManifest>`
 
 ### ✅ Code Signing Scripts
 1. **`Create-CodeSigningCert.ps1`** - Creates self-signed certificates
-2. **`Sign-HintOverlay.ps1`** - Signs your executable
+2. **`Sign-WindowsHinting.ps1`** - Signs your executable
 3. **`CODESIGNING_GUIDE.md`** - Complete documentation
 4. **`UIACCESS_QUICKSTART.md`** - Quick reference
 
@@ -53,9 +53,9 @@ Manifest (app.manifest): uiAccess="true"
     ↓
 Build (dotnet build -c Release)
     ↓
-Executable (HintOverlay.exe)
+Executable (Windows-Hinting.exe)
     ↓
-Sign (Sign-HintOverlay.ps1)
+Sign (Sign-WindowsHinting.ps1)
     ↓
 Signed Executable with Certificate
     ↓
@@ -98,8 +98,8 @@ cd C:\Users\knausj\git\Windows-Hinting
 
 # You'll see:
 # ✓ Certificate created
-# ✓ PFX file: C:\Users\knausj\HintOverlay_CodeSign.pfx
-# ✓ CER file: C:\Users\knausj\HintOverlay_CodeSign.cer
+# ✓ PFX file: C:\Users\knausj\WindowsHinting_CodeSign.pfx
+# ✓ CER file: C:\Users\knausj\WindowsHinting_CodeSign.cer
 ```
 
 **Save the password** you enter - you'll need it for signing.
@@ -108,7 +108,7 @@ cd C:\Users\knausj\git\Windows-Hinting
 
 ```powershell
 # Option A: Using Visual Studio (Recommended for now)
-# - Open HintOverlay.csproj in Visual Studio 2026
+# - Open Windows-Hinting.csproj in Visual Studio 2026
 # - Build → Build Solution (Release mode)
 
 # Option B: Using dotnet CLI (once build issue is fixed)
@@ -117,14 +117,14 @@ dotnet build -c Release
 
 Expected output location:
 ```
-bin\Release\net8.0-windows\HintOverlay.exe
+bin\Release\net8.0-windows\Windows-Hinting.exe
 ```
 
 ### Phase 3: Sign Executable
 
 ```powershell
 # Sign the executable with your certificate
-.\Sign-HintOverlay.ps1 -BuildConfiguration Release
+.\Sign-WindowsHinting.ps1 -BuildConfiguration Release
 
 # When prompted, enter the password from Phase 1
 
@@ -149,13 +149,13 @@ Your executable now has:
 ### Configuration Files
 ```
 app.manifest                    ← Manifest with uiAccess
-HintOverlay.csproj             ← References manifest
+Windows-Hinting.csproj             ← References manifest
 ```
 
 ### Automation Scripts
 ```
 Create-CodeSigningCert.ps1     ← Create certificates
-Sign-HintOverlay.ps1           ← Sign executables
+Sign-WindowsHinting.ps1           ← Sign executables
 ```
 
 ### Documentation
@@ -197,12 +197,12 @@ CODESIGNING_GUIDE.md            ← Detailed guide
 After running `Create-CodeSigningCert.ps1`:
 
 1. **PFX File** (for signing)
-   - Location: `C:\Users\knausj\HintOverlay_CodeSign.pfx`
+   - Location: `C:\Users\knausj\WindowsHinting_CodeSign.pfx`
    - Protected by password
-   - Used with Sign-HintOverlay.ps1
+   - Used with Sign-WindowsHinting.ps1
 
 2. **CER File** (for distribution)
-   - Location: `C:\Users\knausj\HintOverlay_CodeSign.cer`
+   - Location: `C:\Users\knausj\WindowsHinting_CodeSign.cer`
    - Can be shared with trusted publishers
    - Optional for development
 
@@ -272,13 +272,13 @@ Grants uiAccess privileges
 # - Ctrl+Shift+B or Build menu
 
 # Sign executable
-.\Sign-HintOverlay.ps1 -BuildConfiguration Release
+.\Sign-WindowsHinting.ps1 -BuildConfiguration Release
 
 # Verify signature
-Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe"
+Get-AuthenticodeSignature "bin\Release\net8.0-windows\Windows-Hinting.exe"
 
 # Check certificate details
-dir "C:\Users\knausj\HintOverlay_CodeSign.pfx"
+dir "C:\Users\knausj\WindowsHinting_CodeSign.pfx"
 ```
 
 ---
@@ -295,7 +295,7 @@ Visual Studio has the proper build tools for COM references.
 
 ### Option 2: Use MSBuild Directly
 ```powershell
-msbuild HintOverlay.sln /p:Configuration=Release
+msbuild Windows-Hinting.sln /p:Configuration=Release
 ```
 
 ### Option 3: Install Windows SDK
@@ -316,14 +316,14 @@ After signing and deploying:
 
 ### Test 1: Verify Signature
 ```powershell
-Get-AuthenticodeSignature "path\to\HintOverlay.exe"
+Get-AuthenticodeSignature "path\to\Windows-Hinting.exe"
 # Expected: Status = "Valid"
 ```
 
 ### Test 2: Check Manifest
 ```powershell
 # View embedded manifest
-mt.exe -inputresource:HintOverlay.exe;3 -out:manifest.xml
+mt.exe -inputresource:Windows-Hinting.exe;3 -out:manifest.xml
 # Should contain: uiAccess="true"
 ```
 
@@ -338,7 +338,7 @@ mt.exe -inputresource:HintOverlay.exe;3 -out:manifest.xml
 
 - [ ] Certificate created (`Create-CodeSigningCert.ps1`)
 - [ ] Project builds successfully
-- [ ] Executable signed (`Sign-HintOverlay.ps1`)
+- [ ] Executable signed (`Sign-WindowsHinting.ps1`)
 - [ ] Signature verified
 - [ ] Manifest embedded and correct
 - [ ] Tested with elevated processes
@@ -386,16 +386,16 @@ See `CODESIGNING_GUIDE.md` for commercial certificate details.
 
 3. **Build Release**
    - Visual Studio: `Ctrl+Shift+B`
-   - Or: `msbuild HintOverlay.sln /p:Configuration=Release`
+   - Or: `msbuild Windows-Hinting.sln /p:Configuration=Release`
 
 4. **Sign Executable**
    ```powershell
-   .\Sign-HintOverlay.ps1 -BuildConfiguration Release
+   .\Sign-WindowsHinting.ps1 -BuildConfiguration Release
    ```
 
 5. **Test**
    ```powershell
-   .\bin\Release\net8.0-windows\HintOverlay.exe
+   .\bin\Release\net8.0-windows\Windows-Hinting.exe
    ```
 
 6. **Deploy**

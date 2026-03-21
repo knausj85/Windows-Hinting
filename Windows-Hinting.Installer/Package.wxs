@@ -2,13 +2,13 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package
     Id="ProductPackage"
-    Name="HintOverlay"
+    Name="Windows-Hinting"
     Language="1033"
-    Version="!(bind.FileVersion.HintOverlayExe)"
+    Version="!(bind.FileVersion.WindowsHintingExe)"
     Manufacturer="Windows-Hinting"
     UpgradeCode="b2c3d4e5-f6a7-8901-bcde-f1234567890a">
 
-    <Media Id="1" Cabinet="HintOverlay.cab" EmbedCab="yes" />
+    <Media Id="1" Cabinet="WindowsHinting.cab" EmbedCab="yes" />
 
     <!-- Upgrade strategy -->
     <MajorUpgrade
@@ -17,7 +17,7 @@
       Schedule="afterInstallInitialize" />
 
     <!-- Main Product Feature -->
-    <Feature Id="ProductFeature" Title="HintOverlay" Level="1">
+    <Feature Id="ProductFeature" Title="Windows-Hinting" Level="1">
       <ComponentGroupRef Id="MainApplicationFiles" />
       <ComponentRef Id="DotNetRuntimeLibraries" />
       <ComponentRef Id="RuntimeRegistry" />

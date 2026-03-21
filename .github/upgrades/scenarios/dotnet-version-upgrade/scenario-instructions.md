@@ -2,7 +2,7 @@
 
 ## Scenario Context
 - **Scenario ID**: dotnet-version-upgrade
-- **Description**: Upgrade HintOverlay and WiX installer project to .NET 8
+- **Description**: Upgrade Windows-Hinting and WiX installer project to .NET 8
 - **Target Framework**: .NET 8.0 (net8.0 / net8.0-windows)
 - **Date Initialized**: 2024
 
@@ -43,7 +43,7 @@ The agent will run end-to-end, only pausing when:
 
 ### Execution Constraints
 
-1. **Single atomic upgrade** — Both HintOverlay.csproj and HintOverlay.Installer.wixproj updated together
+1. **Single atomic upgrade** — Both Windows-Hinting.csproj and Windows-Hinting.Installer.wixproj updated together
 2. **No tier ordering** — All projects treated as one group; no phased rollout needed
 3. **Build-and-fix pass** — Single comprehensive compilation pass; fix all errors at once
 4. **Full solution validation** — Entire solution must build with 0 errors before testing
@@ -73,7 +73,7 @@ The agent will run end-to-end, only pausing when:
 ## Task Execution Notes
 
 - **Total Tasks**: 2
-- **Task 1**: Update HintOverlay.Installer.wixproj for .NET 8 compatibility
+- **Task 1**: Update Windows-Hinting.Installer.wixproj for .NET 8 compatibility
 - **Task 2**: Verify solution integration and build validation
 
 ---
@@ -81,8 +81,8 @@ The agent will run end-to-end, only pausing when:
 ## Known Issues & Notes
 
 - WiX Toolset must remain installed throughout upgrade
-- WiX project references HintOverlay.csproj; ensure updatedpaths/references after any file reorganization
-- Installer package creation depends on successful HintOverlay.csproj build
+- WiX project references Windows-Hinting.csproj; ensure updatedpaths/references after any file reorganization
+- Installer package creation depends on successful Windows-Hinting.csproj build
 - No security vulnerabilities detected in dependencies
 
 ---

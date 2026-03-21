@@ -1,10 +1,10 @@
-# New-HintOverlayMSI.ps1
+# New-WindowsHintingMSI.ps1
 # Creates an MSI installer without requiring WiX Toolset
 # Uses DTF (Deployment Tools Foundation) approach
 
 <#
 .SYNOPSIS
-    Creates HintOverlay MSI installer without WiX
+    Creates Windows-Hinting MSI installer without WiX
 .DESCRIPTION
     Builds application, signs it, and creates MSI using native PowerShell/MSBuild
     Falls back to creating a basic MSI using MSI API if WiX is not available
@@ -13,7 +13,7 @@
 .PARAMETER OutputPath
     Where to save the MSI (default: bin\Release\)
 .EXAMPLE
-    .\New-HintOverlayMSI.ps1
+    .\New-WindowsHintingMSI.ps1
 #>
 
 param(
@@ -27,14 +27,14 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Get-Location
 $msbuild = "C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\MSBuild.exe"
 $signtool = "C:\Program Files (x86)\Microsoft Visual Studio\Shared\NuGetPackages\microsoft.windows.sdk.buildtools\10.0.26100.1742\bin\10.0.26100.0\x64\signtool.exe"
-$certPath = "$env:USERPROFILE\HintOverlay_CodeSign.pfx"
+$certPath = "$env:USERPROFILE\WindowsHinting_CodeSign.pfx"
 $certPassword = "test123"
-$exePath = "bin\Release\net8.0-windows\HintOverlay.exe"
-$msiPath = Join-Path $OutputPath "HintOverlay.msi"
-$cabPath = Join-Path $OutputPath "HintOverlay.cab"
+$exePath = "bin\Release\net8.0-windows\Windows-Hinting.exe"
+$msiPath = Join-Path $OutputPath "Windows-Hinting.msi"
+$cabPath = Join-Path $OutputPath "Windows-Hinting.cab"
 
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "HintOverlay MSI Creator (No WiX Required)" -ForegroundColor Cyan
+Write-Host "Windows-Hinting MSI Creator (No WiX Required)" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
@@ -68,7 +68,7 @@ if (-not (Test-Path $msbuild)) {
     exit 1
 }
 
-& $msbuild HintOverlay.sln /p:Configuration=Release /verbosity:minimal /nologo
+& $msbuild Windows-Hinting.sln /p:Configuration=Release /verbosity:minimal /nologo
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "✗ Build failed" -ForegroundColor Red
@@ -124,7 +124,7 @@ if (-not $SkipSign) {
 if ($hasWiX) {
     Write-Host "Step 3: Building MSI with WiX..." -ForegroundColor Cyan
 
-    & $msbuild HintOverlay.Installer\HintOverlay.Installer.wixproj /p:Configuration=Release /verbosity:minimal /nologo
+    & $msBuild Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj /p:Configuration=Release /verbosity:minimal /nologo
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "✗ WiX build failed" -ForegroundColor Red
@@ -153,7 +153,7 @@ if (-not $hasWiX) {
 
         # For now, create a placeholder with instructions
         $msiInfo = @"
-HintOverlay MSI Package Information
+Windows-Hinting MSI Package Information
 ==================================
 
 To create a fully functional MSI, please install WiX Toolset:
@@ -161,11 +161,11 @@ To create a fully functional MSI, please install WiX Toolset:
 - Or follow: MSI_INSTALLER_GUIDE.md → Install WiX
 
 Alternative: Run installer as-is from Program Files without MSI
-- Copy HintOverlay.exe to C:\Program Files\HintOverlay\
+- Copy Windows-Hinting.exe to C:\Program Files\Windows-Hinting\
 - Create shortcuts manually if needed
 
 For now, use direct installation:
-  Copy-Item "bin\Release\net8.0-windows\HintOverlay.exe" -Destination "C:\Program Files\HintOverlay\" -Force
+  Copy-Item "bin\Release\net8.0-windows\Windows-Hinting.exe" -Destination "C:\Program Files\Windows-Hinting\" -Force
 
 Signed executable is ready at:
   $exePath
@@ -234,7 +234,7 @@ if (Test-Path $msiPath) {
     Write-Host "  $exePath" -ForegroundColor Green
     Write-Host ""
     Write-Host "This executable has uiAccess enabled and can be:" -ForegroundColor Cyan
-    Write-Host "  1. Installed directly to C:\Program Files\HintOverlay\" -ForegroundColor Cyan
+    Write-Host "  1. Installed directly to C:\Program Files\Windows-Hinting\" -ForegroundColor Cyan
     Write-Host "  2. Distributed to other computers" -ForegroundColor Cyan
     Write-Host "  3. Packaged into MSI after installing WiX" -ForegroundColor Cyan
     Write-Host ""

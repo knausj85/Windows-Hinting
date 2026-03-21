@@ -6,7 +6,7 @@
 ```
 Configuration: Release
 Framework: .NET 8.0-windows
-Output: bin\Release\net8.0-windows\HintOverlay.exe
+Output: bin\Release\net8.0-windows\Windows-Hinting.exe
 Size: 134,144 bytes
 Status: ✓ Successful
 ```
@@ -14,7 +14,7 @@ Status: ✓ Successful
 **Build Command Used:**
 ```powershell
 & "C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\MSBuild.exe" `
-  HintOverlay.sln /p:Configuration=Release /verbosity:minimal
+  Windows-Hinting.sln /p:Configuration=Release /verbosity:minimal
 ```
 
 **Key Points:**
@@ -29,7 +29,7 @@ Status: ✓ Successful
 
 **Certificate Created:**
 ```
-Subject: CN=HintOverlay Development
+Subject: CN=Windows-Hinting Development
 Issued By: Self-Signed
 Valid From: 3/14/2026 9:53:57 PM
 Valid Until: 3/14/2036 10:03:57 PM
@@ -37,22 +37,22 @@ Thumbprint: E06E97623F5D68DE9A59BC21FF5B8DB26A719A58
 ```
 
 **Files Created:**
-- `C:\Users\knausj\HintOverlay_CodeSign.pfx` (PFX with private key)
-- `C:\Users\knausj\HintOverlay_CodeSign.cer` (Certificate only)
+- `C:\Users\knausj\WindowsHinting_CodeSign.pfx` (PFX with private key)
+- `C:\Users\knausj\WindowsHinting_CodeSign.cer` (Certificate only)
 
 **Signing Command:**
 ```powershell
 & "C:\Program Files (x86)\Microsoft Visual Studio\Shared\NuGetPackages\microsoft.windows.sdk.buildtools\10.0.26100.1742\bin\10.0.26100.0\x64\signtool.exe" `
   sign `
-  /f "C:\Users\knausj\HintOverlay_CodeSign.pfx" `
+  /f "C:\Users\knausj\WindowsHinting_CodeSign.pfx" `
   /p "test123" `
   /fd SHA256 `
-  /v "C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\HintOverlay.exe"
+  /v "C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe"
 ```
 
 **Signing Result:**
 ```
-✓ Successfully signed: HintOverlay.exe
+✓ Successfully signed: Windows-Hinting.exe
 ✓ Number of files successfully signed: 1
 ✓ Number of warnings: 0
 ✓ Number of errors: 0
@@ -64,7 +64,7 @@ Thumbprint: E06E97623F5D68DE9A59BC21FF5B8DB26A719A58
 
 ### 1. Signed Executable with uiAccess
 ```
-C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\HintOverlay.exe
+C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe
 ├─ ✅ Embedded manifest with uiAccess="true"
 ├─ ✅ Digital signature (self-signed)
 ├─ ✅ Certificate chain
@@ -74,15 +74,15 @@ C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\HintOverlay.exe
 ### 2. Code Signing Infrastructure
 ```
 C:\Users\knausj\
-├─ HintOverlay_CodeSign.pfx (for signing, password-protected)
-└─ HintOverlay_CodeSign.cer (for distribution/trust)
+├─ WindowsHinting_CodeSign.pfx (for signing, password-protected)
+└─ WindowsHinting_CodeSign.cer (for distribution/trust)
 ```
 
 ### 3. Build & Sign Scripts
 ```
 C:\Users\knausj\git\Windows-Hinting\
-├─ Build-HintOverlay.ps1 (updated with correct MSBuild path)
-├─ Sign-HintOverlay.ps1 (updated with correct signtool paths)
+├─ Build-WindowsHinting.ps1 (updated with correct MSBuild path)
+├─ Sign-WindowsHinting.ps1 (updated with correct signtool paths)
 └─ Create-CodeSigningCert.ps1 (for future certificates)
 ```
 
@@ -93,7 +93,7 @@ C:\Users\knausj\git\Windows-Hinting\
 ### Verify Signature:
 ```powershell
 # Check if signed
-Get-AuthenticodeSignature "C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\HintOverlay.exe"
+Get-AuthenticodeSignature "C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe"
 
 # Shows: Self-signed cert (UnknownError status is normal for self-signed)
 # But signature is valid!
@@ -101,13 +101,13 @@ Get-AuthenticodeSignature "C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.
 
 ### Run the Executable:
 ```powershell
-& "C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\HintOverlay.exe"
+& "C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe"
 ```
 
 ### Check Manifest is Embedded:
 ```powershell
 # View embedded manifest
-mt.exe -inputresource:"C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\HintOverlay.exe";3 -out:manifest.xml
+mt.exe -inputresource:"C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe";3 -out:manifest.xml
 ```
 
 ---
@@ -118,7 +118,7 @@ mt.exe -inputresource:"C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-wi
 ```powershell
 # MSBuild (for COM references)
 & "C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\MSBuild.exe" `
-  HintOverlay.sln /p:Configuration=Release
+  Windows-Hinting.sln /p:Configuration=Release
 
 # Or use Visual Studio GUI: Ctrl+Shift+B (Release mode)
 ```
@@ -129,16 +129,16 @@ mt.exe -inputresource:"C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-wi
 "C:\Program Files (x86)\Microsoft Visual Studio\Shared\NuGetPackages\microsoft.windows.sdk.buildtools\10.0.26100.1742\bin\10.0.26100.0\x64\signtool.exe"
 
 # Command
-signtool sign /f "C:\Users\knausj\HintOverlay_CodeSign.pfx" /p "test123" /fd SHA256 HintOverlay.exe
+signtool sign /f "C:\Users\knausj\WindowsHinting_CodeSign.pfx" /p "test123" /fd SHA256 Windows-Hinting.exe
 ```
 
 ### Certificate
 ```powershell
 # PFX (private key) - password: test123
-C:\Users\knausj\HintOverlay_CodeSign.pfx
+C:\Users\knausj\WindowsHinting_CodeSign.pfx
 
 # CER (public cert) - for trusting
-C:\Users\knausj\HintOverlay_CodeSign.cer
+C:\Users\knausj\WindowsHinting_CodeSign.cer
 ```
 
 ---
@@ -148,7 +148,7 @@ C:\Users\knausj\HintOverlay_CodeSign.cer
 ### Option 1: Test the Application
 ```powershell
 # Run the signed executable
-& ".\bin\Release\net8.0-windows\HintOverlay.exe"
+& ".\bin\Release\net8.0-windows\Windows-Hinting.exe"
 
 # Should have:
 # ✓ uiAccess capabilities enabled
@@ -161,12 +161,12 @@ Create a `build-and-sign.ps1` script:
 ```powershell
 # Build
 & "C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\MSBuild.exe" `
-  HintOverlay.sln /p:Configuration=Release
+  Windows-Hinting.sln /p:Configuration=Release
 
 # Sign
 & "C:\Program Files (x86)\Microsoft Visual Studio\Shared\NuGetPackages\microsoft.windows.sdk.buildtools\10.0.26100.1742\bin\10.0.26100.0\x64\signtool.exe" `
-  sign /f "C:\Users\knausj\HintOverlay_CodeSign.pfx" /p "test123" /fd SHA256 /v `
-  "bin\Release\net8.0-windows\HintOverlay.exe"
+  sign /f "C:\Users\knausj\WindowsHinting_CodeSign.pfx" /p "test123" /fd SHA256 /v `
+  "bin\Release\net8.0-windows\Windows-Hinting.exe"
 
 Write-Host "Build and sign complete!"
 ```
@@ -175,7 +175,7 @@ Write-Host "Build and sign complete!"
 For testing, you can add it to Trusted Publishers:
 ```powershell
 # Run as Administrator
-Import-Certificate -FilePath "C:\Users\knausj\HintOverlay_CodeSign.cer" `
+Import-Certificate -FilePath "C:\Users\knausj\WindowsHinting_CodeSign.cer" `
   -CertStoreLocation "Cert:\LocalMachine\TrustedPublisher"
 ```
 
@@ -196,17 +196,17 @@ Import-Certificate -FilePath "C:\Users\knausj\HintOverlay_CodeSign.cer" `
 ## Files Modified/Created
 
 ### Modified
-- `HintOverlay.csproj` - Added `<ApplicationManifest>app.manifest</ApplicationManifest>`
-- `Sign-HintOverlay.ps1` - Added signtool paths for VS 2026
-- `Build-HintOverlay.ps1` - Created for future builds
+- `Windows-Hinting.csproj` - Added `<ApplicationManifest>app.manifest</ApplicationManifest>`
+- `Sign-WindowsHinting.ps1` - Added signtool paths for VS 2026
+- `Build-WindowsHinting.ps1` - Created for future builds
 
 ### Created
 - `app.manifest` - Declares uiAccess
-- `C:\Users\knausj\HintOverlay_CodeSign.pfx` - Certificate with private key
-- `C:\Users\knausj\HintOverlay_CodeSign.cer` - Public certificate
+- `C:\Users\knausj\WindowsHinting_CodeSign.pfx` - Certificate with private key
+- `C:\Users\knausj\WindowsHinting_CodeSign.cer` - Public certificate
 
 ### Output
-- `bin\Release\net8.0-windows\HintOverlay.exe` - **Signed with uiAccess!**
+- `bin\Release\net8.0-windows\Windows-Hinting.exe` - **Signed with uiAccess!**
 
 ---
 
@@ -240,12 +240,12 @@ For future builds, simply:
 
 # 2. Build (Use Visual Studio or MSBuild)
 & "C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\MSBuild.exe" `
-  HintOverlay.sln /p:Configuration=Release
+  Windows-Hinting.sln /p:Configuration=Release
 
 # 3. Sign
 & "C:\Program Files (x86)\Microsoft Visual Studio\Shared\NuGetPackages\microsoft.windows.sdk.buildtools\10.0.26100.1742\bin\10.0.26100.0\x64\signtool.exe" `
-  sign /f "C:\Users\knausj\HintOverlay_CodeSign.pfx" /p "test123" /fd SHA256 /v `
-  "bin\Release\net8.0-windows\HintOverlay.exe"
+  sign /f "C:\Users\knausj\WindowsHinting_CodeSign.pfx" /p "test123" /fd SHA256 /v `
+  "bin\Release\net8.0-windows\Windows-Hinting.exe"
 
 # 4. Done! Signed executable ready
 ```

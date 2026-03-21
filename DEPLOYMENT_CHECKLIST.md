@@ -12,7 +12,7 @@
 - [x] Examples provided
 - [x] Tests implemented
 
-## For HintOverlay Developers
+## for Windows-Hinting Developers
 
 ### Integration Steps
 
@@ -24,7 +24,7 @@
 
 2. **Test Locally**
    - [ ] Build solution successfully
-   - [ ] Run HintOverlay application
+   - [ ] Run Windows-Hinting application
    - [ ] Test manual toggle (should still work)
    - [ ] Test keyboard hotkey (should still work)
    - [ ] Test tray icon toggle (should still work)
@@ -63,21 +63,21 @@
    - [ ] Call desired methods
 
 3. **Build & Test**
-   - [ ] Ensure HintOverlay is running
+   - [ ] Ensure Windows-Hinting is running
    - [ ] Test Toggle command
    - [ ] Test SelectHint with valid labels
    - [ ] Test Deactivate command
    - [ ] Verify error handling for invalid labels
 
 4. **Handle Order Independence**
-   - [ ] Test starting your app before HintOverlay
+   - [ ] Test starting your app before Windows-Hinting
    - [ ] Should automatically retry and connect
    - [ ] Verify no crashes or hangs
 
 5. **Production Deployment**
    - [ ] Add error handling for command failures
    - [ ] Log any connection issues for debugging
-   - [ ] Test with both old and new HintOverlay versions
+   - [ ] Test with both old and new Windows-Hinting versions
 
 ## Testing Checklist
 
@@ -150,7 +150,7 @@
 
 ## Deployment Steps
 
-### For HintOverlay Project
+### for Windows-Hinting Project
 
 1. Review all modified files
 2. Run full test suite
@@ -166,11 +166,11 @@
 
 1. Copy `HintOverlayClient.cs` or integrate as reference
 2. Update any documentation to reference named pipe interface
-3. Test with HintOverlay installed
-4. Add error handling for when HintOverlay not running
+3. Test with Windows-Hinting installed
+4. Add error handling for when Windows-Hinting not running
 5. Consider adding logging for debugging
 6. Document the feature in your app's help/documentation
-7. Deploy with version requirement: HintOverlay v1.0+ (or whatever version this ships in)
+7. Deploy with version requirement: Windows-Hinting v1.0+ (or whatever version this ships in)
 
 ## Documentation Deliverables
 
@@ -188,12 +188,12 @@ The following documentation is provided:
 
 ### Issue: "Connection timeout" when calling client
 
-**Likely Cause:** HintOverlay not running
+**Likely Cause:** Windows-Hinting not running
 
 **Solutions:**
-- Verify HintOverlay.exe is running
+- Verify Windows-Hinting.exe is running
 - Check Windows Event Viewer for crashes
-- Check HintOverlay logs for startup errors
+- Check Windows-Hinting logs for startup errors
 
 ### Issue: Commands sent but nothing happens
 
@@ -204,7 +204,7 @@ The following documentation is provided:
 **Solutions:**
 - Add delay after TOGGLE before SELECT
 - Verify hint label matches exactly (case-insensitive matching works)
-- Check HintOverlay logs for warnings about invalid labels
+- Check Windows-Hinting logs for warnings about invalid labels
 
 ### Issue: "Connection refused" on first attempt
 
@@ -212,8 +212,8 @@ The following documentation is provided:
 
 **Solutions:**
 - Client automatically retries up to 50 times (5 seconds)
-- Wait for HintOverlay to fully start
-- Check HintOverlay startup logs
+- Wait for Windows-Hinting to fully start
+- Check Windows-Hinting startup logs
 
 ### Issue: Multiple clients interfering with each other
 
@@ -222,13 +222,13 @@ The following documentation is provided:
 **Solutions:**
 - Client connects, sends command, disconnects
 - All clients can operate independently
-- Verify HintOverlay is handling connections properly
+- Verify Windows-Hinting is handling connections properly
 - Check for named pipe server errors in logs
 
 ### Issue: No logging visible
 
 **Solutions:**
-- Check HintOverlay application logs
+- Check Windows-Hinting application logs
 - Verify logging level is set to Debug or higher
 - Named pipe operations logged at Info level by default
 
@@ -268,7 +268,7 @@ If issues discovered after deployment:
 ## Version Information
 
 - **Target Framework:** .NET 8
-- **Named Pipe Name:** `HintOverlay_Pipe` (Windows only)
+- **Named Pipe Name:** `WindowsHinting_Pipe` (Windows only)
 - **Protocol:** UTF-8 text, newline-delimited
 - **Backward Compatibility:** No breaking changes to existing API
 

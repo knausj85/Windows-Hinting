@@ -17,6 +17,7 @@ namespace HintOverlay
 
         // General tab controls
         private CheckBox _chkShowRectangles = null!;
+        private ComboBox _cmbHintPosition = null!;
         private CheckBox _chkHotkeyEnabled = null!;
         private HotkeyRecorderControl _hotkeyRecorder = null!;
         private CheckBox _chkTaskbarHotkeyEnabled = null!;
@@ -124,9 +125,10 @@ namespace HintOverlay
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 5,
+                RowCount = 6,
                 Padding = new Padding(10)
             };
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -141,6 +143,31 @@ namespace HintOverlay
                 Dock = DockStyle.Fill
             };
             layout.Controls.Add(_chkShowRectangles, 0, 0);
+
+            // Hint position
+            var hintPosPanel = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                WrapContents = false
+            };
+            var lblHintPosition = new Label
+            {
+                Text = "Hint label position:",
+                AutoSize = true,
+                Anchor = AnchorStyles.Left,
+                Padding = new Padding(0, 4, 0, 0)
+            };
+            _cmbHintPosition = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Width = 140
+            };
+            _cmbHintPosition.DataSource = Enum.GetValues<HintPosition>();
+            hintPosPanel.Controls.Add(lblHintPosition);
+            hintPosPanel.Controls.Add(_cmbHintPosition);
+            layout.Controls.Add(hintPosPanel, 0, 1);
 
             // Hotkey configuration
             var hotkeyGroup = new GroupBox
@@ -172,7 +199,7 @@ namespace HintOverlay
 
             hotkeyGroup.Controls.Add(_hotkeyRecorder);
             hotkeyGroup.Controls.Add(_chkHotkeyEnabled);
-            layout.Controls.Add(hotkeyGroup, 0, 1);
+            layout.Controls.Add(hotkeyGroup, 0, 2);
 
             // Taskbar hotkey configuration
             var taskbarHotkeyGroup = new GroupBox
@@ -204,7 +231,7 @@ namespace HintOverlay
 
             taskbarHotkeyGroup.Controls.Add(_taskbarHotkeyRecorder);
             taskbarHotkeyGroup.Controls.Add(_chkTaskbarHotkeyEnabled);
-            layout.Controls.Add(taskbarHotkeyGroup, 0, 2);
+            layout.Controls.Add(taskbarHotkeyGroup, 0, 3);
 
             // Click action shortcuts configuration
             var clickActionGroup = new GroupBox
@@ -261,7 +288,7 @@ namespace HintOverlay
             clickActionLayout.Controls.Add(_doubleClickKeyRecorder, 1, 3);
 
             clickActionGroup.Controls.Add(clickActionLayout);
-            layout.Controls.Add(clickActionGroup, 0, 3);
+            layout.Controls.Add(clickActionGroup, 0, 4);
 
             tab.Controls.Add(layout);
             return tab;
@@ -418,6 +445,7 @@ namespace HintOverlay
         private void LoadPreferences()
         {
             _chkShowRectangles.Checked = _options.ShowRectangles;
+            _cmbHintPosition.SelectedItem = _options.HintPosition;
             _chkHotkeyEnabled.Checked = _options.Hotkey.Enabled;
             _hotkeyRecorder.Enabled = _options.Hotkey.Enabled;
             _hotkeyRecorder.SetHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
@@ -443,6 +471,7 @@ namespace HintOverlay
         private void BtnOk_Click(object? sender, EventArgs e)
         {
             _options.ShowRectangles = _chkShowRectangles.Checked;
+            _options.HintPosition = (HintPosition)(_cmbHintPosition.SelectedItem ?? HintPosition.UpperLeft);
             _options.Hotkey.Enabled = _chkHotkeyEnabled.Checked;
             _options.Hotkey.Modifiers = _hotkeyRecorder.HotkeyModifiers;
             _options.Hotkey.VirtualKey = _hotkeyRecorder.HotkeyVirtualKey;

@@ -4,6 +4,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <AssemblyName>Windows-Hinting</AssemblyName>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -18,8 +19,8 @@
     <AssemblyOriginatorKeyFile Condition="'$(AssemblyOriginatorKeyFile)' == ''"></AssemblyOriginatorKeyFile>
     <DelaySign>false</DelaySign>
     <!-- Default certificate path for self-signed development certificate -->
-    <DefaultCodeSigningCertPath>$(MSBuildProjectDirectory)\certs\HintOverlay_CodeSign.pfx</DefaultCodeSigningCertPath>
-    <DefaultCodeSigningPassword>HintOverlay_BuildCert_2024</DefaultCodeSigningPassword>
+    <DefaultCodeSigningCertPath>$(MSBuildProjectDirectory)\certs\WindowsHinting_CodeSign.pfx</DefaultCodeSigningCertPath>
+    <DefaultCodeSigningPassword>WindowsHinting_BuildCert_2024</DefaultCodeSigningPassword>
     <!-- Use default cert if available and no explicit cert path provided -->
     <CodeSigningCertPath Condition="'$(CodeSigningCertPath)' == ''">$(DefaultCodeSigningCertPath)</CodeSigningCertPath>
     <CodeSigningPassword Condition="'$(CodeSigningPassword)' == ''">$(DefaultCodeSigningPassword)</CodeSigningPassword>

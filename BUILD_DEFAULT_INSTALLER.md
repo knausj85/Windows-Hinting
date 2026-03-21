@@ -204,12 +204,12 @@ Expected output:
 After running `.\build\build-complete.ps1`:
 
 ```
-HintOverlay/
+Windows-Hinting/
 ├── bin/Release/net8.0-windows/
-│   └── HintOverlay.exe               ← Signed
+│   └── Windows-Hinting.exe               ← Signed
 │
-└── HintOverlay.Installer2/bin/Release/en-US/
-    └── HintOverlay.msi               ← With signed exe
+└── Windows-Hinting.Installer/bin/Release/en-US/
+    └── Windows-Hinting.msi               ← With signed exe
 ```
 
 ---
@@ -272,8 +272,8 @@ Update your scripts:
 | `-Configuration` | Release | Debug or Release build |
 | `-ExeOnly` | False | Skip MSI build |
 | `-SkipSigning` | False | Skip code signing |
-| `-CertPath` | `certs\HintOverlay_CodeSign.pfx` | Certificate file path |
-| `-CertPassword` | `HintOverlay_BuildCert_2024` | Certificate password |
+| `-CertPath` | `certs\WindowsHinting_CodeSign.pfx` | Certificate file path |
+| `-CertPassword` | `WindowsHinting_BuildCert_2024` | Certificate password |
 
 ---
 
@@ -288,12 +288,12 @@ Update your scripts:
 
 3. Test the installer:
    ```powershell
-   msiexec /i HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+   msiexec /i Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
    ```
 
 4. Check signature:
    ```powershell
-   Get-AuthenticodeSignature "C:\Program Files\HintOverlay\HintOverlay.exe"
+   Get-AuthenticodeSignature "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
    ```
 
 ---

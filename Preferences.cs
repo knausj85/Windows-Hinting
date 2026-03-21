@@ -12,7 +12,7 @@ namespace HintOverlay
 
         private static readonly string PrefsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "HintOverlay",
+            "Windows-Hinting",
             "preferences.json");
 
         public static Preferences Load()

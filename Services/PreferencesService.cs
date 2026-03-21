@@ -10,7 +10,7 @@ namespace HintOverlay.Services
     {
         private static readonly string PrefsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "HintOverlay",
+            "Windows-Hinting",
             "preferences.json");
 
         private static readonly JsonSerializerOptions JsonOptions = new()

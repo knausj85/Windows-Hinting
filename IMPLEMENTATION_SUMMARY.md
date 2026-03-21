@@ -2,7 +2,7 @@
 
 ## What Was Implemented
 
-A complete named pipe interface for HintOverlay that allows external applications to control hints remotely. The implementation ensures that **execution order doesn't matter** - the connecting app can start before or after the main app.
+A complete named pipe interface for Windows-Hinting that allows external applications to control hints remotely. The implementation ensures that **execution order doesn't matter** - the connecting app can start before or after the main app.
 
 ## Files Added
 
@@ -102,7 +102,7 @@ A complete named pipe interface for HintOverlay that allows external application
              ▼
 ┌─────────────────────────────────┐
 │  Windows Named Pipe             │
-│  "HintOverlay_Pipe"             │
+│  "WindowsHinting_Pipe"             │
 │  (UTF-8 text, line-delimited)   │
 └────────────┬────────────────────┘
              │
@@ -155,7 +155,7 @@ client.SelectHint("A");
 
 ### PowerShell - Direct Pipe
 ```powershell
-$pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "HintOverlay_Pipe", [System.IO.Pipes.PipeDirection]::Out)
+$pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "WindowsHinting_Pipe", [System.IO.Pipes.PipeDirection]::Out)
 $pipe.Connect(5000)
 $writer = New-Object System.IO.StreamWriter($pipe)
 $writer.WriteLine("TOGGLE")
@@ -171,7 +171,7 @@ import win32pipe
 import win32file
 
 handle = win32file.CreateFile(
-    r"\\.\pipe\HintOverlay_Pipe",
+    r"\\.\pipe\WindowsHinting_Pipe",
     win32file.GENERIC_WRITE, 0, None,
     win32file.OPEN_EXISTING, 0, None
 )
@@ -200,7 +200,7 @@ Tests include:
 
 ## Integration Points
 
-### For HintOverlay Application
+### For Windows-Hinting application
 1. NamedPipeService automatically starts with HintController
 2. Handles incoming commands via event
 3. Integrates with existing HintStateManager
@@ -216,7 +216,7 @@ Tests include:
 
 | Setting | Value | Location |
 |---------|-------|----------|
-| Pipe Name | `HintOverlay_Pipe` | NamedPipeService.cs |
+| Pipe Name | `WindowsHinting_Pipe` | NamedPipeService.cs |
 | Max Connections | 10 | NamedPipeService.cs |
 | Client Retries | 50 | HintOverlayClient.cs |
 | Retry Delay | 100ms | HintOverlayClient.cs |
@@ -268,4 +268,4 @@ For questions or issues:
 - Check the detailed documentation in `NAMED_PIPE_INTERFACE.md`
 - Review examples in `Examples/HintOverlayClientExamples.cs`
 - Run the test suite to diagnose issues
-- Check HintOverlay logs for server-side details
+- Check Windows-Hinting logs for server-side details

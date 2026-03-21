@@ -43,11 +43,11 @@ The `build-complete.ps1` script now builds **both the signed executable AND MSI 
 ## 📊 What Gets Built (Default)
 
 ```
-✅ bin\Release\net8.0-windows\HintOverlay.exe
+✅ bin\Release\net8.0-windows\Windows-Hinting.exe
    └─ Code-signed
    └─ Verified
 
-✅ HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+✅ Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
    └─ Contains signed executable
    └─ Verified
 ```
@@ -98,7 +98,7 @@ The `build-complete.ps1` script now builds **both the signed executable AND MSI 
 
 ```
 [1/4] Build Executable
-      └─ Compiles HintOverlay.csproj
+      └─ Compiles Windows-Hinting.csproj
       └─ Signs with certificate
 
 [2/4] Verify Executable Signature
@@ -185,8 +185,8 @@ Expected: Same as PowerShell, builds exe + MSI ✅
 & .\build\build-complete.ps1 -Configuration Release
 
 # Archive outputs
-Copy-Item "bin\Release\net8.0-windows\HintOverlay.exe" "artifacts\"
-Copy-Item "HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi" "artifacts\"
+Copy-Item "bin\Release\net8.0-windows\Windows-Hinting.exe" "artifacts\"
+Copy-Item "Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi" "artifacts\"
 ```
 
 ### Local Development
@@ -195,7 +195,7 @@ Copy-Item "HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi" "artifacts\
 .\build\build-complete.ps1
 
 # Test installer
-msiexec /i HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+msiexec /i Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
 ```
 
 ### Quick Exe Build Only
@@ -240,17 +240,17 @@ To build exe-only:
    ```
 
 2. **Verify outputs:**
-   - Check `bin\Release\net8.0-windows\HintOverlay.exe`
-   - Check `HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi`
+   - Check `bin\Release\net8.0-windows\Windows-Hinting.exe`
+   - Check `Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi`
 
 3. **Test installer:**
    ```powershell
-   msiexec /i HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+   msiexec /i Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
    ```
 
 4. **Verify signature:**
    ```powershell
-   Get-AuthenticodeSignature "C:\Program Files\HintOverlay\HintOverlay.exe"
+   Get-AuthenticodeSignature "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
    ```
 
 ---

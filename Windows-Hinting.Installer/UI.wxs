@@ -1,6 +1,6 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
-    <!-- Simplified UI configuration for HintOverlay installer -->
+    <!-- Simplified UI configuration for Windows-Hinting installer -->
     <!-- This uses basic MSI UI without custom dialogs -->
 
     <!-- Property definitions for UI -->

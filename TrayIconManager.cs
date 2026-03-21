@@ -19,7 +19,7 @@ namespace HintOverlay
             _currentIcon = CreateTrayIcon("H");
             _trayIcon = new NotifyIcon
             {
-                Text = "HintOverlay",
+                Text = "Windows-Hinting",
                 Visible = true,
                 Icon = _currentIcon
             };

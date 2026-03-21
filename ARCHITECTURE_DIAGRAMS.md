@@ -19,7 +19,7 @@
                            │
               ┌────────────▼──────────────┐
               │  Windows Named Pipe       │
-              │  "HintOverlay_Pipe"       │
+              │  "WindowsHinting_Pipe"       │
               │  (UTF-8, line-delimited)  │
               └────────────┬──────────────┘
                            │
@@ -165,7 +165,7 @@ HintMode State Machine:
 ## File Organization
 
 ```
-HintOverlay/
+Windows-Hinting/
 │
 ├── Services/
 │   └── NamedPipeService.cs          ✨ NEW - Server implementation
@@ -227,7 +227,7 @@ HintOverlay/
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│         HintOverlay Application                         │
+│         Windows-Hinting application                         │
 │                                                         │
 │  ┌───────────────────────────────────────────────────┐ │
 │  │ HintController                                    │ │

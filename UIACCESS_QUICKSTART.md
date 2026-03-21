@@ -3,7 +3,7 @@
 ## What Was Done
 
 ✅ **Created `app.manifest`** - Enables `uiAccess="true"` for your application
-✅ **Updated `HintOverlay.csproj`** - References the manifest file
+✅ **Updated `Windows-Hinting.csproj`** - References the manifest file
 ✅ **Created signing scripts** - PowerShell scripts to sign your executable
 ✅ **Created documentation** - Complete guide for all scenarios
 
@@ -43,7 +43,7 @@ dotnet build -c Release
 ### Step 3: Sign the Executable
 
 ```powershell
-.\Sign-HintOverlay.ps1 -BuildConfiguration Release
+.\Sign-WindowsHinting.ps1 -BuildConfiguration Release
 ```
 
 When prompted, enter the certificate password from Step 1.
@@ -54,7 +54,7 @@ Your executable is now signed with uiAccess enabled.
 
 ```powershell
 # Test it
-.\bin\Release\net8.0-windows\HintOverlay.exe
+.\bin\Release\net8.0-windows\Windows-Hinting.exe
 ```
 
 ---
@@ -89,9 +89,9 @@ This tells Windows:
 ```
 Build (dotnet build)
     ↓
-Executable (HintOverlay.exe)
+Executable (Windows-Hinting.exe)
     ↓
-Sign with Certificate (Sign-HintOverlay.ps1)
+Sign with Certificate (Sign-WindowsHinting.ps1)
     ↓
 Signed Executable (with uiAccess enabled)
     ↓
@@ -103,11 +103,11 @@ Can interact with privileged UI elements
 ## Files Created
 
 ```
-HintOverlay/
+Windows-Hinting/
 ├── app.manifest                  ← Enables uiAccess
-├── HintOverlay.csproj           ← References manifest
+├── Windows-Hinting.csproj           ← References manifest
 ├── Create-CodeSigningCert.ps1    ← Creates self-signed cert
-├── Sign-HintOverlay.ps1          ← Signs executable
+├── Sign-WindowsHinting.ps1          ← Signs executable
 └── CODESIGNING_GUIDE.md          ← Detailed documentation
 ```
 
@@ -117,12 +117,12 @@ HintOverlay/
 
 ### "I want to sign my Release build"
 ```powershell
-.\Sign-HintOverlay.ps1 -BuildConfiguration Release
+.\Sign-WindowsHinting.ps1 -BuildConfiguration Release
 ```
 
 ### "I want to sign my Debug build"
 ```powershell
-.\Sign-HintOverlay.ps1 -BuildConfiguration Debug
+.\Sign-WindowsHinting.ps1 -BuildConfiguration Debug
 ```
 
 ### "I lost my certificate"
@@ -133,12 +133,12 @@ Create a new one:
 
 ### "I want to use a different certificate"
 ```powershell
-.\Sign-HintOverlay.ps1 -CertificatePath "C:\path\to\cert.pfx" -CertificatePassword "password"
+.\Sign-WindowsHinting.ps1 -CertificatePath "C:\path\to\cert.pfx" -CertificatePassword "password"
 ```
 
 ### "I want to verify a signature"
 ```powershell
-Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe"
+Get-AuthenticodeSignature "bin\Release\net8.0-windows\Windows-Hinting.exe"
 ```
 
 ---
@@ -162,7 +162,7 @@ Run PowerShell as Administrator
 1. Verify manifest is in `app.manifest`
 2. Verify `.csproj` references it: `<ApplicationManifest>app.manifest</ApplicationManifest>`
 3. Rebuild: `dotnet clean && dotnet build -c Release`
-4. Re-sign: `.\Sign-HintOverlay.ps1 -BuildConfiguration Release`
+4. Re-sign: `.\Sign-WindowsHinting.ps1 -BuildConfiguration Release`
 5. Test the new executable
 
 ### "Timestamp server failed"
@@ -207,8 +207,8 @@ Example workflow:
 
 1. **Create certificate**: `.\Create-CodeSigningCert.ps1`
 2. **Build project**: `dotnet build -c Release`
-3. **Sign executable**: `.\Sign-HintOverlay.ps1 -BuildConfiguration Release`
-4. **Test**: `.\bin\Release\net8.0-windows\HintOverlay.exe`
+3. **Sign executable**: `.\Sign-WindowsHinting.ps1 -BuildConfiguration Release`
+4. **Test**: `.\bin\Release\net8.0-windows\Windows-Hinting.exe`
 5. **Deploy**: Share the signed executable
 
 ---
@@ -217,7 +217,7 @@ Example workflow:
 
 - **CODESIGNING_GUIDE.md** - Complete guide with all options
 - **app.manifest** - Configuration for uiAccess
-- **Sign-HintOverlay.ps1** - Detailed signing script
+- **Sign-WindowsHinting.ps1** - Detailed signing script
 - **Create-CodeSigningCert.ps1** - Certificate creation script
 
 ---

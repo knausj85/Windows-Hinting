@@ -54,8 +54,8 @@ cd C:\Users\knausj\git\Windows-Hinting
 ```
 
 **Done!** You now have:
-- ✅ Signed executable: `bin\Release\net8.0-windows\HintOverlay.exe`
-- ✅ MSI installer: `HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi`
+- ✅ Signed executable: `bin\Release\net8.0-windows\Windows-Hinting.exe`
+- ✅ MSI installer: `Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi`
 
 ---
 
@@ -97,7 +97,7 @@ cd C:\Users\knausj\git\Windows-Hinting
 ```
 ┌─────────────────────────────────────┐
 │  [1/4] Build Executable             │
-│        Compile HintOverlay.csproj    │
+│        Compile Windows-Hinting.csproj    │
 │        Apply code signing            │
 └────────────────┬────────────────────┘
                  │
@@ -180,12 +180,12 @@ See `build\COMMAND_REFERENCE.md` for 15+ more examples.
 After running with `-Installer`:
 
 ```
-HintOverlay/
+Windows-Hinting/
 ├── bin/Release/net8.0-windows/
-│   └── HintOverlay.exe               ← Signed executable
+│   └── Windows-Hinting.exe               ← Signed executable
 │
-└── HintOverlay.Installer2/bin/Release/en-US/
-    └── HintOverlay.msi               ← MSI with signed exe
+└── Windows-Hinting.Installer/bin/Release/en-US/
+    └── Windows-Hinting.msi               ← MSI with signed exe
 ```
 
 ---
@@ -200,12 +200,12 @@ HintOverlay/
 
 ### Test the Installer
 ```powershell
-msiexec /i HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+msiexec /i Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
 ```
 
 ### Verify Signature
 ```powershell
-Get-AuthenticodeSignature "C:\Program Files\HintOverlay\HintOverlay.exe"
+Get-AuthenticodeSignature "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
 # Should show certificate details
 ```
 
@@ -214,8 +214,8 @@ Get-AuthenticodeSignature "C:\Program Files\HintOverlay\HintOverlay.exe"
 ## 🔐 Code Signing
 
 ### Default Certificate
-- Location: `certs\HintOverlay_CodeSign.pfx`
-- Password: `HintOverlay_BuildCert_2024`
+- Location: `certs\WindowsHinting_CodeSign.pfx`
+- Password: `WindowsHinting_BuildCert_2024`
 
 ### Generate New Certificate
 ```powershell
@@ -256,7 +256,7 @@ winget install lessmsi
 ## 🚨 Troubleshooting
 
 ### Issue: "WiX installer project not found"
-**Solution:** Install WiX Toolset or check `HintOverlay.Installer2` exists
+**Solution:** Install WiX Toolset or check `Windows-Hinting.Installer` exists
 
 ### Issue: "Certificate not found"
 **Solution:** 
@@ -276,7 +276,7 @@ winget install lessmsi
 ```powershell
 -SkipSigning          # Skip for testing
 # Then verify cert:
-Test-Path "certs\HintOverlay_CodeSign.pfx"
+Test-Path "certs\WindowsHinting_CodeSign.pfx"
 ```
 
 See `build\BUILD_COMPLETE_MSI_GUIDE.md` for detailed troubleshooting.
@@ -308,12 +308,12 @@ See `build\BUILD_COMPLETE_MSI_GUIDE.md` for detailed troubleshooting.
 
 3. **Test the Installer**
    ```powershell
-   msiexec /i HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+   msiexec /i Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
    ```
 
 4. **Verify Signature**
    ```powershell
-   Get-AuthenticodeSignature "C:\Program Files\HintOverlay\HintOverlay.exe"
+   Get-AuthenticodeSignature "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
    ```
 
 5. **Read Detailed Guide** (if needed)

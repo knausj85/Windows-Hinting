@@ -28,7 +28,7 @@
 
 ## 🚀 Quick Navigation by Use Case
 
-### "I want to control HintOverlay from my C# app"
+### "I want to control Windows-Hinting from my C# app"
 1. Read: [`NAMED_PIPE_QUICK_REFERENCE.md`](NAMED_PIPE_QUICK_REFERENCE.md) (5 min)
 2. Copy: `NamedPipeClient/HintOverlayClient.cs`
 3. Use:
@@ -38,7 +38,7 @@
    ```
 4. See: [`Examples/HintOverlayClientExamples.cs`](Examples/HintOverlayClientExamples.cs) for more patterns
 
-### "I want to control HintOverlay from PowerShell/Python/C++"
+### "I want to control Windows-Hinting from PowerShell/Python/C++"
 1. Read: [`NAMED_PIPE_QUICK_REFERENCE.md`](NAMED_PIPE_QUICK_REFERENCE.md) - see "For Other Languages"
 2. See: [`NAMED_PIPE_INTERFACE.md`](NAMED_PIPE_INTERFACE.md) - full examples
 
@@ -48,7 +48,7 @@
 3. Test: Run `NamedPipeClientTests.RunAllTests()`
 4. Deploy: Follow [`DEPLOYMENT_CHECKLIST.md`](DEPLOYMENT_CHECKLIST.md)
 
-### "I'm the HintOverlay developer"
+### "I'm the Windows-Hinting developer"
 1. Review: Changes to `HintController.cs`
 2. Read: [`IMPLEMENTATION_SUMMARY.md`](IMPLEMENTATION_SUMMARY.md) - modifications section
 3. Test: Run test suite
@@ -170,7 +170,7 @@ INDEX.md                                This file
 - [`Examples/HintOverlayClientExamples.cs`](Examples/HintOverlayClientExamples.cs) - Line ~145 (AutomationExample)
 - [`NamedPipeClient.Tests/NamedPipeClientTests.cs`](NamedPipeClient.Tests/NamedPipeClientTests.cs) - Test patterns
 
-### Scenario: "Handle when HintOverlay not running"
+### Scenario: "Handle when Windows-Hinting not running"
 **Files to read:**
 - [`NAMED_PIPE_QUICK_REFERENCE.md`](NAMED_PIPE_QUICK_REFERENCE.md) - Troubleshooting section
 - [`Examples/HintOverlayClientExamples.cs`](Examples/HintOverlayClientExamples.cs) - Line ~115 (ErrorHandlingExample)
@@ -229,7 +229,7 @@ NamedPipeClientTests.RunAllTests();
 All configurable values are in the source files:
 
 **NamedPipeService.cs:**
-- `PipeName` - Named pipe name (currently: "HintOverlay_Pipe")
+- `PipeName` - Named pipe name (currently: "WindowsHinting_Pipe")
 - `MaxConnections` - Max concurrent connections (currently: 10)
 
 **HintOverlayClient.cs:**

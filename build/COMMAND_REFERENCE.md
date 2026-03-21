@@ -17,8 +17,8 @@ cd C:\Users\knausj\git\Windows-Hinting
 
 **Output:**
 ```
-Executable: bin\Release\net8.0-windows\HintOverlay.exe
-Installer:  HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+Executable: bin\Release\net8.0-windows\Windows-Hinting.exe
+Installer:  Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
 ```
 
 ---
@@ -111,12 +111,12 @@ build\build-complete.bat Release --skip-signing
 # Without: Sign executable (if Release)
 ```
 
-### `-CertPath` (Default: "certs\HintOverlay_CodeSign.pfx")
+### `-CertPath` (Default: "certs\WindowsHinting_CodeSign.pfx")
 ```powershell
 -CertPath "C:\my\cert.pfx"  # Custom certificate location
 ```
 
-### `-CertPassword` (Default: "HintOverlay_BuildCert_2024")
+### `-CertPassword` (Default: "WindowsHinting_BuildCert_2024")
 ```powershell
 -CertPassword "my_password"  # Custom certificate password
 ```
@@ -138,12 +138,12 @@ build\build-complete.bat Release --skip-signing
 
 ### Step Output (Release, default)
 ```
-[1/4] Building HintOverlay executable...
+[1/4] Building Windows-Hinting executable...
 [OK] Executable build completed successfully
 
 [2/4] Verifying executable signature...
 [OK] Executable is signed
-  Subject: CN=HintOverlay
+  Subject: CN=Windows-Hinting
   Valid until: 12/31/2025
 
 [3/4] Building MSI installer...
@@ -151,7 +151,7 @@ build\build-complete.bat Release --skip-signing
 
 [4/4] Verifying signed executable in MSI...
 [OK] MSI contains signed executable
-  Subject: CN=HintOverlay
+  Subject: CN=Windows-Hinting
   Valid until: 12/31/2025
 ```
 
@@ -159,9 +159,9 @@ build\build-complete.bat Release --skip-signing
 ```
 Build Summary:
   Configuration: Release
-  Executable: bin\Release\net8.0-windows\HintOverlay.exe
+  Executable: bin\Release\net8.0-windows\Windows-Hinting.exe
   Signing: Enabled
-  Installer: HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+  Installer: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
   Installer Size: 5.2 MB
 ```
 
@@ -171,7 +171,7 @@ Build Summary:
 
 ### Certificate not found
 ```
-ERROR: Certificate not found at: certs\HintOverlay_CodeSign.pfx
+ERROR: Certificate not found at: certs\WindowsHinting_CodeSign.pfx
 ```
 **Solution:** 
 ```powershell
@@ -182,10 +182,10 @@ ERROR: Certificate not found at: certs\HintOverlay_CodeSign.pfx
 
 ### WiX installer not found
 ```
-ERROR: WiX installer project not found at: ...HintOverlay.Installer2.wixproj
+ERROR: WiX installer project not found at: ...Windows-Hinting.Installer.wixproj
 ```
 **Solution:**
-- Ensure `HintOverlay.Installer2` directory exists
+- Ensure `Windows-Hinting.Installer` directory exists
 - Check `.wixproj` file exists
 - Install WiX Toolset
 - Use `-ExeOnly` to skip MSI
@@ -196,7 +196,7 @@ ERROR: MSI file not found at expected location
 ```
 **Solution:**
 - Check WiX build output for errors
-- Rebuild manually: `msbuild HintOverlay.Installer2\HintOverlay.Installer2.wixproj /p:Configuration=Release`
+- Rebuild manually: `msbuild Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj /p:Configuration=Release`
 
 ---
 
@@ -204,22 +204,22 @@ ERROR: MSI file not found at expected location
 
 ### Check executable is signed
 ```powershell
-Get-AuthenticodeSignature bin\Release\net8.0-windows\HintOverlay.exe
+Get-AuthenticodeSignature bin\Release\net8.0-windows\Windows-Hinting.exe
 ```
 
 ### Check installed executable is signed
 ```powershell
-Get-AuthenticodeSignature "C:\Program Files\HintOverlay\HintOverlay.exe"
+Get-AuthenticodeSignature "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
 ```
 
 ### Test MSI installation
 ```powershell
-msiexec /i HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+msiexec /i Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
 ```
 
 ### Extract exe from MSI (requires lessmsi)
 ```powershell
-lessmsi x HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi output\
+lessmsi x Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi output\
 ```
 
 ---
@@ -240,9 +240,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Archive outputs
-$msiPath = "HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi"
+$msiPath = "Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi"
 Copy-Item $msiPath "artifacts\"
-Copy-Item "bin\Release\net8.0-windows\HintOverlay.exe" "artifacts\"
+Copy-Item "bin\Release\net8.0-windows\Windows-Hinting.exe" "artifacts\"
 ```
 
 ### Scheduled Build
@@ -251,7 +251,7 @@ Copy-Item "bin\Release\net8.0-windows\HintOverlay.exe" "artifacts\"
 $taskAction = New-ScheduledTaskAction -Execute "powershell.exe" `
   -Argument "-File C:\path\build\build-complete.ps1"
 
-Register-ScheduledTask -TaskName "HintOverlay-Build" `
+Register-ScheduledTask -TaskName "Windows-Hinting-Build" `
   -Action $taskAction `
   -Trigger @(New-ScheduledTaskTrigger -Daily -At 2am)
 ```
@@ -262,25 +262,25 @@ Register-ScheduledTask -TaskName "HintOverlay-Build" `
 
 1. **Test the installer**
    ```powershell
-   msiexec /i HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi /passive
+   msiexec /i Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi /passive
    ```
 
 2. **Verify signed executable**
    ```powershell
-   Get-AuthenticodeSignature "C:\Program Files\HintOverlay\HintOverlay.exe"
+   Get-AuthenticodeSignature "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
    ```
 
 3. **Test application**
    ```powershell
-   & "C:\Program Files\HintOverlay\HintOverlay.exe"
+   & "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
    ```
 
 4. **Sign MSI** (optional, recommended for distribution)
    ```powershell
-   signtool sign /f "certs\HintOverlay_CodeSign.pfx" `
-     /p "HintOverlay_BuildCert_2024" `
+   signtool sign /f "certs\WindowsHinting_CodeSign.pfx" `
+     /p "WindowsHinting_BuildCert_2024" `
      /fd SHA256 `
-     HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+     Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
    ```
 
 ---

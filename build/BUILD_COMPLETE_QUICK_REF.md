@@ -78,23 +78,23 @@ build\build-complete.bat Release --skip-signing
 | `-Configuration` | `Release` | `Debug`, `Release` | Build configuration |
 | `-ExeOnly` | Not set | Switch | Skip MSI build |
 | `-SkipSigning` | Not set | Switch | Skip code signing |
-| `-CertPath` | `certs\HintOverlay_CodeSign.pfx` | File path | Path to signing certificate |
-| `-CertPassword` | `HintOverlay_BuildCert_2024` | String | Certificate password |
+| `-CertPath` | `certs\WindowsHinting_CodeSign.pfx` | File path | Path to signing certificate |
+| `-CertPassword` | `WindowsHinting_BuildCert_2024` | String | Certificate password |
 
 ---
 
 ## What Gets Built (By Default)
 
 ### Just run: `.\build\build-complete.ps1`
-- ✅ `bin\Release\net8.0-windows\HintOverlay.exe` (signed)
-- ✅ `HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi` (with signed executable)
+- ✅ `bin\Release\net8.0-windows\Windows-Hinting.exe` (signed)
+- ✅ `Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi` (with signed executable)
 
 ### With `-ExeOnly`
-- ✅ `bin\Release\net8.0-windows\HintOverlay.exe` (signed)
+- ✅ `bin\Release\net8.0-windows\Windows-Hinting.exe` (signed)
 
 ### With `-Configuration Debug`
-- ✅ `bin\Debug\net8.0-windows\HintOverlay.exe` (unsigned)
-- ✅ `HintOverlay.Installer2\bin\Debug\en-US\HintOverlay.msi` (with unsigned executable)
+- ✅ `bin\Debug\net8.0-windows\Windows-Hinting.exe` (unsigned)
+- ✅ `Windows-Hinting.Installer\bin\Debug\en-US\Windows-Hinting.msi` (with unsigned executable)
 
 ---
 
@@ -102,7 +102,7 @@ build\build-complete.bat Release --skip-signing
 
 | Issue | Solution |
 |-------|----------|
-| "WiX installer project not found" | Ensure `HintOverlay.Installer2` exists; use `-ExeOnly` to skip MSI |
+| "WiX installer project not found" | Ensure `Windows-Hinting.Installer` exists; use `-ExeOnly` to skip MSI |
 | "MSI file not found" | Check WiX installation; rebuild manually |
 | "Certificate not found" | Verify cert path; run `generate-signing-cert.ps1` |
 | "Don't want MSI this time" | Use `-ExeOnly` flag |
@@ -113,17 +113,17 @@ build\build-complete.bat Release --skip-signing
 
 1. **Test MSI**
    ```powershell
-   msiexec /i HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+   msiexec /i Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
    ```
 
 2. **Verify Installation**
    ```powershell
-   & "C:\Program Files\HintOverlay\HintOverlay.exe"
+   & "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
    ```
 
 3. **Check Signature**
    ```powershell
-   Get-AuthenticodeSignature "C:\Program Files\HintOverlay\HintOverlay.exe"
+   Get-AuthenticodeSignature "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
    ```
 
 ---

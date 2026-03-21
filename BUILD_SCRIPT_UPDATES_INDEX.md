@@ -35,8 +35,8 @@ The `build-complete.ps1` script has been updated to **build both the signed exec
 ```
 
 **That's it!** You now have:
-- ✅ Signed Release executable: `bin\Release\net8.0-windows\HintOverlay.exe`
-- ✅ MSI installer: `HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi`
+- ✅ Signed Release executable: `bin\Release\net8.0-windows\Windows-Hinting.exe`
+- ✅ MSI installer: `Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi`
 
 ---
 

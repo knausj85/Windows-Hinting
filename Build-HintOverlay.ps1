@@ -1,9 +1,9 @@
-# Build-HintOverlay.ps1
-# Build HintOverlay using .NET Framework MSBuild
+# Build-WindowsHinting.ps1
+# Build Windows-Hinting using .NET Framework MSBuild
 
 <#
 .SYNOPSIS
-    Builds HintOverlay using Visual Studio's .NET Framework MSBuild
+    Builds Windows-Hinting using Visual Studio's .NET Framework MSBuild
 .DESCRIPTION
     Uses the full MSBuild.exe from Visual Studio (not dotnet CLI)
     This supports COM references like UIAutomationClient
@@ -12,11 +12,11 @@
 .PARAMETER Clean
     Clean before building (default: false)
 .EXAMPLE
-    .\Build-HintOverlay.ps1
+    .\Build-WindowsHinting.ps1
 
     Builds Release configuration
 .EXAMPLE
-    .\Build-HintOverlay.ps1 -Configuration Debug -Clean
+    .\Build-WindowsHinting.ps1 -Configuration Debug -Clean
 
     Clean build Debug configuration
 #>
@@ -59,7 +59,7 @@ if (-not $foundMsbuild) {
 }
 
 Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "HintOverlay Build Tool (.NET Framework MSBuild)" -ForegroundColor Cyan
+Write-Host "Windows-Hinting Build Tool (.NET Framework MSBuild)" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
@@ -72,7 +72,7 @@ Write-Host ""
 # Clean if requested
 if ($Clean) {
     Write-Host "Cleaning..." -ForegroundColor Yellow
-    & $foundMsbuild HintOverlay.sln /t:Clean /p:Configuration=$Configuration
+    & $foundMsbuild Windows-Hinting.sln /t:Clean /p:Configuration=$Configuration
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "✗ Clean failed" -ForegroundColor Red
@@ -87,7 +87,7 @@ if ($Clean) {
 Write-Host "Building $Configuration configuration..." -ForegroundColor Yellow
 
 $buildArgs = @(
-    "HintOverlay.sln",
+    "Windows-Hinting.sln",
     "/p:Configuration=$Configuration",
     "/verbosity:minimal",
     "/nologo"
@@ -101,10 +101,10 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "✓ Build Successful!" -ForegroundColor Green
     Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Output: bin\$Configuration\net8.0-windows\HintOverlay.exe" -ForegroundColor Green
+    Write-Host "Output: bin\$Configuration\net8.0-windows\Windows-Hinting.exe" -ForegroundColor Green
     Write-Host ""
     Write-Host "Next step: Sign the executable"
-    Write-Host "  .\Sign-HintOverlay.ps1 -BuildConfiguration $Configuration" -ForegroundColor Cyan
+    Write-Host "  .\Sign-WindowsHinting.ps1 -BuildConfiguration $Configuration" -ForegroundColor Cyan
     Write-Host ""
 } else {
     Write-Host ""

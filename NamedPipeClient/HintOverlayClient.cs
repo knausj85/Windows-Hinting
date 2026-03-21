@@ -7,12 +7,12 @@ using System.Threading.Tasks;
 namespace HintOverlay.NamedPipeClient
 {
     /// <summary>
-    /// Client for communicating with HintOverlay via named pipes.
+    /// Client for communicating with Windows-Hinting via named pipes.
     /// This client handles connection retries to support order-independent execution.
     /// </summary>
     public sealed class HintOverlayClient : IDisposable
     {
-        private const string PipeName = "HintOverlay_Pipe";
+        private const string PipeName = "WindowsHinting_Pipe";
         private const int ConnectionTimeoutMs = 5000;
         private const int RetryDelayMs = 100;
         private const int MaxRetries = 50;

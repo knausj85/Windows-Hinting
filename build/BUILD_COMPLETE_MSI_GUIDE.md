@@ -44,7 +44,7 @@ The updated `build-complete.ps1` script now automatically builds the MSI install
 When building with `-Installer` flag in Release mode:
 
 ### Step 1: Build Executable
-- Compiles HintOverlay.csproj in Release configuration
+- Compiles Windows-Hinting.csproj in Release configuration
 - Automatically signs executable if certificate is available
 - Validates that the executable is properly signed
 
@@ -54,8 +54,8 @@ When building with `-Installer` flag in Release mode:
 - Warns if signing failed
 
 ### Step 3: Build MSI Installer
-- Builds the WiX installer project (HintOverlay.Installer2.wixproj)
-- Creates MSI package in `HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi`
+- Builds the WiX installer project (Windows-Hinting.Installer.wixproj)
+- Creates MSI package in `Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi`
 - Verifies MSI file was created successfully
 
 ### Step 4: Verify Signed Executable in MSI (Release only)
@@ -68,9 +68,9 @@ When building with `-Installer` flag in Release mode:
 ```
 Build Summary:
   Configuration: Release
-  Executable: bin\Release\net8.0-windows\HintOverlay.exe
+  Executable: bin\Release\net8.0-windows\Windows-Hinting.exe
   Signing: Enabled
-  Installer: HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+  Installer: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
   Installer Size: X.X MB
 ```
 
@@ -78,7 +78,7 @@ Build Summary:
 
 1. **WiX Toolset** - Must be installed for MSI creation
 2. **Visual Studio Build Tools or MSBuild** - For compiling the WiX project
-3. **Code Signing Certificate** (Release builds) - Located at `certs\HintOverlay_CodeSign.pfx` by default
+3. **Code Signing Certificate** (Release builds) - Located at `certs\WindowsHinting_CodeSign.pfx` by default
 4. **lessmsi** (Optional) - For verifying signed executable in MSI
    ```powershell
    choco install lessmsi -y
@@ -90,7 +90,7 @@ Build Summary:
 
 ### Default Certificate Location
 ```
-certs\HintOverlay_CodeSign.pfx
+certs\WindowsHinting_CodeSign.pfx
 ```
 
 ### Generate New Certificate
@@ -108,7 +108,7 @@ certs\HintOverlay_CodeSign.pfx
 ## Troubleshooting
 
 ### MSI Not Found
-- Ensure `HintOverlay.Installer2` directory exists
+- Ensure `Windows-Hinting.Installer` directory exists
 - Verify `.wixproj` file is present and valid
 - Check that WiX Toolset is installed
 
@@ -157,12 +157,12 @@ For automated builds:
 
 1. **Test the MSI installer**
    ```powershell
-   msiexec /i "HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi"
+   msiexec /i "Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi"
    ```
 
 2. **Verify installed executable signature**
    ```powershell
-   Get-AuthenticodeSignature -FilePath "C:\Program Files\HintOverlay\HintOverlay.exe"
+   Get-AuthenticodeSignature -FilePath "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
    ```
 
 3. **Test UIAccess functionality**

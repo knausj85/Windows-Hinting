@@ -1,8 +1,8 @@
-# Code Signing Guide for HintOverlay
+# Code Signing Guide for Windows-Hinting
 
 ## Overview
 
-Code signing your executable allows users to verify the authenticity and integrity of your application. This is especially important since HintOverlay requires `uiAccess` which makes it sensitive for security.
+Code signing your executable allows users to verify the authenticity and integrity of your application. This is especially important since Windows-Hinting requires `uiAccess` which makes it sensitive for security.
 
 ## Prerequisites
 
@@ -24,8 +24,8 @@ Best for testing and internal use.
 # Create a self-signed certificate valid for 10 years
 $cert = New-SelfSignedCertificate `
   -Type CodeSigningCert `
-  -Subject "CN=HintOverlay Development" `
-  -FriendlyName "HintOverlay Code Signing" `
+  -Subject "CN=Windows-Hinting Development" `
+  -FriendlyName "Windows-Hinting Code Signing" `
   -NotAfter (Get-Date).AddYears(10) `
   -CertStoreLocation "Cert:\CurrentUser\My" `
   -KeyUsageNotPresent @() `
@@ -35,15 +35,15 @@ $cert = New-SelfSignedCertificate `
 $pfxPassword = ConvertTo-SecureString -String "YourPassword123" -AsPlainText -Force
 Export-PfxCertificate `
   -Cert $cert `
-  -FilePath "$env:USERPROFILE\HintOverlay_CodeSign.pfx" `
+  -FilePath "$env:USERPROFILE\WindowsHinting_CodeSign.pfx" `
   -Password $pfxPassword
 
 # Export certificate to trusted store (optional, for testing)
 Export-Certificate `
   -Cert $cert `
-  -FilePath "$env:USERPROFILE\HintOverlay_CodeSign.cer"
+  -FilePath "$env:USERPROFILE\WindowsHinting_CodeSign.cer"
 
-Write-Host "✓ Certificate created: $env:USERPROFILE\HintOverlay_CodeSign.pfx"
+Write-Host "✓ Certificate created: $env:USERPROFILE\WindowsHinting_CodeSign.pfx"
 Write-Host "✓ Thumbprint: $($cert.Thumbprint)"
 ```
 
@@ -54,7 +54,7 @@ Write-Host "✓ Thumbprint: $($cert.Thumbprint)"
 # This makes Windows trust your self-signed certificate
 
 Import-Certificate `
-  -FilePath "$env:USERPROFILE\HintOverlay_CodeSign.cer" `
+  -FilePath "$env:USERPROFILE\WindowsHinting_CodeSign.cer" `
   -CertStoreLocation "Cert:\LocalMachine\TrustedPublisher"
 
 Write-Host "✓ Certificate added to Trusted Publishers"
@@ -97,9 +97,9 @@ After building your application:
 
 ```powershell
 # Variables
-$pfxPath = "$env:USERPROFILE\HintOverlay_CodeSign.pfx"
+$pfxPath = "$env:USERPROFILE\WindowsHinting_CodeSign.pfx"
 $pfxPassword = "YourPassword123"  # Or prompt for it
-$exePath = "C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\HintOverlay.exe"
+$exePath = "C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe"
 $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe"
 $timestampServer = "http://timestamp.sectigo.com"
 
@@ -118,7 +118,7 @@ Write-Host "✓ Executable signed successfully"
 
 ```powershell
 $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe"
-$exePath = "C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\HintOverlay.exe"
+$exePath = "C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe"
 
 & $signtool verify /pa $exePath
 
@@ -133,7 +133,7 @@ Create `sign-executable.ps1`:
 ```powershell
 <#
 .SYNOPSIS
-    Signs the HintOverlay executable with a code signing certificate
+    Signs the Windows-Hinting executable with a code signing certificate
 .PARAMETER BuildConfiguration
     Build configuration (Debug or Release)
 .PARAMETER CertificatePath
@@ -144,14 +144,14 @@ Create `sign-executable.ps1`:
 
 param(
     [string]$BuildConfiguration = "Release",
-    [string]$CertificatePath = "$env:USERPROFILE\HintOverlay_CodeSign.pfx",
+    [string]$CertificatePath = "$env:USERPROFILE\WindowsHinting_CodeSign.pfx",
     [string]$CertificatePassword,
     [string]$TimestampServer = "http://timestamp.sectigo.com"
 )
 
 # Configuration
 $projectRoot = "C:\Users\knausj\git\Windows-Hinting"
-$exePath = Join-Path $projectRoot "bin\$BuildConfiguration\net8.0-windows\HintOverlay.exe"
+$exePath = Join-Path $projectRoot "bin\$BuildConfiguration\net8.0-windows\Windows-Hinting.exe"
 $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe"
 
 # Validation
@@ -261,12 +261,12 @@ jobs:
             /p "${{ secrets.CODE_SIGNING_PASSWORD }}" `
             /t "http://timestamp.sectigo.com" `
             /fd SHA256 `
-            "bin\Release\net8.0-windows\HintOverlay.exe"
+            "bin\Release\net8.0-windows\Windows-Hinting.exe"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: bin/Release/net8.0-windows/HintOverlay.exe
+          files: bin/Release/net8.0-windows/Windows-Hinting.exe
 ```
 
 ## Verification
@@ -275,7 +275,7 @@ After signing, users can verify your executable:
 
 ```powershell
 # Check certificate details
-Get-AuthenticodeSignature "C:\path\to\HintOverlay.exe"
+Get-AuthenticodeSignature "C:\path\to\Windows-Hinting.exe"
 
 # Expected output:
 # Status: Valid
@@ -297,7 +297,7 @@ Get-AuthenticodeSignature "C:\path\to\HintOverlay.exe"
 ### "uiAccess broken after signing"
 - Ensure manifest has `uiAccess="true"` BEFORE signing
 - Re-build and re-sign if manifest was modified
-- Verify manifest is embedded correctly: `mt.exe -inputresource:HintOverlay.exe;3 -out:HintOverlay.manifest`
+- Verify manifest is embedded correctly: `mt.exe -inputresource:Windows-Hinting.exe;3 -out:Windows-Hinting.manifest`
 
 ### "Invalid timestamp server"
 - Verify timestamp server URL is correct

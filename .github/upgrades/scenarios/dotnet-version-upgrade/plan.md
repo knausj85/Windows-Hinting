@@ -9,11 +9,11 @@
 
 ## Overview
 
-This plan upgrades the HintOverlay solution to .NET 8.0 using an **All-At-Once** strategy. Both the main WinForms application and the WiX installer project will be updated simultaneously.
+This plan upgrades the Windows-Hinting solution to .NET 8.0 using an **All-At-Once** strategy. Both the main WinForms application and the WiX installer project will be updated simultaneously.
 
 ### Assessment Summary
-- **HintOverlay.csproj**: Already on net8.0-windows ✅
-- **HintOverlay.Installer.wixproj**: WiX installer (requires modernization)
+- **Windows-Hinting.csproj**: Already on net8.0-windows ✅
+- **Windows-Hinting.Installer.wixproj**: WiX installer (requires modernization)
 - **Total NuGet Packages**: 2 (all compatible)
 - **Code Files**: 38
 - **Complexity**: Low
@@ -36,21 +36,21 @@ This plan upgrades the HintOverlay solution to .NET 8.0 using an **All-At-Once**
 
 | Project | Type | Current TFM | Target TFM | Status |
 |---------|------|-------------|-----------|--------|
-| HintOverlay.csproj | WinForms App | net8.0-windows | net8.0-windows | ✅ Already current |
-| HintOverlay.Installer.wixproj | WiX Installer | (not .NET) | net8.0 compatible | ⏳ To upgrade |
+| Windows-Hinting.csproj | WinForms App | net8.0-windows | net8.0-windows | ✅ Already current |
+| Windows-Hinting.Installer.wixproj | WiX Installer | (not .NET) | net8.0 compatible | ⏳ To upgrade |
 
 ---
 
 ## Task Breakdown
 
-### Task 1: Update HintOverlay.Installer.wixproj
+### Task 1: Update Windows-Hinting.Installer.wixproj
 
 **Objective**: Modernize the WiX installer project to target .NET 8 and ensure it properly references the upgraded main application.
 
 **Scope**:
 - Verify WiX project target framework compatibility
 - Update WiX project references/imports if needed
-- Ensure installer references the correct .NET 8 output from HintOverlay.csproj
+- Ensure installer references the correct .NET 8 output from Windows-Hinting.csproj
 - Validate WiX project builds successfully
 - Confirm installer creation completes without errors
 
@@ -93,8 +93,8 @@ All existing packages are compatible with .NET 8.0:
 
 | Package | Current | Target | Projects |
 |---------|---------|--------|----------|
-| Microsoft.Extensions.Hosting | 10.0.3 | 10.0.3 | HintOverlay.csproj |
-| Microsoft.Extensions.Hosting.Abstractions | 10.0.3 | 10.0.3 | HintOverlay.csproj |
+| Microsoft.Extensions.Hosting | 10.0.3 | 10.0.3 | Windows-Hinting.csproj |
+| Microsoft.Extensions.Hosting.Abstractions | 10.0.3 | 10.0.3 | Windows-Hinting.csproj |
 
 No package version updates required.
 
@@ -102,8 +102,8 @@ No package version updates required.
 
 ## Success Criteria
 
-- [ ] HintOverlay.csproj confirms .NET 8.0-windows targeting
-- [ ] HintOverlay.Installer.wixproj loads without errors
+- [ ] Windows-Hinting.csproj confirms .NET 8.0-windows targeting
+- [ ] Windows-Hinting.Installer.wixproj loads without errors
 - [ ] Solution builds successfully with 0 errors
 - [ ] Installer package is created and validated
 - [ ] All tests pass
@@ -124,7 +124,7 @@ No package version updates required.
 
 ```
 ┌─────────────────────────────────────┐
-│   HintOverlay.csproj (net8.0)       │
+│   Windows-Hinting.csproj (net8.0)       │
 │   WinForms Application              │
 │   - Microsoft.Extensions.Hosting    │
 │   - Abstractions (10.0.3)           │
@@ -132,9 +132,9 @@ No package version updates required.
                │
                ▼
 ┌──────────────────────────────────────┐
-│  HintOverlay.Installer.wixproj      │
+│  Windows-Hinting.Installer.wixproj      │
 │  WiX Setup Package                   │
-│  (References HintOverlay.csproj)    │
+│  (References Windows-Hinting.csproj)    │
 └──────────────────────────────────────┘
 ```
 

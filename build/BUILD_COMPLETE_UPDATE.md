@@ -86,14 +86,14 @@ cd C:\Users\knausj\git\Windows-Hinting
 
 ### Executable
 ```
-bin\Release\net8.0-windows\HintOverlay.exe
+bin\Release\net8.0-windows\Windows-Hinting.exe
   - Signed with code signing certificate
   - Ready for distribution
 ```
 
 ### Installer
 ```
-HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
   - Contains signed executable
   - Ready for deployment
   - Shows file size in output
@@ -102,7 +102,7 @@ HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
 ## 🔐 Code Signing Flow
 
 ```
-1. Build HintOverlay.csproj
+1. Build Windows-Hinting.csproj
    ↓
 2. MSBuild signs executable automatically
    (if -SkipSigning not set AND Configuration=Release)
@@ -120,19 +120,19 @@ HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
 
 ```
 ==========================================
-HintOverlay Complete Build Script
+Windows-Hinting Complete Build Script
 ==========================================
 Configuration: Release
 Build Installer: True
 Skip Signing: False
 Repository Root: C:\Users\knausj\git\Windows-Hinting
 
-[1/4] Building HintOverlay executable...
+[1/4] Building Windows-Hinting executable...
 [OK] Executable build completed successfully
 
 [2/4] Verifying executable signature...
 [OK] Executable is signed
-  Subject: CN=HintOverlay
+  Subject: CN=Windows-Hinting
   Valid until: 12/31/2025
 
 [3/4] Building MSI installer...
@@ -140,7 +140,7 @@ Repository Root: C:\Users\knausj\git\Windows-Hinting
 
 [4/4] Verifying signed executable in MSI...
 [OK] MSI contains signed executable
-  Subject: CN=HintOverlay
+  Subject: CN=Windows-Hinting
   Valid until: 12/31/2025
 
 ==========================================
@@ -149,9 +149,9 @@ Repository Root: C:\Users\knausj\git\Windows-Hinting
 
 Build Summary:
   Configuration: Release
-  Executable: bin\Release\net8.0-windows\HintOverlay.exe
+  Executable: bin\Release\net8.0-windows\Windows-Hinting.exe
   Signing: Enabled
-  Installer: HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+  Installer: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
   Installer Size: 5.2 MB
 
 Next Steps:
@@ -165,7 +165,7 @@ Next Steps:
 
 1. **Visual Studio/MSBuild** - for building projects
 2. **WiX Toolset** - for MSI creation (when using -Installer)
-3. **Code Signing Certificate** - `certs\HintOverlay_CodeSign.pfx` (for Release builds)
+3. **Code Signing Certificate** - `certs\WindowsHinting_CodeSign.pfx` (for Release builds)
 4. **lessmsi** (optional) - for MSI content verification
    ```powershell
    choco install lessmsi -y

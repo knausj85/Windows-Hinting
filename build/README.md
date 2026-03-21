@@ -1,8 +1,8 @@
-# HintOverlay Build and Code Signing Guide
+# Windows-Hinting Build and Code Signing Guide
 
 ## Overview
 
-HintOverlay is **automatically signed with a self-signed certificate** during the Release build process. This enables UIAccess functionality on Windows, which allows the application to automate UI controls with elevated privileges.
+Windows-Hinting is **automatically signed with a self-signed certificate** during the Release build process. This enables UIAccess functionality on Windows, which allows the application to automate UI controls with elevated privileges.
 
 ## ✅ Quick Start
 
@@ -10,7 +10,7 @@ HintOverlay is **automatically signed with a self-signed certificate** during th
 
 ```powershell
 # Using MSBuild directly (recommended)
-msbuild HintOverlay.csproj /p:Configuration=Release
+msbuild Windows-Hinting.csproj /p:Configuration=Release
 
 # Or using the PowerShell script
 .\build\build-and-sign.ps1
@@ -43,24 +43,24 @@ The build process has three automatic steps for Release configuration:
 ### 1. Certificate Generation (Pre-Build)
 - **When**: First Release build, or when certificate is missing
 - **Script**: `build\generate-signing-cert.ps1` (runs automatically)
-- **Output**: `certs\HintOverlay_CodeSign.pfx`
+- **Output**: `certs\WindowsHinting_CodeSign.pfx`
 - **Certificate Details**:
-  - Subject: `CN=HintOverlay`
+  - Subject: `CN=Windows-Hinting`
   - Type: Code Signing Certificate
   - Valid For: 10 years
-  - Password: `HintOverlay_BuildCert_2024` (for PFX file)
+  - Password: `WindowsHinting_BuildCert_2024` (for PFX file)
 
 ### 2. Project Compilation
 - **Tool**: MSBuild with .NET 8 SDK
-- **Output**: `bin\Release\net8.0-windows\HintOverlay.dll` and `HintOverlay.exe`
+- **Output**: `bin\Release\net8.0-windows\Windows-Hinting.dll` and `Windows-Hinting.exe`
 - **Manifest**: UIAccess manifest automatically embedded
 
 ### 3. Code Signing (Post-Build)
 - **Tool**: `signtool.exe` from Windows SDK
-- **Certificate**: Auto-detected at `certs\HintOverlay_CodeSign.pfx`
+- **Certificate**: Auto-detected at `certs\WindowsHinting_CodeSign.pfx`
 - **Timestamp**: DigiCert timestamp server (allows verification after cert expiry)
 - **Algorithm**: SHA256
-- **Output**: Signed `HintOverlay.exe` ready for deployment
+- **Output**: Signed `Windows-Hinting.exe` ready for deployment
 
 ## Certificate Management
 
@@ -68,10 +68,10 @@ The build process has three automatic steps for Release configuration:
 
 ```powershell
 # View signature details on the built executable
-Get-AuthenticodeSignature .\bin\Release\net8.0-windows\HintOverlay.exe | Format-List
+Get-AuthenticodeSignature .\bin\Release\net8.0-windows\Windows-Hinting.exe | Format-List
 
 # Extract certificate subject and validity
-$sig = Get-AuthenticodeSignature .\bin\Release\net8.0-windows\HintOverlay.exe
+$sig = Get-AuthenticodeSignature .\bin\Release\net8.0-windows\Windows-Hinting.exe
 Write-Host "Signer: $($sig.SignerCertificate.Subject)"
 Write-Host "Valid until: $($sig.SignerCertificate.NotAfter)"
 ```
@@ -80,7 +80,7 @@ Write-Host "Valid until: $($sig.SignerCertificate.NotAfter)"
 
 ```powershell
 # View certificate in personal store
-Get-ChildItem cert:\CurrentUser\My | Where-Object { $_.Subject -like "*HintOverlay*" } | Format-List
+Get-ChildItem cert:\CurrentUser\My | Where-Object { $_.Subject -like "*Windows-Hinting*" } | Format-List
 ```
 
 ### Regenerate Certificate (Manual)
@@ -96,7 +96,7 @@ If you have a production code-signing certificate from a CA, you can use it inst
 
 ```powershell
 # Build with custom certificate (any Release build will use it)
-msbuild HintOverlay.csproj `
+msbuild Windows-Hinting.csproj `
     /p:Configuration=Release `
     /p:CodeSigningCertPath="C:\path\to\production_cert.pfx" `
     /p:CodeSigningPassword="your_password"
@@ -106,7 +106,7 @@ The custom certificate will be used for that build, while the default self-signe
 
 ## Project Configuration Files
 
-### `HintOverlay.csproj`
+### `Windows-Hinting.csproj`
 Contains the build targets for automatic certificate generation and signing:
 - `EnsureSigningCertificate` target: Creates certificate before build
 - `SignExecutable` target: Signs executable after build
@@ -134,7 +134,7 @@ Batch wrapper for PowerShell script (for CMD users)
 
 ### Self-Signed Certificate Details
 ```
-Subject: CN=HintOverlay
+Subject: CN=Windows-Hinting
 Key Usage: Digital Signature
 Type: Code Signing Certificate
 Valid: 10 years from generation date
@@ -153,12 +153,12 @@ To replace with a trusted certificate:
 1. Obtain certificate from a CA (Sectigo, DigiCert, etc.)
 2. Build with custom certificate:
    ```powershell
-   msbuild HintOverlay.csproj `
+   msbuild Windows-Hinting.csproj `
        /p:Configuration=Release `
        /p:CodeSigningCertPath="C:\path\to\production.pfx" `
        /p:CodeSigningPassword="your_password"
    ```
-3. Update `DefaultCodeSigningCertPath` in HintOverlay.csproj if desired
+3. Update `DefaultCodeSigningCertPath` in Windows-Hinting.csproj if desired
 
 ## Build Output
 
@@ -166,15 +166,15 @@ After a successful Release build with signing:
 
 ```
 ========================================
-HintOverlay Build and Sign Script
+Windows-Hinting Build and Sign Script
 ==========================================
 Configuration: Release
 Repository Root: C:\Users\knausj\git\Windows-Hinting
 
 [1/3] Ensuring code signing certificate exists...
-✓ Code signing certificate already exists at: C:\Users\knausj\git\Windows-Hinting\certs\HintOverlay_CodeSign.pfx
+✓ Code signing certificate already exists at: C:\Users\knausj\git\Windows-Hinting\certs\WindowsHinting_CodeSign.pfx
 
-[2/3] Building HintOverlay (Release)...
+[2/3] Building Windows-Hinting (Release)...
 ✓ Build completed successfully
 
 [3/3] Verifying executable signature...
@@ -182,7 +182,7 @@ Repository Root: C:\Users\knausj\git\Windows-Hinting
 
 Signature Details:
   Status: Valid
-  Signer: CN=HintOverlay
+  Signer: CN=Windows-Hinting
   Thumbprint: [certificate thumbprint]
 
 ==========================================
@@ -190,8 +190,8 @@ Signature Details:
 ==========================================
 
 Output:
-  Executable: bin\Release\net8.0-windows\HintOverlay.exe
-  Certificate: certs\HintOverlay_CodeSign.pfx
+  Executable: bin\Release\net8.0-windows\Windows-Hinting.exe
+  Certificate: certs\WindowsHinting_CodeSign.pfx
 ```
 
 ## Troubleshooting
@@ -215,7 +215,7 @@ Output:
 ### Issue: Signature verification fails
 **Solution**: This is normal for self-signed certificates. Verify with:
 ```powershell
-Get-AuthenticodeSignature .\bin\Release\net8.0-windows\HintOverlay.exe
+Get-AuthenticodeSignature .\bin\Release\net8.0-windows\Windows-Hinting.exe
 ```
 
 ### Issue: Build fails when signing is required but cert doesn't exist
@@ -228,13 +228,13 @@ Get-AuthenticodeSignature .\bin\Release\net8.0-windows\HintOverlay.exe
 
 ### GitHub Actions Example
 ```yaml
-- name: Build and Sign HintOverlay
+- name: Build and Sign Windows-Hinting
   run: |
     # Generate certificate (or load from secrets in production)
     powershell -NoProfile -ExecutionPolicy Bypass -File build/generate-signing-cert.ps1
 
     # Build
-    msbuild HintOverlay.csproj /p:Configuration=Release
+    msbuild Windows-Hinting.csproj /p:Configuration=Release
 ```
 
 ### Azure Pipelines Example
@@ -246,17 +246,17 @@ Get-AuthenticodeSignature .\bin\Release\net8.0-windows\HintOverlay.exe
     pwsh: true
 
 - task: VSBuild@1
-  displayName: 'Build HintOverlay'
+  displayName: 'Build Windows-Hinting'
   inputs:
-    solution: 'HintOverlay.csproj'
+    solution: 'Windows-Hinting.csproj'
     configuration: 'Release'
 ```
 
 ## Related Files
 
-- `HintOverlay.csproj` - Build configuration with signing targets
+- `Windows-Hinting.csproj` - Build configuration with signing targets
 - `app.manifest` - Embedded manifest with UIAccess configuration
-- `HintOverlay.Installer2\` - MSI installer (uses signed executable)
+- `Windows-Hinting.Installer\` - MSI installer (uses signed executable)
 - `CODE_SIGNING_SETUP.md` - Detailed signing documentation
 - `../COMPLETE_BUILD_GUIDE.md` - **Complete build process guide (executable + installer)**
 
@@ -265,7 +265,7 @@ Get-AuthenticodeSignature .\bin\Release\net8.0-windows\HintOverlay.exe
 For issues related to code signing:
 1. Check the troubleshooting section above
 2. Review Windows SDK installation
-3. Verify certificate exists: `dir certs\HintOverlay_CodeSign.pfx`
+3. Verify certificate exists: `dir certs\WindowsHinting_CodeSign.pfx`
 4. Check build output for detailed error messages
 
 ## Security Notes

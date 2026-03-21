@@ -4,11 +4,11 @@
 	<assemblyIdentity
 	  version="1.0.0.0"
 	  processorArchitecture="*"
-	  name="HintOverlay"
+	  name="Windows-Hinting"
 	  type="win32"
   />
 
-	<description>HintOverlay - UI Element Hint Overlay Utility</description>
+	<description>Windows-Hinting - UI Element Hint Overlay Utility</description>
 
 	<trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
 		<security>

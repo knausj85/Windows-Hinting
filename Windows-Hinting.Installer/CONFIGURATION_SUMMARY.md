@@ -1,4 +1,4 @@
-# HintOverlay.Installer2 - Configuration Summary
+# Windows-Hinting.Installer - Configuration Summary
 
 **Status**: ✅ Successfully Built and Configured
 **Build Date**: 2026-03-15
@@ -12,23 +12,23 @@
 
 | File | Location | Size | Status |
 |------|----------|------|--------|
-| **HintOverlay.msi** | `bin/Release/en-US/` | 72 KB | ✅ Ready |
-| **HintOverlay.wixpdb** | `bin/Release/en-US/` | 11 KB | ✅ Debug Symbols |
+| **Windows-Hinting.msi** | `bin/Release/en-US/` | 72 KB | ✅ Ready |
+| **Windows-Hinting.wixpdb** | `bin/Release/en-US/` | 11 KB | ✅ Debug Symbols |
 
 ---
 
 ## 🎯 Installation Configuration
 
 ### Application Details
-- **Application Name**: HintOverlay
+- **Application Name**: Windows-Hinting
 - **Publisher**: Windows-Hinting
 - **Version**: 1.0.0.0
-- **Installation Directory**: `C:\Program Files\HintOverlay\`
+- **Installation Directory**: `C:\Program Files\Windows-Hinting\`
 - **Architecture**: 64-bit (x64)
 - **Language**: English (US)
 
 ### Installation Components
-- ✅ HintOverlay.exe (main application)
+- ✅ Windows-Hinting.exe (main application)
 - ✅ Desktop Shortcut
 - ✅ Start Menu Shortcut
 - ✅ Registry Entries for UIAccess
@@ -36,19 +36,19 @@
 
 ### Registry Entries Created
 ```
-HKLM\Software\Windows-Hinting\HintOverlay\
-  InstallPath = C:\Program Files\HintOverlay\
+HKLM\Software\Windows-Hinting\Windows-Hinting\
+  InstallPath = C:\Program Files\Windows-Hinting\
   Version = 1.0.0.0
   UIAccessEnabled = 1
 
 HKLM\Software\Microsoft\Windows\CurrentVersion\Run\
-  HintOverlay = [points to executable]
+  Windows-Hinting = [points to executable]
 
-HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\HintOverlay\
-  DisplayName = HintOverlay
+HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\Windows-Hinting\
+  DisplayName = Windows-Hinting
   DisplayVersion = 1.0.0.0
   Publisher = Windows-Hinting
-  InstallLocation = C:\Program Files\HintOverlay\
+  InstallLocation = C:\Program Files\Windows-Hinting\
 ```
 
 ---
@@ -59,7 +59,7 @@ HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\HintOverlay\
 ```xml
 <requestedExecutionLevel level="asInvoker" uiAccess="true" />
 ```
-**Status**: ✅ Correctly embedded in HintOverlay.exe
+**Status**: ✅ Correctly embedded in Windows-Hinting.exe
 
 ### Installation Location
 **Status**: ✅ Program Files (required for UIAccess)
@@ -68,7 +68,7 @@ HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\HintOverlay\
 **Status**: ⏳ **PENDING** - Executable must be signed with a code-signing certificate
 
 ### What UIAccess Does
-- Allows HintOverlay to interact with system UI elements
+- Allows Windows-Hinting to interact with system UI elements
 - Bypasses UIPI (User Interface Privilege Isolation)
 - Enables detection of hints from elevated processes
 - **Requires code signing** to function
@@ -78,7 +78,7 @@ HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\HintOverlay\
 ## 📁 Project File Structure
 
 ```
-HintOverlay.Installer2/
+Windows-Hinting.Installer/
 ├── WiX Source Files
 │   ├── Package.wxs              - Main package definition
 │   ├── ExampleComponents.wxs    - Application components & shortcuts
@@ -87,7 +87,7 @@ HintOverlay.Installer2/
 │   └── Package.en-us.wxl        - Localization strings
 │
 ├── Configuration Files
-│   ├── HintOverlay.Installer2.wixproj - Project file
+│   ├── Windows-Hinting.Installer.wixproj - Project file
 │   └── UIAccessConfig.wixproj.user     - Build configuration
 │
 ├── Documentation
@@ -98,8 +98,8 @@ HintOverlay.Installer2/
 │
 └── Build Output
     └── bin/Release/en-US/
-        ├── HintOverlay.msi      - Ready-to-deploy installer
-        └── HintOverlay.wixpdb   - Debug symbols
+        ├── Windows-Hinting.msi      - Ready-to-deploy installer
+        └── Windows-Hinting.wixpdb   - Debug symbols
 ```
 
 ---
@@ -108,21 +108,21 @@ HintOverlay.Installer2/
 
 ### Quick Build
 ```powershell
-msbuild HintOverlay.Installer2/HintOverlay.Installer2.wixproj -p:Configuration=Release
+msbuild Windows-Hinting.Installer/Windows-Hinting.Installer.wixproj -p:Configuration=Release
 ```
 
 ### Build with Code Signing
 ```powershell
 # 1. Sign the executable
-signtool sign /f cert.pfx /p password /fd SHA256 bin\Release\net8.0-windows\HintOverlay.exe
+signtool sign /f cert.pfx /p password /fd SHA256 bin\Release\net8.0-windows\Windows-Hinting.exe
 
 # 2. Build installer
-msbuild HintOverlay.Installer2/HintOverlay.Installer2.wixproj -p:Configuration=Release
+msbuild Windows-Hinting.Installer/Windows-Hinting.Installer.wixproj -p:Configuration=Release
 ```
 
 ### Build Entire Solution
 ```powershell
-msbuild HintOverlay.sln -p:Configuration=Release
+msbuild Windows-Hinting.sln -p:Configuration=Release
 ```
 
 ---
@@ -132,18 +132,18 @@ msbuild HintOverlay.sln -p:Configuration=Release
 ### End User
 ```cmd
 # Standard installation
-msiexec /i HintOverlay.msi
+msiexec /i Windows-Hinting.msi
 
 # Silent installation
-msiexec /i HintOverlay.msi /qn
+msiexec /i Windows-Hinting.msi /qn
 
 # With progress display
-msiexec /i HintOverlay.msi /qb
+msiexec /i Windows-Hinting.msi /qb
 ```
 
 ### Uninstall
 ```cmd
-msiexec /x HintOverlay.msi
+msiexec /x Windows-Hinting.msi
 ```
 
 ---
@@ -151,7 +151,7 @@ msiexec /x HintOverlay.msi
 ## ✅ Verification Checklist
 
 After Building:
-- [ ] MSI file exists: `bin/Release/en-US/HintOverlay.msi`
+- [ ] MSI file exists: `bin/Release/en-US/Windows-Hinting.msi`
 - [ ] File size ~70 KB (appropriate for simple installer)
 - [ ] WiX project file includes all .wxs files
 - [ ] License.rtf is present
@@ -164,7 +164,7 @@ After Installation:
 - [ ] Auto-start entry in Run key (if enabled)
 
 For UIAccess:
-- [ ] HintOverlay.exe has valid code signature
+- [ ] Windows-Hinting.exe has valid code signature
 - [ ] Manifest embedded with uiAccess="true"
 - [ ] Application can interact with elevated UI elements
 - [ ] No SmartScreen/security warnings
@@ -174,7 +174,7 @@ For UIAccess:
 ## ⚙️ Customization Guide
 
 ### Change Version Number
-Edit `HintOverlay.Installer2.wixproj`:
+Edit `Windows-Hinting.Installer.wixproj`:
 ```xml
 <PropertyVersion>2.0.0.0</PropertyVersion>
 ```
@@ -252,9 +252,9 @@ Modify `Package.wxs`:
 |-------|----------|
 | Build fails | Run `dotnet restore` first |
 | MSI not found | Check `bin/Release/en-US/` directory |
-| UIAccess not working | Sign HintOverlay.exe with certificate |
+| UIAccess not working | Sign Windows-Hinting.exe with certificate |
 | Installation fails | Run as Administrator |
-| File in use | Close HintOverlay.exe before upgrading |
+| File in use | Close Windows-Hinting.exe before upgrading |
 | SmartScreen warning | Sign executable with trusted certificate |
 
 ---
@@ -271,7 +271,7 @@ Modify `Package.wxs`:
 **Next Action Items**:
 1. ✅ Configure and build installer (COMPLETE)
 2. ⏳ Obtain code-signing certificate
-3. ⏳ Sign HintOverlay.exe
+3. ⏳ Sign Windows-Hinting.exe
 4. ⏳ Test installer on clean Windows environment
 5. ⏳ Deploy to users
 

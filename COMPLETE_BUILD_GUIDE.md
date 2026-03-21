@@ -20,15 +20,15 @@ The complete build process now ensures that **the signed executable is built fir
 
 **Step 1**: Build signed executable (Release mode)
 - Generates self-signed certificate if needed
-- Compiles HintOverlay.csproj in Release configuration
-- Automatically signs HintOverlay.exe with code-signing certificate
-- **Output**: `bin\Release\net8.0-windows\HintOverlay.exe` (signed)
+- Compiles Windows-Hinting.csproj in Release configuration
+- Automatically signs Windows-Hinting.exe with code-signing certificate
+- **Output**: `bin\Release\net8.0-windows\Windows-Hinting.exe` (signed)
 
 **Step 2**: Build MSI installer
-- Depends on HintOverlay.csproj being built first
+- Depends on Windows-Hinting.csproj being built first
 - Automatically includes the signed executable
 - Bundles all dependencies (DLLs, runtimes, etc.)
-- **Output**: `HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi`
+- **Output**: `Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi`
 
 **Step 3**: Verify installer contents
 - Confirms MSI file was created successfully
@@ -40,7 +40,7 @@ The complete build process now ensures that **the signed executable is built fir
 
 ```powershell
 # Using direct msbuild
-msbuild HintOverlay.csproj /p:Configuration=Release
+msbuild Windows-Hinting.csproj /p:Configuration=Release
 
 # Using build script
 .\build\build-and-sign.ps1
@@ -60,7 +60,7 @@ msbuild HintOverlay.csproj /p:Configuration=Release
 
 ```powershell
 # Executable only
-msbuild HintOverlay.csproj /p:Configuration=Debug
+msbuild Windows-Hinting.csproj /p:Configuration=Debug
 
 # Complete build (no installer for debug)
 .\build\build-complete.ps1 -Configuration Debug
@@ -70,13 +70,13 @@ msbuild HintOverlay.csproj /p:Configuration=Debug
 
 ```powershell
 # Use a production code-signing certificate
-msbuild HintOverlay.csproj `
+msbuild Windows-Hinting.csproj `
     /p:Configuration=Release `
     /p:CodeSigningCertPath="C:\path\to\cert.pfx" `
     /p:CodeSigningPassword="your_password"
 
 # Then build installer separately
-msbuild HintOverlay.Installer2\HintOverlay.Installer2.wixproj /p:Configuration=Release
+msbuild Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj /p:Configuration=Release
 ```
 
 ## Build Output
@@ -84,21 +84,21 @@ msbuild HintOverlay.Installer2\HintOverlay.Installer2.wixproj /p:Configuration=R
 ### Signed Executable
 ```
 Configuration: Release
-Location: bin\Release\net8.0-windows\HintOverlay.exe
+Location: bin\Release\net8.0-windows\Windows-Hinting.exe
 Size: ~138 KB
 Signed: Yes
-Certificate: CN=HintOverlay (self-signed)
+Certificate: CN=Windows-Hinting (self-signed)
 Valid Until: 3/15/2036
 ```
 
 ### MSI Installer
 ```
 Configuration: Release
-Location: HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+Location: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
 Size: ~0.9 MB
 Contents:
-  - HintOverlay.exe (signed)
-  - HintOverlay.dll
+  - Windows-Hinting.exe (signed)
+  - Windows-Hinting.dll
   - .NET runtime dependencies
   - Platform-specific runtimes
   - Configuration files
@@ -112,33 +112,33 @@ Contents:
 
 ```powershell
 # Check if executable is signed
-Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe" | Format-List
+Get-AuthenticodeSignature "bin\Release\net8.0-windows\Windows-Hinting.exe" | Format-List
 
 # Expected output includes:
-#   SignerCertificate: CN=HintOverlay
+#   SignerCertificate: CN=Windows-Hinting
 #   Valid until: 03/15/2036
 ```
 
 ### Verify Installer Contains Signed Executable
 
-The installer will contain the signed executable as it's built after the signing step. The WiX project file references `$(var.HintOverlay.TargetDir)HintOverlay.exe`, which automatically uses the most recently built executable.
+The installer will contain the signed executable as it's built after the signing step. The WiX project file references `$(var.Windows_Hinting.TargetDir)Windows-Hinting.exe`, which automatically uses the most recently built executable.
 
 ## Build Dependencies
 
 ### Execution Order (for complete build)
 
 1. **Pre-Build**: Certificate generation (if needed)
-2. **HintOverlay.csproj** builds → Produces `HintOverlay.exe`
-3. **HintOverlay.Installer2.wixproj** builds → Produces `HintOverlay.msi`
-   - Automatically includes the signed `HintOverlay.exe`
+2. **Windows-Hinting.csproj** builds → Produces `Windows-Hinting.exe`
+3. **Windows-Hinting.Installer.wixproj** builds → Produces `Windows-Hinting.msi`
+   - Automatically includes the signed `Windows-Hinting.exe`
 
 ### Project Dependencies
 
 ```
-HintOverlay.Installer2.wixproj
-  └─ depends on HintOverlay.csproj
+Windows-Hinting.Installer.wixproj
+  └─ depends on Windows-Hinting.csproj
       └─ depends on app.manifest (UIAccess configuration)
-      └─ depends on certs\HintOverlay_CodeSign.pfx (signing certificate)
+      └─ depends on certs\WindowsHinting_CodeSign.pfx (signing certificate)
 ```
 
 ## Build Scripts Reference
@@ -193,14 +193,14 @@ build-complete.bat Release --installer
 ### Certificate Persistence
 
 - The self-signed certificate is created once and reused for all subsequent Release builds
-- Location: `certs\HintOverlay_CodeSign.pfx`
+- Location: `certs\WindowsHinting_CodeSign.pfx`
 - Never commit this file to version control
 
 ### MSI Installer Contents
 
 The MSI includes:
-- ✅ Signed HintOverlay.exe with UIAccess manifest
-- ✅ HintOverlay.dll and configuration files
+- ✅ Signed Windows-Hinting.exe with UIAccess manifest
+- ✅ Windows-Hinting.dll and configuration files
 - ✅ .NET Runtime dependencies (29 DLLs)
 - ✅ Platform-specific runtime files
 - ✅ Desktop and Start Menu shortcuts
@@ -209,21 +209,21 @@ The MSI includes:
 ### Installation Location
 
 When the MSI is installed:
-- Default: `C:\Program Files\HintOverlay\`
-- Executable: `C:\Program Files\HintOverlay\HintOverlay.exe`
+- Default: `C:\Program Files\Windows-Hinting\`
+- Executable: `C:\Program Files\Windows-Hinting\Windows-Hinting.exe`
 - All dependencies in same directory
 - Registry entries in `HKEY_LOCAL_MACHINE`
 
 ## Troubleshooting
 
 ### Build fails with "Installer project not found"
-- Verify `HintOverlay.Installer2\HintOverlay.Installer2.wixproj` exists
+- Verify `Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj` exists
 - Ensure WiX Toolset v6.0.2 SDK is installed
 
 ### Executable is not signed after build
 - Verify Windows SDK is installed: `where signtool.exe`
 - Check Release configuration is being used
-- Verify certificate exists: `ls certs\HintOverlay_CodeSign.pfx`
+- Verify certificate exists: `ls certs\WindowsHinting_CodeSign.pfx`
 
 ### MSI is missing the signed executable
 - Clean and rebuild: `msbuild ... /t:Clean;Build`
@@ -240,17 +240,17 @@ When the MSI is installed:
 1. **Test Installation**
    ```powershell
    # Run the MSI
-   msiexec /i "HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi"
+   msiexec /i "Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi"
    ```
 
 2. **Verify Installation**
-   - Check `C:\Program Files\HintOverlay\HintOverlay.exe` exists
-   - Verify file is signed: `Get-AuthenticodeSignature "C:\Program Files\HintOverlay\HintOverlay.exe"`
+   - Check `C:\Program Files\Windows-Hinting\Windows-Hinting.exe` exists
+   - Verify file is signed: `Get-AuthenticodeSignature "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"`
    - Test UIAccess functionality
 
 3. **For Production**
    - Replace self-signed certificate with CA-issued certificate
-   - Update `HintOverlay.csproj` to reference production certificate
+   - Update `Windows-Hinting.csproj` to reference production certificate
    - Rebuild and redistribute
 
 ## Build Performance
@@ -266,17 +266,17 @@ For automated builds in GitHub Actions, Azure Pipelines, etc.:
 
 ```yaml
 # Example GitHub Actions
-- name: Build HintOverlay Signed Executable
-  run: msbuild HintOverlay.csproj /p:Configuration=Release
+- name: Build Windows-Hinting Signed Executable
+  run: msbuild Windows-Hinting.csproj /p:Configuration=Release
 
 - name: Build MSI Installer
-  run: msbuild HintOverlay.Installer2\HintOverlay.Installer2.wixproj /p:Configuration=Release
+  run: msbuild Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj /p:Configuration=Release
 
 - name: Upload artifacts
   uses: actions/upload-artifact@v3
   with:
-    name: HintOverlay-Release
+    name: Windows-Hinting-Release
     path: |
-      bin\Release\net8.0-windows\HintOverlay.exe
-      HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+      bin\Release\net8.0-windows\Windows-Hinting.exe
+      Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
 ```

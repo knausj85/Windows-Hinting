@@ -1,4 +1,4 @@
-# HintOverlay.Installer2 - Runtimes Folder Added
+# Windows-Hinting.Installer - Runtimes Folder Added
 
 ## ✅ Issue Fixed
 
@@ -36,15 +36,15 @@ Added two new components in the DirectoryRef section:
 <!-- Platform-specific runtime files - Windows x64 -->
 <Component Id="RuntimesWin" Bitness="always64" Guid="33333333-4444-5555-6666-777777777503">
   <File Id="SystemDiagnosticsEventLogDllWin" 
-        Source="$(var.HintOverlay.TargetDir)runtimes\win\lib\net8.0\System.Diagnostics.EventLog.dll"
+        Source="$(var.Windows_Hinting.TargetDir)runtimes\win\lib\net8.0\System.Diagnostics.EventLog.dll"
         KeyPath="yes" />
-  <File Source="$(var.HintOverlay.TargetDir)runtimes\win\lib\net8.0\System.Diagnostics.EventLog.Messages.dll" />
+  <File Source="$(var.Windows_Hinting.TargetDir)runtimes\win\lib\net8.0\System.Diagnostics.EventLog.Messages.dll" />
 </Component>
 
 <!-- Browser-specific runtime files -->
 <Component Id="RuntimesBrowser" Bitness="always64" Guid="44444444-5555-6666-7777-888888888504">
   <File Id="SystemTextEncodingsWebDllBrowser"
-        Source="$(var.HintOverlay.TargetDir)runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll"
+        Source="$(var.Windows_Hinting.TargetDir)runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll"
         KeyPath="yes" />
 </Component>
 ```
@@ -53,7 +53,7 @@ Added two new components in the DirectoryRef section:
 Updated the Feature to include the new runtime components:
 
 ```xml
-<Feature Id="ProductFeature" Title="HintOverlay" Level="1">
+<Feature Id="ProductFeature" Title="Windows-Hinting" Level="1">
   <ComponentGroupRef Id="MainApplicationFiles" />
   <ComponentRef Id="DotNetRuntimeLibraries" />
   <ComponentRef Id="RuntimeRegistry" />
@@ -67,8 +67,8 @@ Updated the Feature to include the new runtime components:
 ## ✅ What's Now Installed
 
 **Main Application**:
-- HintOverlay.exe
-- HintOverlay.dll
+- Windows-Hinting.exe
+- Windows-Hinting.dll
 - Configuration files (.runtimeconfig.json, .deps.json)
 
 **Runtime Libraries**:
@@ -80,10 +80,10 @@ Updated the Feature to include the new runtime components:
 - ✅ Windows x64 (primary target)
 - ✅ Browser/WASM compatibility
 
-**Installation Location**: `C:\Program Files\HintOverlay\`
+**Installation Location**: `C:\Program Files\Windows-Hinting\`
 
 Including complete runtimes folder structure for proper .NET 8 compatibility
 
 ---
 
-**Status**: ✅ HintOverlay.Installer2 now includes the complete runtimes folder!
+**Status**: ✅ Windows-Hinting.Installer now includes the complete runtimes folder!

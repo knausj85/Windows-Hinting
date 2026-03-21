@@ -50,9 +50,9 @@ build\build-complete.bat Release --installer
 
 ```
 Step 1: Build Executable
-├─ Compile HintOverlay.csproj
+├─ Compile Windows-Hinting.csproj
 ├─ Sign with code signing certificate
-└─ Output: bin\Release\net8.0-windows\HintOverlay.exe
+└─ Output: bin\Release\net8.0-windows\Windows-Hinting.exe
 
 Step 2: Verify Executable
 ├─ Check code signature
@@ -60,8 +60,8 @@ Step 2: Verify Executable
 └─ Confirm signing successful
 
 Step 3: Build MSI
-├─ Compile HintOverlay.Installer2.wixproj
-└─ Output: HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+├─ Compile Windows-Hinting.Installer.wixproj
+└─ Output: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
 
 Step 4: Verify MSI Contents
 ├─ Extract executable from MSI (if lessmsi available)
@@ -118,16 +118,16 @@ After running the script:
 After running with `-Installer`:
 
 ```
-HintOverlay/
+Windows-Hinting/
 ├── bin/
 │   └── Release/
 │       └── net8.0-windows/
-│           └── HintOverlay.exe (signed)
-└── HintOverlay.Installer2/
+│           └── Windows-Hinting.exe (signed)
+└── Windows-Hinting.Installer/
     └── bin/
         └── Release/
             └── en-US/
-                └── HintOverlay.msi (contains signed exe)
+                └── Windows-Hinting.msi (contains signed exe)
 ```
 
 ## 🧪 Test the Build
@@ -137,10 +137,10 @@ HintOverlay/
 .\build\build-complete.ps1 -Installer
 
 # Test installer creation
-msiexec /i HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+msiexec /i Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
 
 # Verify installed executable
-Get-AuthenticodeSignature "C:\Program Files\HintOverlay\HintOverlay.exe"
+Get-AuthenticodeSignature "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
 ```
 
 ## 📖 Documentation
@@ -172,10 +172,10 @@ Get-AuthenticodeSignature "C:\Program Files\HintOverlay\HintOverlay.exe"
 
 ## 🔗 Related Files
 
-- `HintOverlay.csproj` - Executable build configuration
-- `HintOverlay.Installer2\HintOverlay.Installer2.wixproj` - MSI configuration
+- `Windows-Hinting.csproj` - Executable build configuration
+- `Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj` - MSI configuration
 - `build\build-complete.bat` - Batch wrapper (also updated)
-- `certs\HintOverlay_CodeSign.pfx` - Code signing certificate
+- `certs\WindowsHinting_CodeSign.pfx` - Code signing certificate
 - `app.manifest` - Application manifest with UIAccess
 
 ## ✨ Next Steps

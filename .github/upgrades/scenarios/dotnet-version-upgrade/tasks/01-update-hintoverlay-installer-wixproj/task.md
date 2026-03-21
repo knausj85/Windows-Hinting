@@ -1,4 +1,4 @@
-# 01-update-hintoverlay-installer-wixproj: Update HintOverlay.Installer.wixproj
+# 01-update-Windows-Hinting-installer-wixproj: Update Windows-Hinting.Installer.wixproj
 
 **Objective**: Modernize the WiX installer project to target .NET 8 and ensure it properly references the upgraded main application.
 
@@ -10,7 +10,7 @@
 
 ## Changes Made
 
-### 1. Updated WiX Project File (HintOverlay.Installer.wixproj)
+### 1. Updated WiX Project File (Windows-Hinting.Installer.wixproj)
 
 **Changes:**
 - **ProductVersion**: Updated from 3.14 → 4.0 (aligns with installed WiX Toolset v4.0)
@@ -21,13 +21,13 @@
 
 **Status**: ✅ Already correct
 - Binary path correctly references `net8.0-windows` output:
-  - `Source="..\bin\Release\net8.0-windows\HintOverlay.exe"`
+  - `Source="..\bin\Release\net8.0-windows\Windows-Hinting.exe"`
 - No changes needed — already optimized for .NET 8
 
 ### 3. Verified ProjectReference
 
 **Status**: ✅ Correct
-- WiX project correctly references main app: `Include="..\HintOverlay.csproj"`
+- WiX project correctly references main app: `Include="..\Windows-Hinting.csproj"`
 - Will pull .NET 8 binaries at build time
 
 ---
@@ -35,8 +35,8 @@
 ## Build Validation
 
 ✅ **Solution Build**: Successful
-- HintOverlay.csproj: Built as net8.0-windows
-- HintOverlay.Installer.wixproj: Built successfully with WiX 4.0
+- Windows-Hinting.csproj: Built as net8.0-windows
+- Windows-Hinting.Installer.wixproj: Built successfully with WiX 4.0
 - No errors or warnings
 
 ---
@@ -53,7 +53,7 @@
 ## Scope**:
 - Verify WiX project target framework compatibility
 - Update WiX project references/imports if needed
-- Ensure installer references the correct .NET 8 output from HintOverlay.csproj
+- Ensure installer references the correct .NET 8 output from Windows-Hinting.csproj
 - Validate WiX project builds successfully
 - Confirm installer creation completes without errors
 

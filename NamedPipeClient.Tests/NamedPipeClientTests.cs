@@ -13,7 +13,7 @@ namespace HintOverlay.NamedPipeClient.Tests
     {
         /// <summary>
         /// Test 1: Verify client can send TOGGLE command
-        /// Requirements: HintOverlay must be running
+        /// Requirements: Windows-Hinting must be running
         /// </summary>
         public static bool TestToggleCommand()
         {
@@ -33,7 +33,7 @@ namespace HintOverlay.NamedPipeClient.Tests
 
         /// <summary>
         /// Test 2: Verify client can send SELECT command with valid hint label
-        /// Requirements: HintOverlay must be running with hints visible
+        /// Requirements: Windows-Hinting must be running with hints visible
         /// </summary>
         public static bool TestSelectCommand()
         {
@@ -53,7 +53,7 @@ namespace HintOverlay.NamedPipeClient.Tests
 
         /// <summary>
         /// Test 3: Verify client can send DEACTIVATE command
-        /// Requirements: HintOverlay must be running
+        /// Requirements: Windows-Hinting must be running
         /// </summary>
         public static bool TestDeactivateCommand()
         {
@@ -148,8 +148,8 @@ namespace HintOverlay.NamedPipeClient.Tests
         }
 
         /// <summary>
-        /// Test 7: Verify client handles HintOverlay not running
-        /// Requirements: HintOverlay must NOT be running
+        /// Test 7: Verify client handles Windows-Hinting not running
+        /// Requirements: Windows-Hinting must NOT be running
         /// Expected: Client retries and eventually times out
         /// </summary>
         public static bool TestServerNotRunning()
@@ -259,7 +259,7 @@ namespace HintOverlay.NamedPipeClient.Tests
 
         /// <summary>
         /// Test 11: Verify client can send SELECT command with LEFT click action
-        /// Requirements: HintOverlay must be running with hints visible
+        /// Requirements: Windows-Hinting must be running with hints visible
         /// </summary>
         public static bool TestSelectWithLeftClick()
         {
@@ -279,7 +279,7 @@ namespace HintOverlay.NamedPipeClient.Tests
 
         /// <summary>
         /// Test 12: Verify client can send SELECT command with RIGHT click action
-        /// Requirements: HintOverlay must be running with hints visible
+        /// Requirements: Windows-Hinting must be running with hints visible
         /// </summary>
         public static bool TestSelectWithRightClick()
         {
@@ -299,7 +299,7 @@ namespace HintOverlay.NamedPipeClient.Tests
 
         /// <summary>
         /// Test 13: Verify client can send SELECT command with DOUBLE click action
-        /// Requirements: HintOverlay must be running with hints visible
+        /// Requirements: Windows-Hinting must be running with hints visible
         /// </summary>
         public static bool TestSelectWithDoubleClick()
         {
@@ -341,13 +341,13 @@ namespace HintOverlay.NamedPipeClient.Tests
         /// </summary>
         public static void RunAllTests()
         {
-            Console.WriteLine("=== HintOverlay Named Pipe Client Tests ===\n");
+            Console.WriteLine("=== Windows-Hinting Named Pipe Client Tests ===\n");
 
             int passed = 0;
             int total = 0;
 
-            // Tests that require HintOverlay to be running
-            Console.WriteLine("--- Tests with HintOverlay running ---");
+            // Tests that require Windows-Hinting to be running
+            Console.WriteLine("--- Tests with Windows-Hinting running ---");
             total++; if (TestToggleCommand()) passed++;
             total++; if (TestSelectCommand()) passed++;
             total++; if (TestDeactivateCommand()) passed++;
@@ -362,7 +362,7 @@ namespace HintOverlay.NamedPipeClient.Tests
             total++; if (TestSelectWithDoubleClick()) passed++;
             total++; if (TestSelectWithNullAction()) passed++;
 
-            Console.WriteLine("\n--- Tests with HintOverlay NOT running ---");
+            Console.WriteLine("\n--- Tests with Windows-Hinting NOT running ---");
             Console.WriteLine("(This test takes ~5 seconds)");
             total++; if (TestServerNotRunning()) passed++;
 

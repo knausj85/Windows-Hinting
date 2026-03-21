@@ -16,7 +16,7 @@ This document provides a comprehensive overview of the projects and their depend
 - [Projects Relationship Graph](#projects-relationship-graph)
 - [Project Details](#project-details)
 
-  - [HintOverlay.csproj](#hintoverlaycsproj)
+  - [Windows-Hinting.csproj](#Windows-Hintingcsproj)
 
 
 ## Executive Summary
@@ -37,7 +37,7 @@ This document provides a comprehensive overview of the projects and their depend
 
 | Project | Target Framework | Difficulty | Package Issues | API Issues | Est. LOC Impact | Description |
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| [HintOverlay.csproj](#hintoverlaycsproj) | net8.0-windows | ✅ None | 0 | 0 |  | WinForms, Sdk Style = True |
+| [Windows-Hinting.csproj](#Windows-Hintingcsproj) | net8.0-windows | ✅ None | 0 | 0 |  | WinForms, Sdk Style = True |
 
 ### Package Compatibility
 
@@ -62,8 +62,8 @@ This document provides a comprehensive overview of the projects and their depend
 
 | Package | Current Version | Suggested Version | Projects | Description |
 | :--- | :---: | :---: | :--- | :--- |
-| Microsoft.Extensions.Hosting | 10.0.3 |  | [HintOverlay.csproj](#hintoverlaycsproj) | ✅Compatible |
-| Microsoft.Extensions.Hosting.Abstractions | 10.0.3 |  | [HintOverlay.csproj](#hintoverlaycsproj) | ✅Compatible |
+| Microsoft.Extensions.Hosting | 10.0.3 |  | [Windows-Hinting.csproj](#Windows-Hintingcsproj) | ✅Compatible |
+| Microsoft.Extensions.Hosting.Abstractions | 10.0.3 |  | [Windows-Hinting.csproj](#Windows-Hintingcsproj) | ✅Compatible |
 
 ## Top API Migration Challenges
 
@@ -85,15 +85,15 @@ Legend:
 
 ```mermaid
 flowchart LR
-    P1["<b>📦&nbsp;HintOverlay.csproj</b><br/><small>net8.0-windows</small>"]
-    click P1 "#hintoverlaycsproj"
+    P1["<b>📦&nbsp;Windows-Hinting.csproj</b><br/><small>net8.0-windows</small>"]
+    click P1 "#Windows-Hintingcsproj"
 
 ```
 
 ## Project Details
 
-<a id="hintoverlaycsproj"></a>
-### HintOverlay.csproj
+<a id="Windows-Hintingcsproj"></a>
+### Windows-Hinting.csproj
 
 #### Project Info
 
@@ -114,9 +114,9 @@ Legend:
 
 ```mermaid
 flowchart TB
-    subgraph current["HintOverlay.csproj"]
-        MAIN["<b>📦&nbsp;HintOverlay.csproj</b><br/><small>net8.0-windows</small>"]
-        click MAIN "#hintoverlaycsproj"
+    subgraph current["Windows-Hinting.csproj"]
+        MAIN["<b>📦&nbsp;Windows-Hinting.csproj</b><br/><small>net8.0-windows</small>"]
+        click MAIN "#Windows-Hintingcsproj"
     end
 
 ```

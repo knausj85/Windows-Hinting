@@ -2,7 +2,7 @@
 
 ## 📦 What You Got
 
-A complete, production-ready named pipe interface for controlling HintOverlay remotely.
+A complete, production-ready named pipe interface for controlling Windows-Hinting remotely.
 
 ### ✅ Implementation Files (3)
 ```
@@ -104,7 +104,7 @@ client.Deactivate();
 
 ### Quick Start: PowerShell
 ```powershell
-$pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "HintOverlay_Pipe", [System.IO.Pipes.PipeDirection]::Out)
+$pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "WindowsHinting_Pipe", [System.IO.Pipes.PipeDirection]::Out)
 $pipe.Connect(5000)
 $writer = New-Object System.IO.StreamWriter($pipe)
 $writer.WriteLine("TOGGLE")
@@ -118,7 +118,7 @@ $pipe.Close()
 import win32pipe, win32file
 
 handle = win32file.CreateFile(
-    r"\\.\pipe\HintOverlay_Pipe",
+    r"\\.\pipe\WindowsHinting_Pipe",
     win32file.GENERIC_WRITE, 0, None,
     win32file.OPEN_EXISTING, 0, None
 )
@@ -133,7 +133,7 @@ handle.Close()
 ### ✨ Order-Independent Execution
 ```
 Scenario 1: Client starts FIRST
-  Client: "Connect to HintOverlay"
+  Client: "Connect to Windows-Hinting"
   Client: "Hmm, server not ready yet"
   Client: [Retry 1] ... [Retry 50] 
   Server starts...
@@ -155,7 +155,7 @@ If connection succeeds → Returns true
 
 ### 📝 Simple Text Protocol
 ```
-Named Pipe: "HintOverlay_Pipe"
+Named Pipe: "WindowsHinting_Pipe"
 Format: UTF-8 text, newline-delimited
 
 Commands:
@@ -173,7 +173,7 @@ Named Pipe Server (async, handles 10 concurrent)
     ↓
 HintController
     ↓
-Existing HintOverlay Logic (unchanged)
+Existing Windows-Hinting Logic (unchanged)
 ```
 
 ---
@@ -294,7 +294,7 @@ Everything is configurable. Default values:
 
 | Setting | Default | File |
 |---------|---------|------|
-| Pipe Name | `HintOverlay_Pipe` | Both files |
+| Pipe Name | `WindowsHinting_Pipe` | Both files |
 | Max Connections | 10 | NamedPipeService.cs |
 | Client Retries | 50 | HintOverlayClient.cs |
 | Retry Delay | 100ms | HintOverlayClient.cs |
@@ -376,7 +376,7 @@ Your Project Root:
 
 ## 🎯 What You Can Do Now
 
-- ✅ Control HintOverlay from external apps
+- ✅ control Windows-Hinting from external apps
 - ✅ Toggle hints programmatically
 - ✅ Select hints by label
 - ✅ Integrate with global hotkeys

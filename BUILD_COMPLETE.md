@@ -14,7 +14,7 @@ All steps completed successfully:
 ```
 Configuration: Release
 Target Framework: net8.0-windows
-Output: bin\Release\net8.0-windows\HintOverlay.exe
+Output: bin\Release\net8.0-windows\Windows-Hinting.exe
 Signed: Yes (self-signed)
 Manifest: app.manifest (embedded, uiAccess="true")
 Status: ✅ Success
@@ -22,8 +22,8 @@ Status: ✅ Success
 
 ### MSI Installer
 ```
-Name: HintOverlay.msi
-Location: HintOverlay.Installer\bin\Release\HintOverlay.msi
+Name: Windows-Hinting.msi
+Location: Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi
 Size: 376,832 bytes (368 KB)
 Signed: Yes (with same certificate)
 Timestamp: 3/15/2026 2:01:07 AM
@@ -34,7 +34,7 @@ Status: ✅ Success
 
 ### Signed Executable
 ```
-C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\HintOverlay.exe
+C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe
 ├─ ✅ Code-signed (self-signed certificate)
 ├─ ✅ Embedded manifest with uiAccess="true"
 └─ ✅ Ready for deployment
@@ -42,9 +42,9 @@ C:\Users\knausj\git\Windows-Hinting\bin\Release\net8.0-windows\HintOverlay.exe
 
 ### MSI Installer Package
 ```
-C:\Users\knausj\git\Windows-Hinting\HintOverlay.Installer\bin\Release\HintOverlay.msi
+C:\Users\knausj\git\Windows-Hinting\Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi
 ├─ ✅ Code-signed (self-signed certificate)
-├─ ✅ Installs to C:\Program Files\HintOverlay\
+├─ ✅ Installs to C:\Program Files\Windows-Hinting\
 ├─ ✅ Creates Start Menu shortcut
 ├─ ✅ Creates Desktop shortcut
 └─ ✅ Registers for Add/Remove Programs
@@ -53,7 +53,7 @@ C:\Users\knausj\git\Windows-Hinting\HintOverlay.Installer\bin\Release\HintOverla
 ## 🔐 Security & Certificates
 
 ### Certificate Used
-- **Subject**: CN=HintOverlay Development
+- **Subject**: CN=Windows-Hinting Development
 - **Issued By**: Self-Signed
 - **Thumbprint**: E06E97623F5D68DE9A59BC21FF5B8DB26A719A58
 - **Valid Until**: Fri Mar 14 22:03:57 2036
@@ -71,19 +71,19 @@ C:\Users\knausj\git\Windows-Hinting\HintOverlay.Installer\bin\Release\HintOverla
 
 #### Method 1: Command Line (Recommended)
 ```powershell
-msiexec /i "HintOverlay.Installer\bin\Release\HintOverlay.msi"
+msiexec /i "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi"
 ```
 
 #### Method 2: Double-Click
 ```
 Open Windows Explorer
-Navigate to: HintOverlay.Installer\bin\Release\
-Double-click: HintOverlay.msi
+Navigate to: Windows-Hinting.Installer\bin\Release\
+Double-click: Windows-Hinting.msi
 ```
 
 #### Method 3: Silent Installation
 ```powershell
-msiexec /i "HintOverlay.Installer\bin\Release\HintOverlay.msi" /quiet
+msiexec /i "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi" /quiet
 ```
 
 ### Verify Installation
@@ -92,25 +92,25 @@ After installation, check these locations:
 
 #### Application Binary
 ```powershell
-Get-Item "C:\Program Files\HintOverlay\HintOverlay.exe"
+Get-Item "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
 # Should return: 134,144 bytes (signed)
 ```
 
 #### Start Menu Shortcut
 ```powershell
-Get-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\HintOverlay\HintOverlay.lnk"
+Get-Item "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Windows-Hinting\Windows-Hinting.lnk"
 ```
 
 #### Desktop Shortcut
 ```powershell
-Get-Item "$env:USERPROFILE\Desktop\HintOverlay.lnk"
+Get-Item "$env:USERPROFILE\Desktop\Windows-Hinting.lnk"
 ```
 
 ### Test Application
 
 ```powershell
 # Run installed executable
-& "C:\Program Files\HintOverlay\HintOverlay.exe"
+& "C:\Program Files\Windows-Hinting\Windows-Hinting.exe"
 
 # Should:
 # ✓ Start successfully
@@ -122,24 +122,24 @@ Get-Item "$env:USERPROFILE\Desktop\HintOverlay.lnk"
 
 ```powershell
 # Method 1: Command Line
-msiexec /x "HintOverlay.Installer\bin\Release\HintOverlay.msi"
+msiexec /x "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi"
 
-# Method 2: Settings → Apps → Installed apps → HintOverlay → Uninstall
+# Method 2: Settings → Apps → Installed apps → Windows-Hinting → Uninstall
 
-# Method 3: Control Panel → Programs → Programs and Features → HintOverlay → Uninstall
+# Method 3: Control Panel → Programs → Programs and Features → Windows-Hinting → Uninstall
 ```
 
 ## 📋 Build Process Summary
 
 ### Step 1: Build Application ✅
 ```powershell
-MSBuild HintOverlay.sln /p:Configuration=Release
-# Output: bin\Release\net8.0-windows\HintOverlay.exe
+MSBuild Windows-Hinting.sln /p:Configuration=Release
+# Output: bin\Release\net8.0-windows\Windows-Hinting.exe
 ```
 
 ### Step 2: Sign Executable ✅
 ```powershell
-signtool sign /f "HintOverlay_CodeSign.pfx" /p "test123" /fd SHA256 HintOverlay.exe
+signtool sign /f "WindowsHinting_CodeSign.pfx" /p "test123" /fd SHA256 Windows-Hinting.exe
 # Result: Executable signed with uiAccess enabled
 ```
 
@@ -151,13 +151,13 @@ candle.exe -o obj\Release\ Product.wxs
 
 ### Step 4: Link MSI ✅
 ```powershell
-light.exe -out bin\Release\HintOverlay.msi obj\Release\Product.wixobj
-# Output: HintOverlay.msi (Windows Installer package)
+light.exe -out bin\Release\Windows-Hinting.msi obj\Release\Product.wixobj
+# Output: Windows-Hinting.msi (Windows Installer package)
 ```
 
 ### Step 5: Sign MSI ✅
 ```powershell
-signtool sign /f "HintOverlay_CodeSign.pfx" /p "test123" /fd SHA256 HintOverlay.msi
+signtool sign /f "WindowsHinting_CodeSign.pfx" /p "test123" /fd SHA256 Windows-Hinting.msi
 # Result: MSI signed and ready for distribution
 ```
 
@@ -167,8 +167,8 @@ The installer will deploy:
 
 ### Files
 ```
-C:\Program Files\HintOverlay\
-└── HintOverlay.exe              (Signed executable, 134 KB)
+C:\Program Files\Windows-Hinting\
+└── Windows-Hinting.exe              (Signed executable, 134 KB)
     ├─ Embedded manifest (uiAccess="true")
     ├─ Code signed (self-signed cert)
     └─ Ready for elevated UI interaction
@@ -177,15 +177,15 @@ C:\Program Files\HintOverlay\
 ### Shortcuts
 ```
 Start Menu:
-└─ C:\ProgramData\Microsoft\Windows\Start Menu\Programs\HintOverlay\HintOverlay.lnk
+└─ C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Windows-Hinting\Windows-Hinting.lnk
 
 Desktop:
-└─ C:\Users\[User]\Desktop\HintOverlay.lnk
+└─ C:\Users\[User]\Desktop\Windows-Hinting.lnk
 ```
 
 ### Registry Entries
 ```
-HKEY_CURRENT_USER\Software\HintOverlay\
+HKEY_CURRENT_USER\Software\Windows-Hinting\
 ├─ StartMenuShortcut: 1
 └─ DesktopShortcut: 1
 ```
@@ -193,11 +193,11 @@ HKEY_CURRENT_USER\Software\HintOverlay\
 ## 🔄 Next Steps
 
 ### For Testing
-1. Install MSI: `msiexec /i HintOverlay.msi`
+1. Install MSI: `msiexec /i Windows-Hinting.msi`
 2. Verify installation in Program Files
 3. Test application functionality
 4. Test uiAccess features
-5. Uninstall: `msiexec /x HintOverlay.msi`
+5. Uninstall: `msiexec /x Windows-Hinting.msi`
 
 ### For Distribution
 1. ✅ Share the MSI file with end users
@@ -215,12 +215,12 @@ HKEY_CURRENT_USER\Software\HintOverlay\
 
 | Item | Location |
 |------|----------|
-| **MSI Installer** | `HintOverlay.Installer\bin\Release\HintOverlay.msi` |
-| **Signed EXE** | `bin\Release\net8.0-windows\HintOverlay.exe` |
-| **Certificate (PFX)** | `C:\Users\knausj\HintOverlay_CodeSign.pfx` |
-| **Certificate (CER)** | `C:\Users\knausj\HintOverlay_CodeSign.cer` |
-| **WiX Source** | `HintOverlay.Installer\Product.wxs` |
-| **Build Folder** | `HintOverlay.Installer\bin\Release\` |
+| **MSI Installer** | `Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi` |
+| **Signed EXE** | `bin\Release\net8.0-windows\Windows-Hinting.exe` |
+| **Certificate (PFX)** | `C:\Users\knausj\WindowsHinting_CodeSign.pfx` |
+| **Certificate (CER)** | `C:\Users\knausj\WindowsHinting_CodeSign.cer` |
+| **WiX Source** | `Windows-Hinting.Installer\Product.wxs` |
+| **Build Folder** | `Windows-Hinting.Installer\bin\Release\` |
 
 ## ✅ Quality Checklist
 
@@ -236,25 +236,25 @@ HKEY_CURRENT_USER\Software\HintOverlay\
 
 ### Installation
 ```
-1. Download: HintOverlay.msi
+1. Download: Windows-Hinting.msi
 2. Double-click the file
 3. Follow the installation wizard
-4. Application installs to C:\Program Files\HintOverlay\
+4. Application installs to C:\Program Files\Windows-Hinting\
 5. Shortcuts created automatically
 ```
 
 ### Launch Application
 ```
-Option A: Start Menu → HintOverlay → HintOverlay
-Option B: Desktop → Double-click HintOverlay
-Option C: Run → C:\Program Files\HintOverlay\HintOverlay.exe
+Option A: Start Menu → Windows-Hinting → Windows-Hinting
+Option B: Desktop → Double-click Windows-Hinting
+Option C: Run → C:\Program Files\Windows-Hinting\Windows-Hinting.exe
 ```
 
 ### Uninstall
 ```
-Method 1: Settings → Apps → Installed apps → HintOverlay → Uninstall
+Method 1: Settings → Apps → Installed apps → Windows-Hinting → Uninstall
 Method 2: Control Panel → Programs → Programs and Features → Uninstall
-Method 3: Run → msiexec /x HintOverlay.msi
+Method 3: Run → msiexec /x Windows-Hinting.msi
 ```
 
 ## 📞 Summary
@@ -271,7 +271,7 @@ You now have:
 **Next action**: Install and test the MSI!
 
 ```powershell
-msiexec /i "HintOverlay.Installer\bin\Release\HintOverlay.msi"
+msiexec /i "Windows-Hinting.Installer\bin\Release\Windows-Hinting.msi"
 ```
 
 ---

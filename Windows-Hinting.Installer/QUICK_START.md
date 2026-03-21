@@ -1,34 +1,34 @@
-# Quick Start Guide - Building and Deploying HintOverlay Installer
+# Quick Start Guide - Building and Deploying Windows-Hinting Installer
 
 ## Quick Build Commands
 
 ### Standard Build (without signing)
 ```powershell
 # From solution root directory
-msbuild HintOverlay.Installer2/HintOverlay.Installer2.wixproj -p:Configuration=Release
+msbuild Windows-Hinting.Installer/Windows-Hinting.Installer.wixproj -p:Configuration=Release
 
-# Output: HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+# Output: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
 ```
 
 ### Build with Code Signing (Production)
 ```powershell
 # 1. Build and sign the main application
-msbuild HintOverlay.csproj -p:Configuration=Release
-signtool sign /f certificate.pfx /p password /fd SHA256 /tr http://timestamp.digicert.com bin\Release\net8.0-windows\HintOverlay.exe
+msbuild Windows-Hinting.csproj -p:Configuration=Release
+signtool sign /f certificate.pfx /p password /fd SHA256 /tr http://timestamp.digicert.com bin\Release\net8.0-windows\Windows-Hinting.exe
 
 # 2. Build the installer
-msbuild HintOverlay.Installer2/HintOverlay.Installer2.wixproj -p:Configuration=Release
+msbuild Windows-Hinting.Installer/Windows-Hinting.Installer.wixproj -p:Configuration=Release
 ```
 
 ### Build Everything (Solution)
 ```powershell
 # Build entire solution with all projects
-msbuild HintOverlay.sln -p:Configuration=Release
+msbuild Windows-Hinting.sln -p:Configuration=Release
 ```
 
 ## What the Installer Does
 
-✅ **Installs HintOverlay to**: `C:\Program Files\HintOverlay\`
+✅ **Installs Windows-Hinting to**: `C:\Program Files\Windows-Hinting\`
 ✅ **Creates shortcuts**: Desktop and Start Menu
 ✅ **Registers with Windows**: Uninstall support, auto-start (optional)
 ✅ **Configures UIAccess**: Registry entries for elevated UI interaction
@@ -37,14 +37,14 @@ msbuild HintOverlay.sln -p:Configuration=Release
 ## UIAccess - What You Need to Know
 
 ### The Problem
-Windows restricts UI automation to prevent malware. HintOverlay needs "UIAccess" privilege to function properly with system elements.
+Windows restricts UI automation to prevent malware. Windows-Hinting needs "UIAccess" privilege to function properly with system elements.
 
 ### The Solution
 **Your executable MUST be code-signed** for UIAccess to work.
 
 ### The Steps
 1. Obtain or create a code-signing certificate
-2. Sign your HintOverlay.exe binary
+2. Sign your Windows-Hinting.exe binary
 3. Install via this MSI installer
 4. UIAccess automatically enabled ✓
 
@@ -58,16 +58,16 @@ $pwd = ConvertTo-SecureString -String "password" -Force -AsPlainText
 Export-PfxCertificate -Cert $cert -FilePath cert.pfx -Password $pwd
 
 # Sign executable
-signtool sign /f cert.pfx /p password /fd SHA256 bin\Release\net8.0-windows\HintOverlay.exe
+signtool sign /f cert.pfx /p password /fd SHA256 bin\Release\net8.0-windows\Windows-Hinting.exe
 
 # Verify
-signtool verify /pa bin\Release\net8.0-windows\HintOverlay.exe
+signtool verify /pa bin\Release\net8.0-windows\Windows-Hinting.exe
 ```
 
 ## File Locations
 
 ```
-HintOverlay.Installer2/
+Windows-Hinting.Installer/
 ├── Package.wxs                    # Main installer definition
 ├── ExampleComponents.wxs           # Application files & shortcuts
 ├── UI.wxs                         # Installer UI configuration  
@@ -75,9 +75,9 @@ HintOverlay.Installer2/
 ├── License.rtf                    # EULA displayed to users
 ├── INSTALLATION_GUIDE.md          # Detailed setup guide
 ├── UIACCESS_SETUP.md             # UIAccess technical details
-├── HintOverlay.Installer2.wixproj # Project file
+├── Windows-Hinting.Installer.wixproj # Project file
 └── bin/Release/en-US/
-    └── HintOverlay.msi            # Final installer (Ready to distribute)
+    └── Windows-Hinting.msi            # Final installer (Ready to distribute)
 ```
 
 ## Installation on User Machine
@@ -85,31 +85,31 @@ HintOverlay.Installer2/
 ### Standard Installation
 ```cmd
 # Run the MSI installer
-msiexec /i HintOverlay.msi
+msiexec /i Windows-Hinting.msi
 
-# Or double-click HintOverlay.msi in File Explorer
+# Or double-click Windows-Hinting.msi in File Explorer
 ```
 
 ### Silent Installation
 ```cmd
 # Install without UI prompts
-msiexec /i HintOverlay.msi /qn
+msiexec /i Windows-Hinting.msi /qn
 
 # Install with progress bar only
-msiexec /i HintOverlay.msi /qb
+msiexec /i Windows-Hinting.msi /qb
 ```
 
 ### Uninstall
 ```cmd
 # From Control Panel → Programs and Features
 # OR command line:
-msiexec /x HintOverlay.msi
+msiexec /x Windows-Hinting.msi
 ```
 
 ## Customization Options
 
 ### Change Version Number
-Edit `HintOverlay.Installer2.wixproj`:
+Edit `Windows-Hinting.Installer.wixproj`:
 ```xml
 <PropertyGroup>
   <ProductVersion>2.0.0.0</ProductVersion>
@@ -133,11 +133,11 @@ Replace `License.rtf` with your own RTF file
 
 After building and installing:
 
-- [ ] MSI file created: `HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi`
-- [ ] HintOverlay.exe is signed (for production)
-- [ ] Program installed to `C:\Program Files\HintOverlay\`
+- [ ] MSI file created: `Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi`
+- [ ] Windows-Hinting.exe is signed (for production)
+- [ ] Program installed to `C:\Program Files\Windows-Hinting\`
 - [ ] Shortcuts created on Desktop and Start Menu
-- [ ] Registry entries present at `HKLM:\Software\Windows-Hinting\HintOverlay`
+- [ ] Registry entries present at `HKLM:\Software\Windows-Hinting\Windows-Hinting`
 - [ ] UIAccess manifest verified in executable
 - [ ] Application launches without errors
 
@@ -145,15 +145,15 @@ After building and installing:
 
 | Problem | Solution |
 |---------|----------|
-| "MSI not found" | Check build output: `HintOverlay.Installer2\bin\Release\en-US\` |
+| "MSI not found" | Check build output: `Windows-Hinting.Installer\bin\Release\en-US\` |
 | "Build fails" | Run `dotnet restore` in solution root |
-| "UIAccess not working" | Sign HintOverlay.exe with code-signing certificate |
+| "UIAccess not working" | Sign Windows-Hinting.exe with code-signing certificate |
 | "Cannot install to Program Files" | Run installer as Administrator |
-| "File in use during install" | Close HintOverlay.exe and retry |
+| "File in use during install" | Close Windows-Hinting.exe and retry |
 
 ## Distribution
 
-Your `HintOverlay.msi` is ready to:
+Your `Windows-Hinting.msi` is ready to:
 - ✅ Share with users
 - ✅ Deploy via SCCM/Intune
 - ✅ Include on installation media

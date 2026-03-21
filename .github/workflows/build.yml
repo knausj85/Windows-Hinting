@@ -28,7 +28,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Restore NuGet packages
-        run: dotnet restore HintOverlay.csproj
+        run: dotnet restore Windows-Hinting.csproj
 
       - name: Build Debug (exe only)
         run: build\build-complete.bat Debug --exe-only
@@ -36,8 +36,8 @@ jobs:
       - name: Upload Debug artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HintOverlay-Debug
-          path: bin\Debug\net8.0-windows\HintOverlay.exe
+          name: Windows-Hinting-Debug
+          path: bin\Debug\net8.0-windows\Windows-Hinting.exe
           if-no-files-found: error
 
   build-release:
@@ -61,7 +61,7 @@ jobs:
         run: dotnet tool install --global wix --version 6.0.2
 
       - name: Restore NuGet packages
-        run: dotnet restore HintOverlay.csproj
+        run: dotnet restore Windows-Hinting.csproj
 
       - name: Decode signing certificate
         shell: pwsh
@@ -106,7 +106,7 @@ jobs:
       - name: Verify exe signature
         shell: pwsh
         run: |
-          $exePath = "bin\Release\net8.0-windows\HintOverlay.exe"
+          $exePath = "bin\Release\net8.0-windows\Windows-Hinting.exe"
           Write-Host "--- Signature verification ---"
           if (-not (Test-Path $exePath)) {
             Write-Host "  ERROR: exe not found at $exePath"
@@ -126,15 +126,15 @@ jobs:
       - name: Upload Release exe artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HintOverlay-Release
-          path: bin\Release\net8.0-windows\HintOverlay.exe
+          name: Windows-Hinting-Release
+          path: bin\Release\net8.0-windows\Windows-Hinting.exe
           if-no-files-found: error
 
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HintOverlay-Installer
-          path: HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi
+          name: Windows-Hinting-Installer
+          path: HintOverlay.Installer2\bin\Release\en-US\Windows-Hinting.msi
           if-no-files-found: error
 
   release:
@@ -150,13 +150,13 @@ jobs:
       - name: Download Release exe
         uses: actions/download-artifact@v4
         with:
-          name: HintOverlay-Release
+          name: Windows-Hinting-Release
           path: artifacts
 
       - name: Download MSI installer
         uses: actions/download-artifact@v4
         with:
-          name: HintOverlay-Installer
+          name: Windows-Hinting-Installer
           path: artifacts
 
       - name: Create GitHub release
@@ -167,5 +167,5 @@ jobs:
           generate_release_notes: true
           make_latest: true
           files: |
-            artifacts/HintOverlay.exe
-            artifacts/HintOverlay.msi
+            artifacts/Windows-Hinting.exe
+            artifacts/Windows-Hinting.msi

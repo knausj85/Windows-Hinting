@@ -21,7 +21,7 @@ client.Deactivate();
 
 ### For Other Languages
 
-Connect to: `\\.\pipe\HintOverlay_Pipe` (UTF-8 text, line-delimited)
+Connect to: `\\.\pipe\WindowsHinting_Pipe` (UTF-8 text, line-delimited)
 
 Commands:
 - `TOGGLE\n`
@@ -83,7 +83,7 @@ client.Deactivate();       // Deactivate
 
 ### From Command Line (PowerShell)
 ```powershell
-$pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "HintOverlay_Pipe", [System.IO.Pipes.PipeDirection]::Out)
+$pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "WindowsHinting_Pipe", [System.IO.Pipes.PipeDirection]::Out)
 $pipe.Connect(5000)
 $writer = New-Object System.IO.StreamWriter($pipe)
 $writer.WriteLine("TOGGLE")
@@ -95,7 +95,7 @@ $pipe.Close()
 ### From Node.js
 ```javascript
 const net = require('net');
-const client = net.createConnection({ path: '\\\\.\\pipe\\HintOverlay_Pipe' }, () => {
+const client = net.createConnection({ path: '\\\\.\\pipe\\WindowsHinting_Pipe' }, () => {
   client.write('TOGGLE\n');
   client.end();
 });
@@ -110,7 +110,7 @@ External App
 HintOverlayClient (with auto-retry)
     |
     v
-Named Pipe: "HintOverlay_Pipe"
+Named Pipe: "WindowsHinting_Pipe"
     |
     v
 NamedPipeService (server)
@@ -125,13 +125,13 @@ HintStateManager (manages hint state)
 ## Troubleshooting
 
 ### "Failed to connect" after 5 seconds
-- Ensure HintOverlay application is running
+- Ensure Windows-Hinting application is running
 - Check Windows Firewall isn't blocking pipes
 - Check application logs for errors
 
 ### Command sent but nothing happened
 - Verify hint label is correct (case-insensitive)
-- Check HintOverlay logs for warnings
+- Check Windows-Hinting logs for warnings
 - Ensure hints are active before selecting
 
 ### Multiple applications can't connect simultaneously

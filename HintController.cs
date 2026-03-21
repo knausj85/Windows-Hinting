@@ -108,8 +108,9 @@ namespace HintOverlay
 
         private void ApplyOptions()
         {
-            _logger.Debug($"Applying options - ShowRectangles: {_options.ShowRectangles}, Hotkey: {_options.Hotkey.Modifiers}+{_options.Hotkey.VirtualKey}");
+            _logger.Debug($"Applying options - ShowRectangles: {_options.ShowRectangles}, HintPosition: {_options.HintPosition}, Hotkey: {_options.Hotkey.Modifiers}+{_options.Hotkey.VirtualKey}");
             _overlay.ShowRectangles = _options.ShowRectangles;
+            _overlay.HintPosition = _options.HintPosition;
 
             if (_options.Hotkey.Enabled)
                 _overlay.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);

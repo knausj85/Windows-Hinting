@@ -14,6 +14,7 @@ namespace HintOverlay.Models
             VirtualKey = 0x54   // T key
         };
         public ClickActionShortcutOptions ClickActionShortcuts { get; set; } = new();
+        public HintPosition HintPosition { get; set; } = HintPosition.UpperLeft;
         public AnimationOptions Animation { get; set; } = new();
         public List<WindowRule>? WindowRules { get; set; }
     }
@@ -47,5 +48,15 @@ namespace HintOverlay.Models
         Control = 2,
         Shift = 4,
         Win = 8
+    }
+
+    internal enum HintPosition
+    {
+        UpperLeft,
+        UpperCenter,
+        UpperRight,
+        BottomLeft,
+        BottomCenter,
+        BottomRight
     }
 }

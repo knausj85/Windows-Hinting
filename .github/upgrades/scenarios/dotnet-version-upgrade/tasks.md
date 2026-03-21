@@ -10,10 +10,10 @@
 
 **Status**: ✅ COMPLETE
 
-### 01-update-hintoverlay-installer-wixproj
-- Modernize the HintOverlay.Installer.wixproj to ensure .NET 8 compatibility and proper project references.
+### 01-update-Windows-Hinting-installer-wixproj
+- Modernize the Windows-Hinting.Installer.wixproj to ensure .NET 8 compatibility and proper project references.
 - **Completed**: Updated WiX project to v4.0 format, verified .NET 8 references
-- **Files Modified**: HintOverlay.Installer/HintOverlay.Installer.wixproj
+- **Files Modified**: Windows-Hinting.Installer/Windows-Hinting.Installer.wixproj
 
 ---
 
@@ -32,6 +32,6 @@
 
 | Task | Status | Files Modified | Notes |
 |------|--------|-----------------|-------|
-| 01-update-hintoverlay-installer-wixproj | ✅ COMPLETE | HintOverlay.Installer.wixproj | WiX upgraded to v4.0, build validated |
+| 01-update-Windows-Hinting-installer-wixproj | ✅ COMPLETE | Windows-Hinting.Installer.wixproj | WiX upgraded to v4.0, build validated |
 | 02-verify-solution-integration | ⏳ IN PROGRESS | — | Next task |
 

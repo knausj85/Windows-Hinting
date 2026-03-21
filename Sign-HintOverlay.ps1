@@ -1,11 +1,11 @@
-# Sign-HintOverlay.ps1
-# Code signing script for HintOverlay executable
+# Sign-WindowsHinting.ps1
+# Code signing script for Windows-Hinting executable
 
 <#
 .SYNOPSIS
-    Signs the HintOverlay executable with a code signing certificate
+    Signs the Windows-Hinting executable with a code signing certificate
 .DESCRIPTION
-    This script signs the HintOverlay.exe file with a code signing certificate.
+    This script signs the Windows-Hinting.exe file with a code signing certificate.
     Supports both self-signed (development) and commercial (production) certificates.
 .PARAMETER BuildConfiguration
     Build configuration: Debug or Release (default: Release)
@@ -18,11 +18,11 @@
 .PARAMETER ProjectRoot
     Root directory of the project (default: current directory)
 .EXAMPLE
-    .\Sign-HintOverlay.ps1 -BuildConfiguration Release
+    .\Sign-WindowsHinting.ps1 -BuildConfiguration Release
 
     Prompts for certificate password, then signs the Release executable.
 .EXAMPLE
-    .\Sign-HintOverlay.ps1 -CertificatePassword "MyPassword123"
+    .\Sign-WindowsHinting.ps1 -CertificatePassword "MyPassword123"
 
     Signs using provided password.
 #>
@@ -31,7 +31,7 @@ param(
     [ValidateSet("Debug", "Release")]
     [string]$BuildConfiguration = "Release",
 
-    [string]$CertificatePath = "$env:USERPROFILE\HintOverlay_CodeSign.pfx",
+    [string]$CertificatePath = "$env:USERPROFILE\WindowsHinting_CodeSign.pfx",
 
     [string]$CertificatePassword = "",
 
@@ -44,7 +44,7 @@ param(
 # Configuration
 # ============================================================================
 
-$exePath = Join-Path $ProjectRoot "bin\$BuildConfiguration\net8.0-windows\HintOverlay.exe"
+$exePath = Join-Path $ProjectRoot "bin\$BuildConfiguration\net8.0-windows\Windows-Hinting.exe"
 $signtool = $null
 
 # Try to find signtool.exe in common locations
@@ -70,7 +70,7 @@ foreach ($location in $possibleLocations) {
 # ============================================================================
 
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "HintOverlay Code Signing Tool" -ForegroundColor Cyan
+Write-Host "Windows-Hinting Code Signing Tool" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
@@ -228,7 +228,7 @@ Write-Host ""
 Write-Host "The executable is now signed and ready for distribution."
 Write-Host ""
 Write-Host "Next steps:"
-Write-Host "  1. Test the signed executable: .\bin\$BuildConfiguration\net8.0-windows\HintOverlay.exe"
+Write-Host "  1. Test the signed executable: .\bin\$BuildConfiguration\net8.0-windows\Windows-Hinting.exe"
 Write-Host "  2. Package for distribution"
 Write-Host "  3. Share with users"
 Write-Host ""

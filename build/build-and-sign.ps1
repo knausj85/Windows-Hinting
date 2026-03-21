@@ -4,7 +4,7 @@ param(
     [switch]$RegenerateCert,
     [switch]$SkipSigning,
     [string]$CertPath = "",
-    [string]$CertPassword = "HintOverlay_BuildCert_2024"
+    [string]$CertPassword = "WindowsHinting_BuildCert_2024"
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,11 +12,11 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 
 if ($CertPath -eq "") {
-    $CertPath = "$RepoRoot\certs\HintOverlay_CodeSign.pfx"
+    $CertPath = "$RepoRoot\certs\WindowsHinting_CodeSign.pfx"
 }
 
 Write-Host "=========================================="
-Write-Host "HintOverlay Build and Sign Script"
+Write-Host "Windows-Hinting Build and Sign Script"
 Write-Host "=========================================="
 Write-Host "Configuration: $Configuration"
 Write-Host "Repository Root: $RepoRoot"
@@ -38,8 +38,8 @@ if (-not $SkipSigning) {
 }
 
 # Step 2: Build the project
-Write-Host "[2/3] Building HintOverlay ($Configuration)..."
-$ProjectPath = Join-Path $RepoRoot "HintOverlay.csproj"
+Write-Host "[2/3] Building Windows-Hinting ($Configuration)..."
+$ProjectPath = Join-Path $RepoRoot "Windows-Hinting.csproj"
 
 if ($SkipSigning) {
     msbuild $ProjectPath /p:Configuration=$Configuration /nologo /v:minimal
@@ -60,7 +60,7 @@ Write-Host ""
 if (-not $SkipSigning) {
     Write-Host "[3/3] Verifying executable signature..."
 
-    $ExePath = Join-Path $RepoRoot "bin\$Configuration\net8.0-windows\HintOverlay.exe"
+    $ExePath = Join-Path $RepoRoot "bin\$Configuration\net8.0-windows\Windows-Hinting.exe"
 
     if (-not (Test-Path $ExePath)) {
         Write-Host "Executable not found at: $ExePath"
@@ -84,7 +84,7 @@ Write-Host "✓ Build process completed successfully!"
 Write-Host "=========================================="
 Write-Host ""
 Write-Host "Output:"
-Write-Host "  Executable: bin\$Configuration\net8.0-windows\HintOverlay.exe"
+Write-Host "  Executable: bin\$Configuration\net8.0-windows\Windows-Hinting.exe"
 if (-not $SkipSigning) {
     Write-Host "  Certificate: $CertPath"
 }

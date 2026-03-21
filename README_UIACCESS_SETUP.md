@@ -17,13 +17,13 @@ I've set up your application to use `uiAccess` and enabled code signing. Here's 
    - Exports to CER file (for distribution)
    - One-time setup script
 
-3. **`Sign-HintOverlay.ps1`** - PowerShell script to sign executables
-   - Signs your HintOverlay.exe
+3. **`Sign-WindowsHinting.ps1`** - PowerShell script to sign executables
+   - Signs your Windows-Hinting.exe
    - Verifies signature automatically
    - Shows certificate details
    - Reusable for each build
 
-4. **`HintOverlay.csproj`** - Updated project file
+4. **`Windows-Hinting.csproj`** - Updated project file
    - Now references `app.manifest`
    - Manifest will be embedded in executable
 
@@ -37,7 +37,7 @@ I've set up your application to use `uiAccess` and enabled code signing. Here's 
 
 ## 🚀 Quick Start (5 Steps)
 
-### Step 1: Create Certificate (Generates `HintOverlay_CodeSign.pfx`)
+### Step 1: Create Certificate (Generates `WindowsHinting_CodeSign.pfx`)
 ```powershell
 cd C:\Users\knausj\git\Windows-Hinting
 .\Create-CodeSigningCert.ps1
@@ -54,19 +54,19 @@ dotnet build -c Release
 
 ### Step 3: Sign the Executable
 ```powershell
-.\Sign-HintOverlay.ps1 -BuildConfiguration Release
+.\Sign-WindowsHinting.ps1 -BuildConfiguration Release
 # Enter the password from Step 1
 ```
 
 ### Step 4: Verify Signature
 ```powershell
-Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe"
+Get-AuthenticodeSignature "bin\Release\net8.0-windows\Windows-Hinting.exe"
 # Should show Status = "Valid"
 ```
 
 ### Step 5: Deploy!
 ```powershell
-.\bin\Release\net8.0-windows\HintOverlay.exe
+.\bin\Release\net8.0-windows\Windows-Hinting.exe
 ```
 
 ---
@@ -76,9 +76,9 @@ Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe"
 | File | Purpose |
 |------|---------|
 | `app.manifest` | Declares uiAccess="true" to Windows |
-| `HintOverlay.csproj` | References the manifest (embeds it in .exe) |
+| `Windows-Hinting.csproj` | References the manifest (embeds it in .exe) |
 | `Create-CodeSigningCert.ps1` | Creates your certificate (one-time) |
-| `Sign-HintOverlay.ps1` | Signs your executable (do after each build) |
+| `Sign-WindowsHinting.ps1` | Signs your executable (do after each build) |
 | `CODESIGNING_GUIDE.md` | Complete how-to guide |
 | `UIACCESS_QUICKSTART.md` | 5-minute reference |
 
@@ -106,9 +106,9 @@ Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe"
         ↓
 2. Build: Ctrl+Shift+B (Visual Studio)
         ↓
-3. Sign: .\Sign-HintOverlay.ps1 -BuildConfiguration Release
+3. Sign: .\Sign-WindowsHinting.ps1 -BuildConfiguration Release
         ↓
-4. Test: .\bin\Release\net8.0-windows\HintOverlay.exe
+4. Test: .\bin\Release\net8.0-windows\Windows-Hinting.exe
         ↓
 5. Deploy: Share the signed .exe
 ```
@@ -123,7 +123,7 @@ Error: ResolveComReference task not supported on .NET Core version of MSBuild
 ```
 
 **Workaround**: Use Visual Studio GUI to build (which you have)
-- Open HintOverlay.sln in Visual Studio 2026
+- Open Windows-Hinting.sln in Visual Studio 2026
 - Press `Ctrl+Shift+B` or go to Build → Build Solution
 - Works perfectly
 
@@ -133,7 +133,7 @@ Error: ResolveComReference task not supported on .NET Core version of MSBuild
 
 ### For Development (Current)
 - Self-signed certificate created by `Create-CodeSigningCert.ps1`
-- Stored as: `C:\Users\knausj\HintOverlay_CodeSign.pfx`
+- Stored as: `C:\Users\knausj\WindowsHinting_CodeSign.pfx`
 - Valid for 10 years
 - Perfect for testing
 
@@ -151,14 +151,14 @@ Error: ResolveComReference task not supported on .NET Core version of MSBuild
 ```
 C:\Users\knausj\git\Windows-Hinting\
 ├── app.manifest                          ← Manifest with uiAccess
-├── HintOverlay.csproj                    ← References manifest
+├── Windows-Hinting.csproj                    ← References manifest
 ├── Create-CodeSigningCert.ps1            ← Create cert (run once)
-├── Sign-HintOverlay.ps1                  ← Sign exe (run after builds)
+├── Sign-WindowsHinting.ps1                  ← Sign exe (run after builds)
 ├── UIACCESS_QUICKSTART.md                ← 5-min guide
 ├── CODESIGNING_GUIDE.md                  ← Complete reference
 ├── UIACCESS_IMPLEMENTATION_COMPLETE.md   ← Status & details
 └── bin\Release\net8.0-windows\
-    └── HintOverlay.exe                   ← Your signed executable
+    └── Windows-Hinting.exe                   ← Your signed executable
 ```
 
 ---
@@ -170,16 +170,16 @@ C:\Users\knausj\git\Windows-Hinting\
 .\Create-CodeSigningCert.ps1
 
 # Sign Release build
-.\Sign-HintOverlay.ps1 -BuildConfiguration Release
+.\Sign-WindowsHinting.ps1 -BuildConfiguration Release
 
 # Sign Debug build
-.\Sign-HintOverlay.ps1 -BuildConfiguration Debug
+.\Sign-WindowsHinting.ps1 -BuildConfiguration Debug
 
 # Verify signature
-Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe"
+Get-AuthenticodeSignature "bin\Release\net8.0-windows\Windows-Hinting.exe"
 
 # View certificate details
-dir "C:\Users\knausj\HintOverlay_CodeSign.pfx"
+dir "C:\Users\knausj\WindowsHinting_CodeSign.pfx"
 
 # List certificate in cert store
 Get-ChildItem -Path Cert:\CurrentUser\My | Select-Object Subject, FriendlyName, Thumbprint
@@ -192,7 +192,7 @@ Get-ChildItem -Path Cert:\CurrentUser\My | Select-Object Subject, FriendlyName, 
 - [ ] Run `Create-CodeSigningCert.ps1` (create certificate)
 - [ ] Note the password somewhere safe
 - [ ] Build in Visual Studio (Release)
-- [ ] Run `Sign-HintOverlay.ps1 -BuildConfiguration Release`
+- [ ] Run `Sign-WindowsHinting.ps1 -BuildConfiguration Release`
 - [ ] Run `Get-AuthenticodeSignature` to verify
 - [ ] Test the executable
 - [ ] Done! Now you have uiAccess enabled
@@ -208,7 +208,7 @@ A: Yes, sign after each `dotnet build` or `Ctrl+Shift+B`
 A: Yes for internal use, but users will see warnings. Use commercial certs for public.
 
 **Q: Where's my certificate?**
-A: PFX file: `C:\Users\knausj\HintOverlay_CodeSign.pfx`
+A: PFX file: `C:\Users\knausj\WindowsHinting_CodeSign.pfx`
 
 **Q: What password do I use for signing?**
 A: The one you entered in `Create-CodeSigningCert.ps1`
@@ -249,11 +249,11 @@ After signing, verify your executable:
 
 ```powershell
 # Check signature
-Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe"
+Get-AuthenticodeSignature "bin\Release\net8.0-windows\Windows-Hinting.exe"
 # Look for: Status = "Valid"
 
 # Check that manifest is embedded
-certutil -dump "bin\Release\net8.0-windows\HintOverlay.exe"
+certutil -dump "bin\Release\net8.0-windows\Windows-Hinting.exe"
 # Should show certificate chain info
 ```
 
@@ -262,7 +262,7 @@ certutil -dump "bin\Release\net8.0-windows\HintOverlay.exe"
 ## 🚀 Next Steps
 
 1. **Right now**: Run `Create-CodeSigningCert.ps1`
-2. **After first build**: Run `Sign-HintOverlay.ps1`
+2. **After first build**: Run `Sign-WindowsHinting.ps1`
 3. **Going forward**: Sign after each build
 4. **For questions**: See `CODESIGNING_GUIDE.md`
 

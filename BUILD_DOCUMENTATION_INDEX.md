@@ -1,4 +1,4 @@
-# HintOverlay - Build System Documentation Index
+# Windows-Hinting - Build System Documentation Index
 
 ## 📋 Quick Reference
 
@@ -8,8 +8,8 @@
 ```
 
 **Output:**
-- ✅ Signed executable: `bin\Release\net8.0-windows\HintOverlay.exe`
-- ✅ MSI installer: `HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi`
+- ✅ Signed executable: `bin\Release\net8.0-windows\Windows-Hinting.exe`
+- ✅ MSI installer: `Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi`
 
 ---
 
@@ -54,7 +54,7 @@
 
 ```
 Windows-Hinting/
-├── HintOverlay.csproj                    (Main executable project - updated with signing targets)
+├── Windows-Hinting.csproj                    (Main executable project - updated with signing targets)
 ├── app.manifest                           (UIAccess manifest - already configured)
 ├── Windows-Hinting.sln                   (Solution file)
 ├── build/
@@ -65,17 +65,17 @@ Windows-Hinting/
 │   ├── build-complete.bat               (Batch wrapper for build-complete)
 │   └── README.md                        (Build scripts reference)
 ├── certs/
-│   └── HintOverlay_CodeSign.pfx         (Self-signed cert - auto-generated on first build)
-├── HintOverlay.Installer2/
-│   ├── HintOverlay.Installer2.wixproj  (Installer project - includes signed exe)
+│   └── WindowsHinting_CodeSign.pfx         (Self-signed cert - auto-generated on first build)
+├── Windows-Hinting.Installer/
+│   ├── Windows-Hinting.Installer.wixproj  (Installer project - includes signed exe)
 │   ├── Package.wxs                      (Installer structure)
 │   ├── ExampleComponents.wxs            (Component definitions)
 │   ├── UI.wxs                           (Installer UI)
 │   ├── Folders.wxs                      (Folder structure)
 │   └── bin/Release/en-US/
-│       └── HintOverlay.msi              (Built installer - contains signed exe)
+│       └── Windows-Hinting.msi              (Built installer - contains signed exe)
 ├── bin/Release/net8.0-windows/
-│   └── HintOverlay.exe                  (Signed executable - ready for deployment)
+│   └── Windows-Hinting.exe                  (Signed executable - ready for deployment)
 │
 ├── BUILD_SUMMARY.md                     (Overview - START HERE!)
 ├── COMPLETE_BUILD_GUIDE.md              (Complete build process guide)
@@ -153,19 +153,19 @@ Windows-Hinting/
 ### Certificate Status
 ```powershell
 # View certificate details
-Get-ChildItem cert:\CurrentUser\My | Where-Object { $_.Subject -like "*HintOverlay*" }
+Get-ChildItem cert:\CurrentUser\My | Where-Object { $_.Subject -like "*Windows-Hinting*" }
 ```
 
 ### Executable Status
 ```powershell
 # Verify executable is signed
-Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe" | Format-List
+Get-AuthenticodeSignature "bin\Release\net8.0-windows\Windows-Hinting.exe" | Format-List
 ```
 
 ### Installer Contents
 ```powershell
 # Check MSI file size
-Get-Item "HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi" | Format-List Length
+Get-Item "Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi" | Format-List Length
 ```
 
 ---
@@ -175,9 +175,9 @@ Get-Item "HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi" | Format-Lis
 | Goal | Command |
 |------|---------|
 | Build signed exe + installer | `.\build\build-complete.ps1 -Configuration Release -Installer` |
-| Build signed exe only | `msbuild HintOverlay.csproj /p:Configuration=Release` |
-| Build installer only | `msbuild HintOverlay.Installer2\HintOverlay.Installer2.wixproj /p:Configuration=Release` |
-| Debug build (no signing) | `msbuild HintOverlay.csproj /p:Configuration=Debug` |
+| Build signed exe only | `msbuild Windows-Hinting.csproj /p:Configuration=Release` |
+| Build installer only | `msbuild Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj /p:Configuration=Release` |
+| Debug build (no signing) | `msbuild Windows-Hinting.csproj /p:Configuration=Debug` |
 | Using Windows-Hinting.sln | `msbuild Windows-Hinting.sln /p:Configuration=Release` |
 | Regenerate cert | `.\build\generate-signing-cert.ps1 -Force` |
 
@@ -216,8 +216,8 @@ Get-Item "HintOverlay.Installer2\bin\Release\en-US\HintOverlay.msi" | Format-Lis
 - `app.manifest` - Contains UIAccess="true" (already configured)
 
 **Build Configuration**
-- `HintOverlay.csproj` - Updated with signing targets
-- `HintOverlay.Installer2\HintOverlay.Installer2.wixproj` - Includes signed exe
+- `Windows-Hinting.csproj` - Updated with signing targets
+- `Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj` - Includes signed exe
 
 **Documentation**
 - See files in root directory (BUILD_SUMMARY.md, COMPLETE_BUILD_GUIDE.md, etc.)
@@ -233,7 +233,7 @@ A: `.\build\build-complete.ps1 -Configuration Release -Installer`
 See: BUILD_SUMMARY.md
 
 Q: "How do I verify the executable is signed?"
-A: `Get-AuthenticodeSignature "bin\Release\net8.0-windows\HintOverlay.exe"`
+A: `Get-AuthenticodeSignature "bin\Release\net8.0-windows\Windows-Hinting.exe"`
 See: CODE_SIGNING_SETUP.md
 
 Q: "How do I use a production certificate?"
@@ -283,4 +283,4 @@ All documentation is in the repository root directory:
 
 **Last Updated**: March 15, 2026  
 **Status**: ✅ Production Ready  
-**Version**: HintOverlay with Signed Code & Installer Integration
+**Version**: Windows-Hinting with Signed Code & Installer Integration

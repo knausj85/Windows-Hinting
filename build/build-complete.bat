@@ -46,7 +46,7 @@ echo   SkipSigning   : !SkipSigning!
 echo   Raw args      : %*
 echo --------------------------
 echo.
-echo Building HintOverlay complete project...
+echo Building Windows-Hinting complete project...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "!POWERSHELL_SCRIPT!" -Configuration !Configuration! !ExeOnly! !SkipSigning!
 
 if %errorlevel% neq 0 (

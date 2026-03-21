@@ -9,7 +9,7 @@ On every push, the `build-release` job:
 
 1. **Decodes** the `SIGNING_CERT_BASE64` secret into a temporary PFX file stored
    in `$RUNNER_TEMP` (outside the workspace)
-2. **Builds** `HintOverlay.exe` and the MSI installer, signing the exe via `signtool.exe`
+2. **Builds** `Windows-Hinting.exe` and the MSI installer, signing the exe via `signtool.exe`
 3. **Cleans up** the temporary PFX file immediately after the build, even if the
    build fails (`if: always()`)
 
@@ -23,7 +23,7 @@ automatically — no workflow changes needed.
 **Option A — Self-signed (testing only):**
 ```powershell
 .\build\generate-signing-cert.ps1 -Force
-# Creates certs\HintOverlay_CodeSign.pfx  (password: HintOverlay_BuildCert_2024)
+# Creates certs\WindowsHinting_CodeSign.pfx  (password: WindowsHinting_BuildCert_2024)
 ```
 > **Note:** A self-signed certificate satisfies the binary structure required to
 > set `uiAccess="true"` but Windows SmartScreen will still warn users and the
@@ -41,7 +41,7 @@ and export it as a PFX file with a password.
 Run this in PowerShell from the repo root, replacing the path if needed:
 
 ```powershell
-$base64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes('certs\HintOverlay_CodeSign.pfx'))
+$base64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes('certs\WindowsHinting_CodeSign.pfx'))
 $base64 | Set-Clipboard
 Write-Host "Copied $($base64.Length) characters to clipboard"
 ```
@@ -56,7 +56,7 @@ Go to your repository on GitHub:
 | Secret name            | Value                                                  |
 |------------------------|--------------------------------------------------------|
 | `SIGNING_CERT_BASE64`  | The full base64 string from Step 2                     |
-| `SIGNING_CERT_PASSWORD`| The PFX password (e.g. `HintOverlay_BuildCert_2024`)   |
+| `SIGNING_CERT_PASSWORD`| The PFX password (e.g. `WindowsHinting_BuildCert_2024`)   |
 
 ---
 

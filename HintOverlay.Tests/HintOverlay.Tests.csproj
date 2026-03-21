@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\HintOverlay.csproj" />
+    <ProjectReference Include="..\Windows-Hinting.csproj" />
   </ItemGroup>
 
 </Project>
