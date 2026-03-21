@@ -300,8 +300,8 @@ namespace HintOverlay.Services
                     case RootStrategy.ActiveWindow:
                         return [root];
 
-                    case RootStrategy.FileExplorerCustomStrategy:
-                        return ResolveFileExplorerActiveTab(root, windowTitle);
+                    //case RootStrategy.FileExplorerCustomStrategy:
+                    //    return ResolveFileExplorerActiveTab(root, windowTitle);
 
                     default:
                     {

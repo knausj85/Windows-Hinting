@@ -8,7 +8,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationManifest Condition="'$(Configuration)' == 'Release'">app.manifest</ApplicationManifest>
+    <ApplicationManifest Condition="'$(Configuration)' != 'Release'">app.debug.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
     <EmbedInteropTypes>false</EmbedInteropTypes>
@@ -88,9 +89,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include=".github\workflows\ci-cd.yml" />
-    <None Include=".github\workflows\codeql.yml" />
-    <None Include=".github\workflows\nightly.yml" />
     <None Include=".github\workflows\README.md" />
     <None Include="HintOverlay.Tests\HintOverlay.Tests.csproj" />
   </ItemGroup>
