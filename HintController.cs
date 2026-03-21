@@ -24,6 +24,7 @@ namespace HintOverlay
         private readonly ElementActivatorChain _activatorChain;
         private readonly NamedPipeService _namedPipeService;
         private readonly WindowRuleRegistry _ruleRegistry;
+        private readonly MouseClickService _mouseClickService;
 
         private HintOverlayOptions _options;
         private long _lastToggleTicks;
@@ -42,7 +43,8 @@ namespace HintOverlay
             HintStateManager stateManager,
             HintInputHandler inputHandler,
             ElementActivatorChain activatorChain,
-            NamedPipeService namedPipeService)
+            NamedPipeService namedPipeService,
+            MouseClickService mouseClickService)
         {
             using (PerformanceMetrics.Start("HintController.Constructor", logger, HintOverlay.Logging.LogLevel.Info))
             {
@@ -61,6 +63,7 @@ namespace HintOverlay
                 _inputHandler = inputHandler ?? throw new ArgumentNullException(nameof(inputHandler));
                 _activatorChain = activatorChain ?? throw new ArgumentNullException(nameof(activatorChain));
                 _namedPipeService = namedPipeService ?? throw new ArgumentNullException(nameof(namedPipeService));
+                _mouseClickService = mouseClickService ?? throw new ArgumentNullException(nameof(mouseClickService));
 
                 // Load preferences
                 _logger.Debug("Loading preferences");
@@ -336,7 +339,7 @@ namespace HintOverlay
             return expectCtrl == hasCtrl && expectAlt == hasAlt && expectShift == hasShift;
         }
 
-        private void OnSelectionCommitted(object? sender, EventArgs e)
+        private void OnSelectionCommitted(object? sender, SelectionCommittedEventArgs e)
         {
             using (PerformanceMetrics.Start("OnSelectionCommitted", _logger, LogLevel.Info))
             {
@@ -346,12 +349,19 @@ namespace HintOverlay
                     _logger.Warning("Selection committed but no exact match found");
                     return;
                 }
-                
-                _logger.Info($"Activating element with label: {match.Label}");
-                
+
+                _logger.Info($"Activating element with label: {match.Label}, action: {e.Action}");
+
                 try
                 {
-                    _activatorChain.TryActivate(match.Element);
+                    if (e.Action == Models.ClickAction.Default)
+                    {
+                        _activatorChain.TryActivate(match.Element);
+                    }
+                    else
+                    {
+                        _mouseClickService.PerformClick(match.Rect, e.Action);
+                    }
                 }
                 catch (Exception ex)
                 {
