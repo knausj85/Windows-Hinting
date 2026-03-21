@@ -544,6 +544,13 @@ namespace HintOverlay
                     if (_options.TaskbarHotkey.Enabled)
                         _overlay.RegisterTaskbarHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
                 };
+                var previousPosition = _overlay.HintPosition;
+                dialog.HintPositionChanged += (_, newPos) =>
+                {
+                    _logger.Debug($"Live preview: hint position changed to {newPos}");
+                    _overlay.HintPosition = newPos;
+                    _overlay.Invalidate();
+                };
                 if (dialog.ShowDialog() == DialogResult.OK)
                 {
                     _logger.Info("Preferences saved, reloading and applying");
@@ -554,7 +561,9 @@ namespace HintOverlay
                 }
                 else
                 {
-                    _logger.Debug("Preferences dialog cancelled");
+                    _logger.Debug("Preferences dialog cancelled, reverting hint position");
+                    _overlay.HintPosition = previousPosition;
+                    _overlay.Invalidate();
                 }
             }
         }

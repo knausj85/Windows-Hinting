@@ -55,8 +55,11 @@ namespace HintOverlay.Models
         UpperLeft,
         UpperCenter,
         UpperRight,
-        BottomLeft,
-        BottomCenter,
-        BottomRight
+        Left,
+        Center,
+        Right,
+        LowerLeft,
+        LowerCenter,
+        LowerRight
     }
 }

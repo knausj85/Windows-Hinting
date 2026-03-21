@@ -153,15 +153,27 @@ namespace HintOverlay
                         bgX = h.Rect.Right - bgWidth;
                         bgY = h.Rect.Top;
                         break;
-                    case HintPosition.BottomLeft:
+                    case HintPosition.Left:
+                        bgX = h.Rect.Left;
+                        bgY = h.Rect.Top + (h.Rect.Height - bgHeight) / 2;
+                        break;
+                    case HintPosition.Center:
+                        bgX = h.Rect.Left + (h.Rect.Width - bgWidth) / 2;
+                        bgY = h.Rect.Top + (h.Rect.Height - bgHeight) / 2;
+                        break;
+                    case HintPosition.Right:
+                        bgX = h.Rect.Right - bgWidth;
+                        bgY = h.Rect.Top + (h.Rect.Height - bgHeight) / 2;
+                        break;
+                    case HintPosition.LowerLeft:
                         bgX = h.Rect.Left;
                         bgY = h.Rect.Bottom - bgHeight;
                         break;
-                    case HintPosition.BottomCenter:
+                    case HintPosition.LowerCenter:
                         bgX = h.Rect.Left + (h.Rect.Width - bgWidth) / 2;
                         bgY = h.Rect.Bottom - bgHeight;
                         break;
-                    case HintPosition.BottomRight:
+                    case HintPosition.LowerRight:
                         bgX = h.Rect.Right - bgWidth;
                         bgY = h.Rect.Bottom - bgHeight;
                         break;

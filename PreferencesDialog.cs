@@ -17,7 +17,7 @@ namespace HintOverlay
 
         // General tab controls
         private CheckBox _chkShowRectangles = null!;
-        private ComboBox _cmbHintPosition = null!;
+        private readonly Dictionary<HintPosition, RadioButton> _positionButtons = new();
         private CheckBox _chkHotkeyEnabled = null!;
         private HotkeyRecorderControl _hotkeyRecorder = null!;
         private CheckBox _chkTaskbarHotkeyEnabled = null!;
@@ -40,6 +40,9 @@ namespace HintOverlay
 
         /// <summary>Raised when the hotkey recorder stops capturing.</summary>
         public event EventHandler? HotkeyRecordingStopped;
+
+        /// <summary>Raised when the user selects a different hint position.</summary>
+        public event EventHandler<HintPosition>? HintPositionChanged;
 
         public PreferencesDialog(HintOverlayOptions options)
         {
@@ -144,30 +147,62 @@ namespace HintOverlay
             };
             layout.Controls.Add(_chkShowRectangles, 0, 0);
 
-            // Hint position
-            var hintPosPanel = new FlowLayoutPanel
+            // Hint position grid
+            var hintPosGroup = new GroupBox
             {
-                FlowDirection = FlowDirection.LeftToRight,
+                Text = "Hint label position",
                 AutoSize = true,
                 Dock = DockStyle.Fill,
-                WrapContents = false
+                Padding = new Padding(6)
             };
-            var lblHintPosition = new Label
+
+            var posGrid = new TableLayoutPanel
             {
-                Text = "Hint label position:",
-                AutoSize = true,
-                Anchor = AnchorStyles.Left,
-                Padding = new Padding(0, 4, 0, 0)
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 3,
+                AutoSize = true
             };
-            _cmbHintPosition = new ComboBox
+            posGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
+            posGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34F));
+            posGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
+            posGrid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            posGrid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            posGrid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            var positions = new (HintPosition pos, string label, int col, int row)[]
             {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Width = 140
+                (HintPosition.UpperLeft,   "Upper Left",   0, 0),
+                (HintPosition.UpperCenter, "Upper Center", 1, 0),
+                (HintPosition.UpperRight,  "Upper Right",  2, 0),
+                (HintPosition.Left,        "Left",         0, 1),
+                (HintPosition.Center,      "Center",       1, 1),
+                (HintPosition.Right,       "Right",        2, 1),
+                (HintPosition.LowerLeft,   "Lower Left",   0, 2),
+                (HintPosition.LowerCenter, "Lower Center", 1, 2),
+                (HintPosition.LowerRight,  "Lower Right",  2, 2),
             };
-            _cmbHintPosition.DataSource = Enum.GetValues<HintPosition>();
-            hintPosPanel.Controls.Add(lblHintPosition);
-            hintPosPanel.Controls.Add(_cmbHintPosition);
-            layout.Controls.Add(hintPosPanel, 0, 1);
+
+            foreach (var (pos, label, col, row) in positions)
+            {
+                var rb = new RadioButton
+                {
+                    Text = label,
+                    AutoSize = true,
+                    Dock = DockStyle.Fill,
+                    Tag = pos
+                };
+                rb.CheckedChanged += (s, _) =>
+                {
+                    if (s is RadioButton { Checked: true, Tag: HintPosition selectedPos })
+                        HintPositionChanged?.Invoke(this, selectedPos);
+                };
+                _positionButtons[pos] = rb;
+                posGrid.Controls.Add(rb, col, row);
+            }
+
+            hintPosGroup.Controls.Add(posGrid);
+            layout.Controls.Add(hintPosGroup, 0, 1);
 
             // Hotkey configuration
             var hotkeyGroup = new GroupBox
@@ -445,7 +480,10 @@ namespace HintOverlay
         private void LoadPreferences()
         {
             _chkShowRectangles.Checked = _options.ShowRectangles;
-            _cmbHintPosition.SelectedItem = _options.HintPosition;
+            if (_positionButtons.TryGetValue(_options.HintPosition, out var rb))
+                rb.Checked = true;
+            else
+                _positionButtons[HintPosition.UpperLeft].Checked = true;
             _chkHotkeyEnabled.Checked = _options.Hotkey.Enabled;
             _hotkeyRecorder.Enabled = _options.Hotkey.Enabled;
             _hotkeyRecorder.SetHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
@@ -471,7 +509,8 @@ namespace HintOverlay
         private void BtnOk_Click(object? sender, EventArgs e)
         {
             _options.ShowRectangles = _chkShowRectangles.Checked;
-            _options.HintPosition = (HintPosition)(_cmbHintPosition.SelectedItem ?? HintPosition.UpperLeft);
+            _options.HintPosition = _positionButtons
+                .FirstOrDefault(kvp => kvp.Value.Checked).Key;
             _options.Hotkey.Enabled = _chkHotkeyEnabled.Checked;
             _options.Hotkey.Modifiers = _hotkeyRecorder.HotkeyModifiers;
             _options.Hotkey.VirtualKey = _hotkeyRecorder.HotkeyVirtualKey;
