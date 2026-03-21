@@ -57,7 +57,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Install WiX Toolset
-        # Version must match WixToolset.Sdk version in HintOverlay.Installer2.wixproj
+        # Version must match WixToolset.Sdk version in Windows-Hinting.Installer.wixproj
         run: dotnet tool install --global wix --version 6.0.2
 
       - name: Restore NuGet packages
@@ -134,7 +134,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Windows-Hinting-Installer
-          path: HintOverlay.Installer2\bin\Release\en-US\Windows-Hinting.msi
+          path: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
           if-no-files-found: error
 
   release:
