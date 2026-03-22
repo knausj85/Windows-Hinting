@@ -1,6 +1,6 @@
 # Windows Hinting
 
-Initial prototype of a fast hinting program for windows 
+Initial prototype of a fast hinting program for windows
 
 Ctrl + T -> Toggles hints on taskbar
 

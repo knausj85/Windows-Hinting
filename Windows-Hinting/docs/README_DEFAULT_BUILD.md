@@ -11,7 +11,7 @@ The `build-complete.ps1` script now builds **both the signed executable AND MSI 
 .\build\build-complete.ps1                    # Built exe only
 .\build\build-complete.ps1 -Installer         # Built exe + MSI
 
-# AFTER  
+# AFTER
 .\build\build-complete.ps1                    # Builds exe + MSI ✨ (DEFAULT!)
 .\build\build-complete.ps1 -ExeOnly           # Builds exe only
 ```

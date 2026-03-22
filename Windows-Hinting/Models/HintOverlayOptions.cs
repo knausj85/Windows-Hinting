@@ -40,7 +40,7 @@ namespace WindowsHinting.Models
         public int DoubleClickKey { get; set; } = 0x44;  // D key
         public int MouseMoveKey { get; set; } = 0x4D;   // M key
     }
-    
+
     internal sealed class AnimationOptions
     {
         public int FadeDurationMs { get; set; } = 150;

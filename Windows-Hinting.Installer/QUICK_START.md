@@ -70,7 +70,7 @@ signtool verify /pa bin\Release\net8.0-windows\Windows-Hinting.exe
 Windows-Hinting.Installer/
 ├── Package.wxs                    # Main installer definition
 ├── ExampleComponents.wxs           # Application files & shortcuts
-├── UI.wxs                         # Installer UI configuration  
+├── UI.wxs                         # Installer UI configuration
 ├── Folders.wxs                    # Directory structure
 ├── License.rtf                    # EULA displayed to users
 ├── INSTALLATION_GUIDE.md          # Detailed setup guide

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
@@ -162,7 +162,7 @@ namespace WindowsHinting
         {
             _logger.Info($"Attempting to select hint with label: {label}, action: {action}");
 
-            var hint = _stateManager.CurrentHints.FirstOrDefault(h => 
+            var hint = _stateManager.CurrentHints.FirstOrDefault(h =>
                 h.Label.Equals(label, StringComparison.OrdinalIgnoreCase));
 
             if (hint == null)
@@ -288,18 +288,18 @@ namespace WindowsHinting
                     _stateManager.Deactivate();
                     return;
                 }
-                
+
                 _logger.Debug($"Scanning window: {hwnd}");
-                
+
                 // Ensure overlay is topmost before scanning
                 _overlay.EnsureTopmost();
-                
+
                 var elements = PerformanceMetricsExtensions.MeasureExecution(
                     "FindClickableElements",
                     () => _uiaService.FindClickableElements(hwnd),
                     _logger,
                     LogLevel.Info);
-                
+
                 _logger.Info($"Found {elements.Count} clickable elements");
 
                 if (elements.Count == 0)
@@ -343,7 +343,7 @@ namespace WindowsHinting
                     }).ToList(),
                     _logger,
                     LogLevel.Debug);
-                
+
                 _logger.Debug($"Created {hints.Count} hint items");
                 _stateManager.SetHints(hints);
             }
@@ -505,15 +505,15 @@ namespace WindowsHinting
             const int MOD_CONTROL = 0x0002;
             const int MOD_ALT = 0x0001;
             const int MOD_SHIFT = 0x0004;
-            
+
             bool expectCtrl = (expectedWin32Mods & MOD_CONTROL) != 0;
             bool expectAlt = (expectedWin32Mods & MOD_ALT) != 0;
             bool expectShift = (expectedWin32Mods & MOD_SHIFT) != 0;
-            
+
             bool hasCtrl = (actualMods & KeyModifiers.Control) != 0;
             bool hasAlt = (actualMods & KeyModifiers.Alt) != 0;
             bool hasShift = (actualMods & KeyModifiers.Shift) != 0;
-            
+
             return expectCtrl == hasCtrl && expectAlt == hasAlt && expectShift == hasShift;
         }
 

@@ -121,7 +121,7 @@ Get-ItemProperty -Path "HKLM:\Software\Windows-Hinting\Windows-Hinting"
 
 #### "Access is denied" when accessing privileged UI
 - **Cause**: UIAccess may be disabled or not working properly
-- **Check**: 
+- **Check**:
   - Verify executable is signed: `signtool verify /pa Windows-Hinting.exe`
   - Check Event Viewer (System) for code integrity warnings
   - Verify manifest is embedded: `ExifTool.exe -ALL Windows-Hinting.exe | grep -i manifest`

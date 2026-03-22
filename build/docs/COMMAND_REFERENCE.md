@@ -173,7 +173,7 @@ Build Summary:
 ```
 ERROR: Certificate not found at: certs\WindowsHinting_CodeSign.pfx
 ```
-**Solution:** 
+**Solution:**
 ```powershell
 .\build\generate-signing-cert.ps1   # Generate new cert
 # OR

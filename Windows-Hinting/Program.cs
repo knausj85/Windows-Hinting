@@ -13,20 +13,20 @@ namespace WindowsHinting
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            
+
             var host = Host.CreateDefaultBuilder()
                 .ConfigureServices((context, services) =>
                 {
                     services.AddHintOverlayServices();
                 })
                 .Build();
-            
+
             using (var scope = host.Services.CreateScope())
             {
                 var controller = scope.ServiceProvider.GetRequiredService<HintController>();
                 Application.Run();
             }
-            
+
             host.Dispose();
         }
     }

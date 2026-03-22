@@ -90,7 +90,7 @@ External App              NamedPipeClient      NamedPipeService      HintControl
      │                         │                     │ │                  │
      │                         │                     │ │ SelectHintByLabel
      │                         │                     │ │ ┌─ Find hint "A"
-     │                         │                     │ │ │  
+     │                         │                     │ │ │
      │                         │                     │ │ ├─ TryActivate()
      │                         │                     │ │ │
      │                         │                     │ │ └─ Deactivate

@@ -6,7 +6,7 @@
 
 **Root Cause**: The WiX configuration was using `$(var.Windows_Hinting.TargetPath)` which pointed to the DLL output instead of the EXE, and dependencies were not being bundled.
 
-**Solution**: 
+**Solution**:
 1. Changed file reference from `$(var.Windows_Hinting.TargetPath)` to `$(var.Windows_Hinting.TargetDir)Windows-Hinting.exe`
 2. Added Windows-Hinting.dll, configuration files, and all .NET runtime dependencies
 3. Properly configured components with explicit GUIDs for multiple-file components
@@ -46,7 +46,7 @@
 - Added RuntimeRegistry component for dependency tracking
 - Assigned explicit GUIDs for proper component handling
 
-### Package.wxs  
+### Package.wxs
 - Added ComponentRef for DotNetRuntimeLibraries
 - Added ComponentRef for RuntimeRegistry
 - Ensures all components are included in the Feature

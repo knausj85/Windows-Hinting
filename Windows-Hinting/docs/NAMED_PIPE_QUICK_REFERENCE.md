@@ -30,11 +30,11 @@ Commands:
 
 ## Key Features
 
-✅ **Order-Independent** - Client and server startup order doesn't matter  
-✅ **Automatic Retries** - Built-in retry logic (up to 5 seconds)  
-✅ **Async** - Efficient asynchronous server handling  
-✅ **Thread-Safe** - Can be called from multiple threads  
-✅ **Simple** - Easy to integrate and use  
+✅ **Order-Independent** - Client and server startup order doesn't matter
+✅ **Automatic Retries** - Built-in retry logic (up to 5 seconds)
+✅ **Async** - Efficient asynchronous server handling
+✅ **Thread-Safe** - Can be called from multiple threads
+✅ **Simple** - Easy to integrate and use
 
 ## Available Commands
 

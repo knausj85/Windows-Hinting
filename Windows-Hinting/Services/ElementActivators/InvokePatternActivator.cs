@@ -20,7 +20,7 @@ namespace WindowsHinting.Services.ElementActivators
             IUIAutomationInvokePattern? pattern = null;
             bool isAvailable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
 
-            if (isAvailable) 
+            if (isAvailable)
             {
                 try
                 {
@@ -44,7 +44,7 @@ namespace WindowsHinting.Services.ElementActivators
                     }
                 }
             }
-            
+
             return false;
         }
     }

@@ -35,30 +35,30 @@ namespace WindowsHinting.Services
                 Thread.Sleep(10);
 
                 switch (action)
-                    {
-                        case ClickAction.Default:
-                        case ClickAction.LeftClick:
-                            SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
-                            break;
+                {
+                    case ClickAction.Default:
+                    case ClickAction.LeftClick:
+                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                        break;
 
-                        case ClickAction.RightClick:
-                            SendClick(WindowsConstants.MOUSEEVENTF_RIGHTDOWN, WindowsConstants.MOUSEEVENTF_RIGHTUP);
-                            break;
+                    case ClickAction.RightClick:
+                        SendClick(WindowsConstants.MOUSEEVENTF_RIGHTDOWN, WindowsConstants.MOUSEEVENTF_RIGHTUP);
+                        break;
 
-                        case ClickAction.DoubleClick:
-                            SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
-                            Thread.Sleep(30);
-                            SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
-                            break;
+                    case ClickAction.DoubleClick:
+                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                        Thread.Sleep(30);
+                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                        break;
 
-                        case ClickAction.MouseMove:
-                            SendMove(x, y);
-                            break;
+                    case ClickAction.MouseMove:
+                        SendMove(x, y);
+                        break;
 
-                        default:
-                            _logger.Warning($"Unsupported click action: {action}");
-                            return false;
-                    }
+                    default:
+                        _logger.Warning($"Unsupported click action: {action}");
+                        return false;
+                }
 
                 _logger.Info($"{action} performed successfully at ({x}, {y})");
                 return true;

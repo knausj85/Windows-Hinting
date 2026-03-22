@@ -398,6 +398,16 @@ MSBuild_Logs/
 # BeatPulse healthcheck temp database
 healthchecksdb
 
+# WiX Toolset
+*.msi
+*.msm
+*.msp
+*.wixpdb
+*.wixobj
+
+# .NET Upgrade Assistant / Copilot modernization working files
+.github/upgrades/
+
 # Backup folder for Package Reference Convert tool in Visual Studio 2017
 MigrationBackup/
 

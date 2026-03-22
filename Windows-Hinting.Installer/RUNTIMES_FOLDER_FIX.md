@@ -15,7 +15,7 @@
 - ✅ `System.Diagnostics.EventLog.dll` (native interop for Windows Event Log)
 - ✅ `System.Diagnostics.EventLog.Messages.dll` (localized messages for Event Log)
 
-### Browser/WASM Runtime Files  
+### Browser/WASM Runtime Files
 **Location**: `runtimes\browser\lib\net8.0\`
 - ✅ `System.Text.Encodings.Web.dll` (WebAssembly optimized version)
 
@@ -35,7 +35,7 @@ Added two new components in the DirectoryRef section:
 ```xml
 <!-- Platform-specific runtime files - Windows x64 -->
 <Component Id="RuntimesWin" Bitness="always64" Guid="33333333-4444-5555-6666-777777777503">
-  <File Id="SystemDiagnosticsEventLogDllWin" 
+  <File Id="SystemDiagnosticsEventLogDllWin"
         Source="$(var.Windows_Hinting.TargetDir)runtimes\win\lib\net8.0\System.Diagnostics.EventLog.dll"
         KeyPath="yes" />
   <File Source="$(var.Windows_Hinting.TargetDir)runtimes\win\lib\net8.0\System.Diagnostics.EventLog.Messages.dll" />
