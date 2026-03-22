@@ -49,6 +49,8 @@ jobs:
   build-release:
     name: Release Build + MSI
     runs-on: windows-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
