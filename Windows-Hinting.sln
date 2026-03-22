@@ -25,7 +25,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{A1B2
 	ProjectSection(SolutionItems) = preProject
 		.github\workflows\build.yml = .github\workflows\build.yml
 		.github\workflows\README.md = .github\workflows\README.md
-		.github\workflows\pre-commit.yml = .github\workflows\pre-commit.yml
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "config", "config", "{C1D2E3F4-5678-9ABC-DEF0-ABCDEF123456}"
