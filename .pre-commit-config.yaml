@@ -28,7 +28,7 @@ repos:
     hooks:
       - id: psscriptanalyzer
         name: PSScriptAnalyzer
-        entry: powershell.exe -NoProfile -Command "Get-ChildItem -Filter *.ps1 -Recurse build/ | ForEach-Object { $results = Invoke-ScriptAnalyzer -Path $_.FullName -Severity Warning,Error; if ($results) { $results | Format-Table -AutoSize; exit 1 } }"
+        entry: pwsh -NoProfile -Command "Get-ChildItem -Filter *.ps1 -Recurse build/ | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Fix -Severity Warning,Error | Out-Null; $results = Invoke-ScriptAnalyzer -Path $_.FullName -Severity Warning,Error; if ($results) { $results | Format-Table -AutoSize; $global:failed = $true } }; if ($global:failed) { exit 1 }"
         language: system
         files: '\.ps1$'
         pass_filenames: false
