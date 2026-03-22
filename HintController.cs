@@ -6,6 +6,7 @@ using HintOverlay.Configuration;
 using HintOverlay.Logging;
 using HintOverlay.Models;
 using HintOverlay.Services;
+using UIAutomationClient;
 
 namespace HintOverlay
 {
@@ -20,6 +21,7 @@ namespace HintOverlay
         private readonly HintStateManager _stateManager;
         private readonly HintInputHandler _inputHandler;
         private readonly TrayIconManager _trayIcon;
+        private readonly ElementActivatorChain _activatorChain;
         private readonly NamedPipeService _namedPipeService;
         private readonly WindowRuleRegistry _ruleRegistry;
         private readonly MouseClickService _mouseClickService;
@@ -40,6 +42,7 @@ namespace HintOverlay
             WindowRuleRegistry ruleRegistry,
             HintStateManager stateManager,
             HintInputHandler inputHandler,
+            ElementActivatorChain activatorChain,
             NamedPipeService namedPipeService,
             MouseClickService mouseClickService)
         {
@@ -58,6 +61,7 @@ namespace HintOverlay
 
                 _stateManager = stateManager ?? throw new ArgumentNullException(nameof(stateManager));
                 _inputHandler = inputHandler ?? throw new ArgumentNullException(nameof(inputHandler));
+                _activatorChain = activatorChain ?? throw new ArgumentNullException(nameof(activatorChain));
                 _namedPipeService = namedPipeService ?? throw new ArgumentNullException(nameof(namedPipeService));
                 _mouseClickService = mouseClickService ?? throw new ArgumentNullException(nameof(mouseClickService));
 
@@ -169,7 +173,14 @@ namespace HintOverlay
 
             try
             {
-                _mouseClickService.PerformClick(hint.Rect, action);
+                if (action == ClickAction.Default)
+                {
+                    _activatorChain.TryActivate(hint.Element);
+                }
+                else
+                {
+                    _mouseClickService.PerformClick(hint.Rect, action);
+                }
             }
             catch (Exception ex)
             {
@@ -296,36 +307,35 @@ namespace HintOverlay
                     return;
                 }
 
-                // Resolve label positions — nudges overlapping labels to alternatives
-                var placed = PerformanceMetricsExtensions.MeasureExecution(
-                    "DeduplicateElements",
-                    () => ElementDeduplicator.Deduplicate(elements, _options.HintPosition, _logger),
-                    _logger,
-                    LogLevel.Debug);
+                // Deduplicate overlapping elements
+                //var deduped = PerformanceMetricsExtensions.MeasureExecution(
+                //    "DeduplicateElements",
+                //    () => ElementDeduplicator.Deduplicate(elements, _logger, _options.OverlapThreshold),
+                //    _logger,
+                //    LogLevel.Debug);
 
-                if (placed.Count == 0)
-                {
-                    _logger.Info("No elements after deduplication, deactivating");
-                    _stateManager.Deactivate();
-                    return;
-                }
+                //if (deduped.Count == 0)
+                //{
+                //    _logger.Info("No elements after deduplication, deactivating");
+                //    _stateManager.Deactivate();
+                //    return;
+                //}
 
                 // Generate labels
                 var labels = PerformanceMetricsExtensions.MeasureExecution(
                     "GenerateLabels",
-                    () => LabelGenerator.Generate(placed.Count),
+                    () => LabelGenerator.Generate(elements.Count),
                     _logger,
                     LogLevel.Debug);
 
                 // Create hint items
                 var hints = PerformanceMetricsExtensions.MeasureExecution(
                     "CreateHintItems",
-                    () => placed.Select((p, i) => new HintItem
+                    () => elements.Select((e, i) => new HintItem
                     {
-                        Rect = p.Element.Bounds,
-                        Element = p.Element.Element,
+                        Rect = e.Bounds,
+                        Element = e.Element,
                         Label = labels[i],
-                        LabelPosition = p.LabelPosition,
                         CurrentOpacity = 1.0f,
                         TargetOpacity = 1.0f
                     }).ToList(),
@@ -369,14 +379,14 @@ namespace HintOverlay
                     return;
                 }
 
-                // Resolve label positions — nudges overlapping labels to alternatives
-                var placed = PerformanceMetricsExtensions.MeasureExecution(
+                // Deduplicate overlapping elements
+                var deduped = PerformanceMetricsExtensions.MeasureExecution(
                     "DeduplicateElements(Taskbar)",
-                    () => ElementDeduplicator.Deduplicate(elements, _options.HintPosition, _logger),
+                    () => ElementDeduplicator.Deduplicate(elements, _logger, _options.OverlapThreshold),
                     _logger,
                     LogLevel.Debug);
 
-                if (placed.Count == 0)
+                if (deduped.Count == 0)
                 {
                     _logger.Info("No taskbar elements after deduplication, deactivating");
                     _stateManager.Deactivate();
@@ -386,19 +396,18 @@ namespace HintOverlay
                 // Generate labels
                 var labels = PerformanceMetricsExtensions.MeasureExecution(
                     "GenerateLabels(Taskbar)",
-                    () => LabelGenerator.Generate(placed.Count),
+                    () => LabelGenerator.Generate(deduped.Count),
                     _logger,
                     LogLevel.Debug);
 
                 // Create hint items
                 var hints = PerformanceMetricsExtensions.MeasureExecution(
                     "CreateHintItems(Taskbar)",
-                    () => placed.Select((p, i) => new HintItem
+                    () => deduped.Select((e, i) => new HintItem
                     {
-                        Rect = p.Element.Bounds,
-                        Element = p.Element.Element,
+                        Rect = e.Bounds,
+                        Element = e.Element,
                         Label = labels[i],
-                        LabelPosition = p.LabelPosition,
                         CurrentOpacity = 1.0f,
                         TargetOpacity = 1.0f
                     }).ToList(),
@@ -521,7 +530,14 @@ namespace HintOverlay
 
                 try
                 {
-                    _mouseClickService.PerformClick(match.Rect, e.Action);
+                    if (e.Action == Models.ClickAction.Default)
+                    {
+                        _activatorChain.TryActivate(match.Element);
+                    }
+                    else
+                    {
+                        _mouseClickService.PerformClick(match.Rect, e.Action);
+                    }
                 }
                 catch (Exception ex)
                 {

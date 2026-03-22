@@ -3,14 +3,13 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using HintOverlay.Logging;
-using HintOverlay.Models;
 using UIAutomationClient;
 
 namespace HintOverlay.Services
 {
     /// <summary>
-    /// Resolves overlapping hint labels by computing position-aware label bounds
-    /// and nudging colliding labels to alternative positions before dropping them.
+    /// Removes overlapping and redundant clickable elements so that only
+    /// the most likely interaction targets receive hint labels.
     /// </summary>
     internal static class ElementDeduplicator
     {
@@ -46,214 +45,133 @@ namespace HintOverlay.Services
         };
 
         /// <summary>
-        /// Positions to try when nudging a label away from a collision.
-        /// The preferred position is tried first, then alternatives in a
-        /// sensible order (corners → edges → center).
+        /// Filters a list of clickable elements, removing duplicates caused by
+        /// parent-child containment and spatial label overlap.
         /// </summary>
-        private static readonly HintPosition[] NudgeOrder =
+        /// <param name="overlapThresholdPercent">
+        /// Area ratio threshold (0–100). When a smaller element's area covers at
+        /// least this percentage of a larger containing element, the larger one is
+        /// removed. Lower values are more aggressive.
+        /// </param>
+        public static List<ClickableElement> Deduplicate(
+            IReadOnlyList<ClickableElement> elements,
+            ILogger logger,
+            int overlapThresholdPercent = 25)
         {
-            HintPosition.UpperLeft,
-            HintPosition.UpperRight,
-            HintPosition.LowerLeft,
-            HintPosition.LowerRight,
-            HintPosition.UpperCenter,
-            HintPosition.LowerCenter,
-            HintPosition.Left,
-            HintPosition.Right,
-            HintPosition.Center,
-        };
+            if (elements.Count <= 1)
+                return elements.ToList();
 
-        // Approximate label size used for overlap checks.
-        // Matches the typical rendered size of a 1-2 character label in Segoe UI 9pt Bold.
-        private const float LabelWidth = 30f;
-        private const float LabelHeight = 18f;
+            int originalCount = elements.Count;
+            double threshold = Math.Clamp(overlapThresholdPercent, 0, 100) / 100.0;
 
-        // Minimum element dimensions (pixels) — elements smaller than this
-        // are untargetable or invisible (separators, collapsed controls, etc.)
-        private const int MinElementWidth = 4;
-        private const int MinElementHeight = 4;
+            // Phase 1: Remove elements whose bounds are nearly identical to
+            // (or fully contain) another element — keep the smallest (most specific).
+            var afterContainment = RemoveContainedDuplicates(elements, threshold);
+            logger.Debug($"Dedup phase 1 (containment, threshold={overlapThresholdPercent}%): {originalCount} → {afterContainment.Count}");
+
+            // Phase 2: Remove lower-priority elements whose bounds significantly
+            // overlap a higher-priority element.
+            var afterOverlap = RemoveOverlapping(afterContainment);
+            logger.Debug($"Dedup phase 2 (overlap): {afterContainment.Count} → {afterOverlap.Count}");
+
+            return afterOverlap;
+        }
 
         /// <summary>
-        /// Assigns each element a non-overlapping label position, nudging
-        /// collisions to alternative positions before dropping elements that
-        /// cannot be placed without overlap.
+        /// When element A fully contains element B (or their bounds are nearly
+        /// identical), discard the larger container element.
         /// </summary>
-        /// <param name="elements">Raw clickable elements from UI Automation.</param>
-        /// <param name="preferredPosition">The user's preferred hint label position.</param>
-        /// <param name="logger">Logger for diagnostics.</param>
-        /// <returns>
-        /// A list of <see cref="PlacedElement"/> entries, each carrying the
-        /// original element and the resolved <see cref="HintPosition"/> for its label.
-        /// </returns>
-        public static List<PlacedElement> Deduplicate(
-            IReadOnlyList<ClickableElement> elements,
-            HintPosition preferredPosition,
-            ILogger logger)
+        private static List<ClickableElement> RemoveContainedDuplicates(IReadOnlyList<ClickableElement> elements, double areaRatioThreshold)
         {
-            if (elements.Count == 0)
-                return new List<PlacedElement>();
+            // Sort by area ascending so smaller (more specific) elements come first
+            var sorted = elements.OrderBy(e => (long)e.Bounds.Width * e.Bounds.Height).ToList();
+            var removed = new HashSet<int>();
 
-            // Filter out elements that are too small to be meaningful targets
-            var viable = FilterByMinSize(elements, logger);
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                if (removed.Contains(i))
+                    continue;
 
-            if (viable.Count == 0)
-                return new List<PlacedElement>();
+                for (int j = i + 1; j < sorted.Count; j++)
+                {
+                    if (removed.Contains(j))
+                        continue;
 
-            if (viable.Count == 1)
-                return new List<PlacedElement> { new(viable[0], preferredPosition) };
+                    var smaller = sorted[i].Bounds;
+                    var larger = sorted[j].Bounds;
 
-            int viableCount = viable.Count;
+                    // If the larger element fully contains the smaller one
+                    // and they share a similar origin (within a small margin),
+                    // the larger one is likely a container — remove it.
+                    if (larger.Contains(smaller) && BoundsAreSimilar(smaller, larger, areaRatioThreshold))
+                    {
+                        removed.Add(j);
+                    }
+                }
+            }
 
-            // Sort by priority (best first), then by area (smallest first as tiebreaker).
-            // This ensures high-priority elements get their preferred position first.
-            var sorted = viable
+            return sorted.Where((_, idx) => !removed.Contains(idx)).ToList();
+        }
+
+        /// <summary>
+        /// Two bounds are "similar" when they share a close origin and
+        /// the smaller one covers a significant portion of the larger one.
+        /// This catches parent-child pairs like a Button inside a ListItem.
+        /// </summary>
+        private static bool BoundsAreSimilar(Rectangle smaller, Rectangle larger, double areaRatioThreshold)
+        {
+            const int margin = 8; // pixels
+
+            // Check if origins are close
+            bool originsClose = Math.Abs(smaller.Left - larger.Left) <= margin
+                             && Math.Abs(smaller.Top - larger.Top) <= margin;
+
+            // Check if the smaller covers a significant portion of the larger
+            long smallerArea = (long)smaller.Width * smaller.Height;
+            long largerArea = (long)larger.Width * larger.Height;
+            bool significantOverlap = largerArea > 0 && (double)smallerArea / largerArea > areaRatioThreshold;
+
+            return originsClose || significantOverlap;
+        }
+
+        /// <summary>
+        /// For elements that significantly overlap spatially, keep only the
+        /// highest-priority element (by control type).
+        /// </summary>
+        private static List<ClickableElement> RemoveOverlapping(List<ClickableElement> elements)
+        {
+            // Sort by priority (best first), then by area (smallest first as tiebreaker)
+            var sorted = elements
                 .OrderBy(e => GetPriority(e))
                 .ThenBy(e => (long)e.Bounds.Width * e.Bounds.Height)
                 .ToList();
 
-            var placed = new List<PlacedElement>(sorted.Count);
-            var occupiedLabels = new List<RectangleF>(sorted.Count);
-
-            // Build the nudge sequence: preferred position first, then the rest
-            var nudgeSequence = BuildNudgeSequence(preferredPosition);
+            var kept = new List<ClickableElement>();
+            var keptLabelBounds = new List<RectangleF>();
 
             foreach (var elem in sorted)
             {
-                bool wasPlaced = false;
+                // Approximate the label position (upper-left, matching OnPaint default)
+                var labelBounds = new RectangleF(elem.Bounds.Left, elem.Bounds.Top, 30f, 18f);
 
-                foreach (var candidatePos in nudgeSequence)
+                bool overlapsExisting = false;
+                foreach (var existing in keptLabelBounds)
                 {
-                    var labelBounds = ComputeLabelBounds(elem.Bounds, candidatePos);
-
-                    if (!OverlapsAny(labelBounds, occupiedLabels))
+                    if (labelBounds.IntersectsWith(existing))
                     {
-                        placed.Add(new PlacedElement(elem, candidatePos));
-                        occupiedLabels.Add(labelBounds);
-                        wasPlaced = true;
+                        overlapsExisting = true;
                         break;
                     }
                 }
 
-                if (!wasPlaced)
+                if (!overlapsExisting)
                 {
-                    // All 9 positions overlap — drop this element
-                    logger.Debug($"Dropped element at ({elem.Bounds.X},{elem.Bounds.Y} {elem.Bounds.Width}x{elem.Bounds.Height}) — all label positions overlap");
+                    kept.Add(elem);
+                    keptLabelBounds.Add(labelBounds);
                 }
             }
 
-            logger.Debug($"Dedup: {elements.Count} raw → {viableCount} viable → {placed.Count} placed ({elements.Count - placed.Count} removed, preferred={preferredPosition})");
-            return placed;
-        }
-
-        /// <summary>
-        /// Removes elements whose bounds are too small to be meaningful
-        /// interaction targets (e.g. separators, collapsed controls, zero-area items).
-        /// </summary>
-        private static List<ClickableElement> FilterByMinSize(IReadOnlyList<ClickableElement> elements, ILogger logger)
-        {
-            var result = new List<ClickableElement>(elements.Count);
-            int filtered = 0;
-
-            foreach (var e in elements)
-            {
-                if (e.Bounds.Width >= MinElementWidth && e.Bounds.Height >= MinElementHeight)
-                {
-                    result.Add(e);
-                }
-                else
-                {
-                    filtered++;
-                }
-            }
-
-            if (filtered > 0)
-                logger.Debug($"Size filter: removed {filtered} elements smaller than {MinElementWidth}x{MinElementHeight}px");
-
-            return result;
-        }
-
-        /// <summary>
-        /// Builds the nudge sequence with the preferred position first,
-        /// followed by the remaining positions in the default nudge order.
-        /// </summary>
-        private static HintPosition[] BuildNudgeSequence(HintPosition preferred)
-        {
-            var sequence = new HintPosition[NudgeOrder.Length];
-            sequence[0] = preferred;
-            int idx = 1;
-            foreach (var pos in NudgeOrder)
-            {
-                if (pos != preferred)
-                    sequence[idx++] = pos;
-            }
-            return sequence;
-        }
-
-        /// <summary>
-        /// Computes the label rectangle for a given element bounds and position,
-        /// using the same positioning logic as <c>OverlayForm.OnPaint</c>.
-        /// </summary>
-        internal static RectangleF ComputeLabelBounds(Rectangle elementBounds, HintPosition position)
-        {
-            float bgWidth = LabelWidth;
-            float bgHeight = LabelHeight;
-            float bgX, bgY;
-
-            switch (position)
-            {
-                case HintPosition.UpperLeft:
-                    bgX = elementBounds.Left;
-                    bgY = elementBounds.Top;
-                    break;
-                case HintPosition.UpperCenter:
-                    bgX = elementBounds.Left + (elementBounds.Width - bgWidth) / 2;
-                    bgY = elementBounds.Top;
-                    break;
-                case HintPosition.UpperRight:
-                    bgX = elementBounds.Right - bgWidth;
-                    bgY = elementBounds.Top;
-                    break;
-                case HintPosition.Left:
-                    bgX = elementBounds.Left;
-                    bgY = elementBounds.Top + (elementBounds.Height - bgHeight) / 2;
-                    break;
-                case HintPosition.Center:
-                    bgX = elementBounds.Left + (elementBounds.Width - bgWidth) / 2;
-                    bgY = elementBounds.Top + (elementBounds.Height - bgHeight) / 2;
-                    break;
-                case HintPosition.Right:
-                    bgX = elementBounds.Right - bgWidth;
-                    bgY = elementBounds.Top + (elementBounds.Height - bgHeight) / 2;
-                    break;
-                case HintPosition.LowerLeft:
-                    bgX = elementBounds.Left;
-                    bgY = elementBounds.Bottom - bgHeight;
-                    break;
-                case HintPosition.LowerCenter:
-                    bgX = elementBounds.Left + (elementBounds.Width - bgWidth) / 2;
-                    bgY = elementBounds.Bottom - bgHeight;
-                    break;
-                case HintPosition.LowerRight:
-                    bgX = elementBounds.Right - bgWidth;
-                    bgY = elementBounds.Bottom - bgHeight;
-                    break;
-                default:
-                    bgX = elementBounds.Left;
-                    bgY = elementBounds.Top;
-                    break;
-            }
-
-            return new RectangleF(bgX, bgY, bgWidth, bgHeight);
-        }
-
-        private static bool OverlapsAny(RectangleF candidate, List<RectangleF> existing)
-        {
-            foreach (var r in existing)
-            {
-                if (candidate.IntersectsWith(r))
-                    return true;
-            }
-            return false;
+            return kept;
         }
 
         private static int GetPriority(ClickableElement element)
@@ -273,9 +191,4 @@ namespace HintOverlay.Services
             return 5; // Unknown control type
         }
     }
-
-    /// <summary>
-    /// An element paired with its resolved label position after deduplication.
-    /// </summary>
-    internal sealed record PlacedElement(ClickableElement Element, HintPosition LabelPosition);
 }

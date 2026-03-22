@@ -142,7 +142,6 @@ namespace HintOverlay
                 ClickAction.LeftClick => "L",
                 ClickAction.RightClick => "R",
                 ClickAction.DoubleClick => "D",
-                ClickAction.MouseMove => "M",
                 _ => "H"
             };
             UpdateIcon(letter);

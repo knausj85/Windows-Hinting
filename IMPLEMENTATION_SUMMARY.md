@@ -135,7 +135,6 @@ A complete named pipe interface for Windows-Hinting that allows external applica
 |---------|---------|---------|
 | `TOGGLE` | Toggle hints on/off | `TOGGLE` |
 | `SELECT <label>` | Select & activate a hint | `SELECT A` or `SELECT AB` |
-| `SELECT <label> <action>` | Select with specific action | `SELECT A LEFT`, `SELECT A MOVE` |
 | `DEACTIVATE` | Turn off hints | `DEACTIVATE` |
 
 ## Usage Examples

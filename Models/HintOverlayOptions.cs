@@ -16,6 +16,12 @@ namespace HintOverlay.Models
         public ClickActionShortcutOptions ClickActionShortcuts { get; set; } = new();
         public HintPosition HintPosition { get; set; } = HintPosition.UpperLeft;
         public AnimationOptions Animation { get; set; } = new();
+        /// <summary>
+        /// Area ratio threshold (0–100%) for containment deduplication.
+        /// A smaller element covering at least this percentage of a larger
+        /// container causes the container to be removed.
+        /// </summary>
+        public int OverlapThreshold { get; set; } = 25;
         public List<WindowRule>? WindowRules { get; set; }
     }
 
@@ -32,7 +38,6 @@ namespace HintOverlay.Models
         public int LeftClickKey { get; set; } = 0x4C;   // L key
         public int RightClickKey { get; set; } = 0x52;  // R key
         public int DoubleClickKey { get; set; } = 0x44;  // D key
-        public int MouseMoveKey { get; set; } = 0x4D;   // M key
     }
     
     internal sealed class AnimationOptions

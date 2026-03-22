@@ -44,7 +44,7 @@ namespace HintOverlay.NamedPipeClient
         /// Selects a hint by its label and performs the specified click action.
         /// </summary>
         /// <param name="hintLabel">The label of the hint to select (e.g., "A", "B", "AB", etc.)</param>
-        /// <param name="action">The click action to perform: "LEFT", "RIGHT", "DOUBLE", "MOVE", or null/empty for default activation.</param>
+        /// <param name="action">The click action to perform: "LEFT", "RIGHT", "DOUBLE", or null/empty for default activation.</param>
         /// <returns>True if the command was sent successfully, false otherwise.</returns>
         public bool SelectHint(string hintLabel, string? action)
         {

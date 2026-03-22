@@ -116,7 +116,6 @@ All UTF-8 text, newline-delimited. Easy to implement in any language.
 |---------|---------|---------|
 | `TOGGLE` | Toggle hints on/off | `TOGGLE` |
 | `SELECT <label>` | Select and activate a hint | `SELECT A` or `SELECT AB` |
-| `SELECT <label> <action>` | Select with specific action | `SELECT A LEFT`, `SELECT A MOVE` |
 | `DEACTIVATE` | Turn off hints | `DEACTIVATE` |
 
 ## 🚀 Quick Start

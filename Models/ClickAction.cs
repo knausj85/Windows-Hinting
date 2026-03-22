@@ -5,7 +5,6 @@ namespace HintOverlay.Models
         Default,
         LeftClick,
         RightClick,
-        DoubleClick,
-        MouseMove
+        DoubleClick
     }
 }

@@ -26,7 +26,8 @@ namespace HintOverlay
         private HotkeyRecorderControl _leftClickKeyRecorder = null!;
         private HotkeyRecorderControl _rightClickKeyRecorder = null!;
         private HotkeyRecorderControl _doubleClickKeyRecorder = null!;
-        private HotkeyRecorderControl _mouseMoveKeyRecorder = null!;
+        private TrackBar _overlapThresholdTrackBar = null!;
+        private Label _overlapThresholdValueLabel = null!;
 
         // Window Rules tab controls
         private DataGridView _rulesGrid = null!;
@@ -129,9 +130,10 @@ namespace HintOverlay
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 6,
+                RowCount = 7,
                 Padding = new Padding(10)
             };
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -282,12 +284,11 @@ namespace HintOverlay
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 5,
+                RowCount = 4,
                 AutoSize = true
             };
             clickActionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             clickActionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -305,7 +306,6 @@ namespace HintOverlay
                 _leftClickKeyRecorder.Enabled = enabled;
                 _rightClickKeyRecorder.Enabled = enabled;
                 _doubleClickKeyRecorder.Enabled = enabled;
-                _mouseMoveKeyRecorder.Enabled = enabled;
             };
             clickActionLayout.SetColumnSpan(_chkClickActionShortcutsEnabled, 2);
             clickActionLayout.Controls.Add(_chkClickActionShortcutsEnabled, 0, 0);
@@ -325,13 +325,66 @@ namespace HintOverlay
             clickActionLayout.Controls.Add(lblDouble, 0, 3);
             clickActionLayout.Controls.Add(_doubleClickKeyRecorder, 1, 3);
 
-            var lblMouseMove = new Label { Text = "Move mouse:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
-            _mouseMoveKeyRecorder = new HotkeyRecorderControl { Mode = RecorderMode.SingleKey, Dock = DockStyle.Fill, Height = 28 };
-            clickActionLayout.Controls.Add(lblMouseMove, 0, 4);
-            clickActionLayout.Controls.Add(_mouseMoveKeyRecorder, 1, 4);
-
             clickActionGroup.Controls.Add(clickActionLayout);
             layout.Controls.Add(clickActionGroup, 0, 4);
+
+            // Overlap threshold slider
+            var overlapGroup = new GroupBox
+            {
+                Text = "Overlap Deduplication",
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10)
+            };
+
+            var overlapLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 2,
+                AutoSize = true
+            };
+            overlapLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            overlapLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            overlapLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            overlapLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            var overlapDescription = new Label
+            {
+                Text = "Area overlap threshold for removing container elements. " +
+                       "Lower values remove more aggressively.",
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0, 0, 0, 4)
+            };
+            overlapLayout.SetColumnSpan(overlapDescription, 2);
+            overlapLayout.Controls.Add(overlapDescription, 0, 0);
+
+            _overlapThresholdTrackBar = new TrackBar
+            {
+                Minimum = 0,
+                Maximum = 100,
+                TickFrequency = 10,
+                SmallChange = 5,
+                LargeChange = 10,
+                Dock = DockStyle.Fill
+            };
+            _overlapThresholdValueLabel = new Label
+            {
+                Text = "25%",
+                AutoSize = true,
+                Anchor = AnchorStyles.Left,
+                Padding = new Padding(4, 6, 0, 0)
+            };
+            _overlapThresholdTrackBar.ValueChanged += (_, _) =>
+            {
+                _overlapThresholdValueLabel.Text = $"{_overlapThresholdTrackBar.Value}%";
+            };
+            overlapLayout.Controls.Add(_overlapThresholdTrackBar, 0, 1);
+            overlapLayout.Controls.Add(_overlapThresholdValueLabel, 1, 1);
+
+            overlapGroup.Controls.Add(overlapLayout);
+            layout.Controls.Add(overlapGroup, 0, 5);
 
             tab.Controls.Add(layout);
             return tab;
@@ -507,8 +560,9 @@ namespace HintOverlay
             _rightClickKeyRecorder.SetKey(_options.ClickActionShortcuts.RightClickKey);
             _doubleClickKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
             _doubleClickKeyRecorder.SetKey(_options.ClickActionShortcuts.DoubleClickKey);
-            _mouseMoveKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
-            _mouseMoveKeyRecorder.SetKey(_options.ClickActionShortcuts.MouseMoveKey);
+
+            _overlapThresholdTrackBar.Value = Math.Clamp(_options.OverlapThreshold, 0, 100);
+            _overlapThresholdValueLabel.Text = $"{_overlapThresholdTrackBar.Value}%";
 
             // Window rules — always merge with defaults so built-in rules are present
             var rules = WindowRuleRegistry.MergeWithDefaults(_options.WindowRules);
@@ -533,7 +587,8 @@ namespace HintOverlay
             _options.ClickActionShortcuts.LeftClickKey = _leftClickKeyRecorder.VirtualKey;
             _options.ClickActionShortcuts.RightClickKey = _rightClickKeyRecorder.VirtualKey;
             _options.ClickActionShortcuts.DoubleClickKey = _doubleClickKeyRecorder.VirtualKey;
-            _options.ClickActionShortcuts.MouseMoveKey = _mouseMoveKeyRecorder.VirtualKey;
+
+            _options.OverlapThreshold = _overlapThresholdTrackBar.Value;
 
             // Collect window rules from the grid (exclude incomplete new-row entries)
             _options.WindowRules = _rulesBindingList
