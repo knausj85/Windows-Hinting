@@ -5,6 +5,7 @@ using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using UIAutomationClient;
 using WindowsHinting.Configuration;
@@ -20,6 +21,7 @@ namespace WindowsHinting.Services
         private readonly WindowRuleRegistry _ruleRegistry;
         private readonly IUIAutomationCondition _searchCondition;
         private readonly IUIAutomationCacheRequest _cacheRequest;
+        private readonly List<IUIAutomationCondition> _ownedConditions;
         private bool _disposed;
 
         public UIAutomationService(ILogger logger, WindowRuleRegistry ruleRegistry)
@@ -27,15 +29,13 @@ namespace WindowsHinting.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _ruleRegistry = ruleRegistry ?? throw new ArgumentNullException(nameof(ruleRegistry));
             _automation = new CUIAutomation();
-            _searchCondition = BuildSearchCondition();
-            _cacheRequest = BuildCacheRequest();
+
+            (_searchCondition, _cacheRequest, _ownedConditions) = BuildSearchConditionsAndCache();
         }
 
-        private IUIAutomationCondition BuildSearchCondition()
+        private (IUIAutomationCondition combined, IUIAutomationCacheRequest cache, List<IUIAutomationCondition> owned) BuildSearchConditionsAndCache()
         {
-            var enabledCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsEnabledPropertyId, true);
-            var onscreenCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false);
-            var statusAndCondition = _automation.CreateAndCondition(enabledCondition, onscreenCondition);
+            var owned = new List<IUIAutomationCondition>();
 
             var clickableControlTypes = new int[]
             {
@@ -58,16 +58,25 @@ namespace WindowsHinting.Services
                 UIA_ControlTypeIds.UIA_TreeItemControlTypeId
             };
 
+            var enabledCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsEnabledPropertyId, true);
+            var onscreenCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false);
+            owned.Add(enabledCondition);
+            owned.Add(onscreenCondition);
+
+            var statusAndCondition = _automation.CreateAndCondition(enabledCondition, onscreenCondition);
+            owned.Add(statusAndCondition);
+
             var controlTypeConditions = clickableControlTypes
                 .Select(t => _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_ControlTypePropertyId, t))
                 .ToArray();
+            owned.AddRange(controlTypeConditions);
 
             var controlTypeOrCondition = _automation.CreateOrConditionFromArray(controlTypeConditions);
-            return _automation.CreateAndCondition(statusAndCondition, controlTypeOrCondition);
-        }
+            owned.Add(controlTypeOrCondition);
 
-        private IUIAutomationCacheRequest BuildCacheRequest()
-        {
+            var combined = _automation.CreateAndCondition(statusAndCondition, controlTypeOrCondition);
+            owned.Add(combined);
+
             var cache = _automation.CreateCacheRequest();
             cache.TreeScope = TreeScope.TreeScope_Element;
             cache.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
@@ -84,7 +93,8 @@ namespace WindowsHinting.Services
             cache.AddPattern(UIA_PatternIds.UIA_SelectionPatternId);
             cache.AddPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
             cache.AddPattern(UIA_PatternIds.UIA_TogglePatternId);
-            return cache;
+
+            return (combined, cache, owned);
         }
 
         public IReadOnlyList<ClickableElement> FindClickableElements(IntPtr windowHandle)
@@ -117,6 +127,26 @@ namespace WindowsHinting.Services
             return await Task.Run(() => FindClickableElements(windowHandle));
         }
 
+        public async Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle, int timeoutMs)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            if (timeoutMs <= 0)
+                return await FindClickableElementsAsync(windowHandle);
+
+            using var cts = new CancellationTokenSource(timeoutMs);
+            try
+            {
+                var task = Task.Run(() => FindClickableElements(windowHandle), cts.Token);
+                return await task.WaitAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.Warning($"UIA scan timed out after {timeoutMs}ms — returning empty results");
+                return Array.Empty<ClickableElement>();
+            }
+        }
+
         private IReadOnlyList<ClickableElement> FindClickableElementsCore(IntPtr windowHandle)
         {
             if (windowHandle == IntPtr.Zero)
@@ -145,7 +175,6 @@ namespace WindowsHinting.Services
                 roots = ResolveRootElements(windowHandle, root);
 
                 var results = new List<ClickableElement>();
-                int totalElements = 0;
 
                 using (PerformanceMetrics.Start("FindAllBuildCache", _logger, LogLevel.Info))
                 {
@@ -172,8 +201,7 @@ namespace WindowsHinting.Services
                     }
                 }
 
-                totalElements = elementArraysToRelease.Sum(a => a.Length);
-                results.Capacity = totalElements;
+                int totalElements = elementArraysToRelease.Sum(a => a.Length);
                 _logger.Debug($"Processing {totalElements} found elements across {elementArraysToRelease.Count} root(s)");
 
                 using (PerformanceMetrics.Start($"ProcessElements({totalElements})", _logger, LogLevel.Debug))
@@ -240,7 +268,7 @@ namespace WindowsHinting.Services
             }
             finally
             {
-                // Release element arrays (conditions and cache request are instance-level and reused)
+                // Release per-call COM objects (element arrays and root elements)
                 foreach (var elemArray in elementArraysToRelease)
                 {
                     if (elemArray != null && Marshal.IsComObject(elemArray))
@@ -543,8 +571,11 @@ namespace WindowsHinting.Services
             if (_cacheRequest != null && Marshal.IsComObject(_cacheRequest))
                 Marshal.ReleaseComObject(_cacheRequest);
 
-            if (_searchCondition != null && Marshal.IsComObject(_searchCondition))
-                Marshal.ReleaseComObject(_searchCondition);
+            foreach (var condition in _ownedConditions)
+            {
+                if (condition != null && Marshal.IsComObject(condition))
+                    Marshal.ReleaseComObject(condition);
+            }
 
             if (_automation != null && Marshal.IsComObject(_automation))
             {

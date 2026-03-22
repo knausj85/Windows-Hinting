@@ -217,6 +217,11 @@ namespace WindowsHinting.Services
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool DestroyIcon(IntPtr handle);
 
+        public void ShowNotification(string title, string text, ToolTipIcon icon = ToolTipIcon.Warning, int durationMs = 3000)
+        {
+            _trayIcon.ShowBalloonTip(durationMs, title, text, icon);
+        }
+
         public void Dispose()
         {
             _trayIcon?.Dispose();
