@@ -35,25 +35,30 @@ namespace HintOverlay.Services
                 Thread.Sleep(10);
 
                 switch (action)
-                {
-                    case ClickAction.LeftClick:
-                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
-                        break;
+                    {
+                        case ClickAction.Default:
+                        case ClickAction.LeftClick:
+                            SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                            break;
 
-                    case ClickAction.RightClick:
-                        SendClick(WindowsConstants.MOUSEEVENTF_RIGHTDOWN, WindowsConstants.MOUSEEVENTF_RIGHTUP);
-                        break;
+                        case ClickAction.RightClick:
+                            SendClick(WindowsConstants.MOUSEEVENTF_RIGHTDOWN, WindowsConstants.MOUSEEVENTF_RIGHTUP);
+                            break;
 
-                    case ClickAction.DoubleClick:
-                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
-                        Thread.Sleep(30);
-                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
-                        break;
+                        case ClickAction.DoubleClick:
+                            SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                            Thread.Sleep(30);
+                            SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                            break;
 
-                    default:
-                        _logger.Warning($"Unsupported click action: {action}");
-                        return false;
-                }
+                        case ClickAction.MouseMove:
+                            SendMove(x, y);
+                            break;
+
+                        default:
+                            _logger.Warning($"Unsupported click action: {action}");
+                            return false;
+                    }
 
                 _logger.Info($"{action} performed successfully at ({x}, {y})");
                 return true;
@@ -62,6 +67,31 @@ namespace HintOverlay.Services
             {
                 _logger.Error($"Failed to perform {action}", ex);
                 return false;
+            }
+        }
+
+        private void SendMove(int screenX, int screenY)
+        {
+            // Convert screen coordinates to normalized absolute coordinates (0..65535)
+            int primaryWidth = NativeMethods.GetSystemMetrics(0);  // SM_CXSCREEN
+            int primaryHeight = NativeMethods.GetSystemMetrics(1); // SM_CYSCREEN
+            int absX = (int)((screenX * 65535.0) / (primaryWidth - 1));
+            int absY = (int)((screenY * 65535.0) / (primaryHeight - 1));
+
+            var inputs = new NativeMethods.INPUT[1];
+            inputs[0].Type = WindowsConstants.INPUT_MOUSE;
+            inputs[0].Mi.Dx = absX;
+            inputs[0].Mi.Dy = absY;
+            inputs[0].Mi.DwFlags = WindowsConstants.MOUSEEVENTF_MOVE | WindowsConstants.MOUSEEVENTF_ABSOLUTE;
+
+            uint sent = NativeMethods.SendInput(
+                (uint)inputs.Length,
+                inputs,
+                Marshal.SizeOf<NativeMethods.INPUT>());
+
+            if (sent != inputs.Length)
+            {
+                _logger.Warning($"SendInput (move) returned {sent}, expected {inputs.Length}");
             }
         }
 

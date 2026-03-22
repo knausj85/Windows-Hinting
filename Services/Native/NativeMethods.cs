@@ -54,6 +54,9 @@ namespace HintOverlay.Services.Native
         [DllImport("user32.dll")]
         public static extern bool GetCursorPos(out POINT lpPoint);
 
+        [DllImport("user32.dll")]
+        public static extern int GetSystemMetrics(int nIndex);
+
         [StructLayout(LayoutKind.Sequential)]
         public struct POINT
         {
@@ -105,9 +108,11 @@ namespace HintOverlay.Services.Native
         public const uint INPUT_MOUSE = 0;
 
         // Mouse Event Flags
+        public const uint MOUSEEVENTF_MOVE = 0x0001;
         public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
         public const uint MOUSEEVENTF_LEFTUP = 0x0004;
         public const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
         public const uint MOUSEEVENTF_RIGHTUP = 0x0010;
+        public const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
     }
 }

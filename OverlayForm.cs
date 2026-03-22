@@ -133,13 +133,13 @@ namespace HintOverlay
                     g.DrawRectangle(pen, h.Rect);
                 }
 
-                // label background size based on full label, positioned per HintPosition
+                // label background size based on full label, positioned per hint's LabelPosition
                 var size = g.MeasureString(h.Label, _font);
                 float bgWidth = size.Width + 6;
                 float bgHeight = size.Height + 2;
 
                 float bgX, bgY;
-                switch (HintPosition)
+                switch (h.LabelPosition)
                 {
                     case HintPosition.UpperLeft:
                         bgX = h.Rect.Left;

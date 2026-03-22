@@ -23,9 +23,10 @@ namespace HintOverlay
         private CheckBox _chkTaskbarHotkeyEnabled = null!;
         private HotkeyRecorderControl _taskbarHotkeyRecorder = null!;
         private CheckBox _chkClickActionShortcutsEnabled = null!;
-        private KeyRecorderControl _leftClickKeyRecorder = null!;
-        private KeyRecorderControl _rightClickKeyRecorder = null!;
-        private KeyRecorderControl _doubleClickKeyRecorder = null!;
+        private HotkeyRecorderControl _leftClickKeyRecorder = null!;
+        private HotkeyRecorderControl _rightClickKeyRecorder = null!;
+        private HotkeyRecorderControl _doubleClickKeyRecorder = null!;
+        private HotkeyRecorderControl _mouseMoveKeyRecorder = null!;
 
         // Window Rules tab controls
         private DataGridView _rulesGrid = null!;
@@ -281,11 +282,12 @@ namespace HintOverlay
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 4,
+                RowCount = 5,
                 AutoSize = true
             };
             clickActionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             clickActionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -303,24 +305,30 @@ namespace HintOverlay
                 _leftClickKeyRecorder.Enabled = enabled;
                 _rightClickKeyRecorder.Enabled = enabled;
                 _doubleClickKeyRecorder.Enabled = enabled;
+                _mouseMoveKeyRecorder.Enabled = enabled;
             };
             clickActionLayout.SetColumnSpan(_chkClickActionShortcutsEnabled, 2);
             clickActionLayout.Controls.Add(_chkClickActionShortcutsEnabled, 0, 0);
 
             var lblLeft = new Label { Text = "Left click:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
-            _leftClickKeyRecorder = new KeyRecorderControl { Dock = DockStyle.Fill, Height = 28 };
+            _leftClickKeyRecorder = new HotkeyRecorderControl { Mode = RecorderMode.SingleKey, Dock = DockStyle.Fill, Height = 28 };
             clickActionLayout.Controls.Add(lblLeft, 0, 1);
             clickActionLayout.Controls.Add(_leftClickKeyRecorder, 1, 1);
 
             var lblRight = new Label { Text = "Right click:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
-            _rightClickKeyRecorder = new KeyRecorderControl { Dock = DockStyle.Fill, Height = 28 };
+            _rightClickKeyRecorder = new HotkeyRecorderControl { Mode = RecorderMode.SingleKey, Dock = DockStyle.Fill, Height = 28 };
             clickActionLayout.Controls.Add(lblRight, 0, 2);
             clickActionLayout.Controls.Add(_rightClickKeyRecorder, 1, 2);
 
             var lblDouble = new Label { Text = "Double click:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
-            _doubleClickKeyRecorder = new KeyRecorderControl { Dock = DockStyle.Fill, Height = 28 };
+            _doubleClickKeyRecorder = new HotkeyRecorderControl { Mode = RecorderMode.SingleKey, Dock = DockStyle.Fill, Height = 28 };
             clickActionLayout.Controls.Add(lblDouble, 0, 3);
             clickActionLayout.Controls.Add(_doubleClickKeyRecorder, 1, 3);
+
+            var lblMouseMove = new Label { Text = "Move mouse:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
+            _mouseMoveKeyRecorder = new HotkeyRecorderControl { Mode = RecorderMode.SingleKey, Dock = DockStyle.Fill, Height = 28 };
+            clickActionLayout.Controls.Add(lblMouseMove, 0, 4);
+            clickActionLayout.Controls.Add(_mouseMoveKeyRecorder, 1, 4);
 
             clickActionGroup.Controls.Add(clickActionLayout);
             layout.Controls.Add(clickActionGroup, 0, 4);
@@ -499,6 +507,8 @@ namespace HintOverlay
             _rightClickKeyRecorder.SetKey(_options.ClickActionShortcuts.RightClickKey);
             _doubleClickKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
             _doubleClickKeyRecorder.SetKey(_options.ClickActionShortcuts.DoubleClickKey);
+            _mouseMoveKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
+            _mouseMoveKeyRecorder.SetKey(_options.ClickActionShortcuts.MouseMoveKey);
 
             // Window rules — always merge with defaults so built-in rules are present
             var rules = WindowRuleRegistry.MergeWithDefaults(_options.WindowRules);
@@ -523,6 +533,7 @@ namespace HintOverlay
             _options.ClickActionShortcuts.LeftClickKey = _leftClickKeyRecorder.VirtualKey;
             _options.ClickActionShortcuts.RightClickKey = _rightClickKeyRecorder.VirtualKey;
             _options.ClickActionShortcuts.DoubleClickKey = _doubleClickKeyRecorder.VirtualKey;
+            _options.ClickActionShortcuts.MouseMoveKey = _mouseMoveKeyRecorder.VirtualKey;
 
             // Collect window rules from the grid (exclude incomplete new-row entries)
             _options.WindowRules = _rulesBindingList

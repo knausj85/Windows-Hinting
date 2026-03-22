@@ -32,6 +32,7 @@ namespace HintOverlay.Models
         public int LeftClickKey { get; set; } = 0x4C;   // L key
         public int RightClickKey { get; set; } = 0x52;  // R key
         public int DoubleClickKey { get; set; } = 0x44;  // D key
+        public int MouseMoveKey { get; set; } = 0x4D;   // M key
     }
     
     internal sealed class AnimationOptions

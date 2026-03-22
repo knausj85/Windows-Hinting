@@ -23,6 +23,7 @@ namespace HintOverlay.Services
         private int _leftClickKey = 0x4C;   // L
         private int _rightClickKey = 0x52;  // R
         private int _doubleClickKey = 0x44; // D
+        private int _mouseMoveKey = 0x4D;  // M
 
         public event EventHandler<SelectionCommittedEventArgs>? SelectionCommitted;
 
@@ -37,6 +38,7 @@ namespace HintOverlay.Services
             _leftClickKey = options.LeftClickKey;
             _rightClickKey = options.RightClickKey;
             _doubleClickKey = options.DoubleClickKey;
+            _mouseMoveKey = options.MouseMoveKey;
         }
 
         public bool ProcessKeyDown(int vkCode, KeyModifiers modifiers)
@@ -67,6 +69,11 @@ namespace HintOverlay.Services
                 if (vkCode == _doubleClickKey)
                 {
                     ToggleAction(ClickAction.DoubleClick);
+                    return true;
+                }
+                if (vkCode == _mouseMoveKey)
+                {
+                    ToggleAction(ClickAction.MouseMove);
                     return true;
                 }
             }

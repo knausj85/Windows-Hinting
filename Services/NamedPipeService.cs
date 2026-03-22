@@ -181,6 +181,7 @@ namespace HintOverlay.Services
                 "LEFT" => ClickAction.LeftClick,
                 "RIGHT" => ClickAction.RightClick,
                 "DOUBLE" => ClickAction.DoubleClick,
+                "MOVE" => ClickAction.MouseMove,
                 _ => ClickAction.Default
             };
         }

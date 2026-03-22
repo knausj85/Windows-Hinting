@@ -25,7 +25,6 @@ namespace HintOverlay
             services.AddSingleton<IWindowManager, WindowManager>();
             services.AddSingleton<HintStateManager>();
             services.AddSingleton<HintInputHandler>();
-            services.AddSingleton<ElementActivatorChain>();
             services.AddSingleton<NamedPipeService>();
             services.AddSingleton<MouseClickService>();
             

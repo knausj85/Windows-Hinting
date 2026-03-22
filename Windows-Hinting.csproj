@@ -67,6 +67,9 @@
     <Compile Remove="HintOverlay.Installer\**" />
     <EmbeddedResource Remove="HintOverlay.Installer\**" />
     <None Remove="HintOverlay.Installer\**" />
+    <Compile Remove="Windows-Hinting\**" />
+    <EmbeddedResource Remove="Windows-Hinting\**" />
+    <None Remove="Windows-Hinting\**" />
   </ItemGroup>
   <ItemGroup>
     <COMReference Include="UIAutomationClient">
@@ -90,7 +93,6 @@
 
   <ItemGroup>
     <None Include=".github\workflows\README.md" />
-    <None Include="HintOverlay.Tests\HintOverlay.Tests.csproj" />
   </ItemGroup>
 
   <ItemGroup>

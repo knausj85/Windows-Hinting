@@ -5,8 +5,22 @@ using System.Windows.Forms;
 namespace HintOverlay.Controls
 {
     /// <summary>
+    /// Determines whether the control records a full modifier+key combination
+    /// or a single letter key.
+    /// </summary>
+    internal enum RecorderMode
+    {
+        /// <summary>Records any modifier + key combination (e.g. Ctrl+Alt+H).</summary>
+        HotkeyCombination,
+
+        /// <summary>Records a single A-Z key (displayed as "Shift + X").</summary>
+        SingleKey
+    }
+
+    /// <summary>
     /// A text-box-style control that records a keyboard shortcut when focused.
-    /// Click the control, then press the desired key combination.
+    /// Click the control, then press the desired key (or key combination).
+    /// Set <see cref="Mode"/> to control which input style is used.
     /// </summary>
     internal sealed class HotkeyRecorderControl : TextBox
     {
@@ -14,13 +28,42 @@ namespace HintOverlay.Controls
         private const int MOD_CONTROL = 0x0002;
         private const int MOD_SHIFT = 0x0004;
 
-        private const string Prompt = "Click here, then press a shortcut…";
+        private const string HotkeyPrompt = "Click here, then press a shortcut…";
+        private const string SingleKeyPrompt = "Click, then press a key…";
+
+        private RecorderMode _mode = RecorderMode.HotkeyCombination;
+
+        /// <summary>
+        /// Controls whether the recorder accepts full modifier+key combinations
+        /// or a single A-Z key press. Defaults to <see cref="RecorderMode.HotkeyCombination"/>.
+        /// </summary>
+        public RecorderMode Mode
+        {
+            get => _mode;
+            set
+            {
+                _mode = value;
+                Text = Prompt;
+            }
+        }
+
+        private string Prompt => _mode == RecorderMode.SingleKey ? SingleKeyPrompt : HotkeyPrompt;
 
         /// <summary>Win32 hotkey modifier flags (MOD_ALT | MOD_CONTROL | MOD_SHIFT).</summary>
         public int HotkeyModifiers { get; private set; }
 
         /// <summary>Win32 virtual-key code of the primary key.</summary>
         public int HotkeyVirtualKey { get; private set; }
+
+        /// <summary>
+        /// Convenience alias for <see cref="HotkeyVirtualKey"/>, useful in
+        /// <see cref="RecorderMode.SingleKey"/> mode.
+        /// </summary>
+        public int VirtualKey
+        {
+            get => HotkeyVirtualKey;
+            private set => HotkeyVirtualKey = value;
+        }
 
         /// <summary>Raised when the control gains focus and begins listening for a key combination.</summary>
         public event EventHandler? RecordingStarted;
@@ -44,13 +87,22 @@ namespace HintOverlay.Controls
         {
             HotkeyModifiers = modifiers;
             HotkeyVirtualKey = virtualKey;
-            Text = FormatHotkey(modifiers, virtualKey);
+            Text = FormatDisplay(modifiers, virtualKey);
+        }
+
+        /// <summary>
+        /// Convenience overload for <see cref="RecorderMode.SingleKey"/> mode.
+        /// Sets modifiers to zero.
+        /// </summary>
+        public void SetKey(int virtualKey)
+        {
+            SetHotkey(0, virtualKey);
         }
 
         protected override void OnEnter(EventArgs e)
         {
             base.OnEnter(e);
-            Text = "Press a shortcut…";
+            Text = _mode == RecorderMode.SingleKey ? "Press a key…" : "Press a shortcut…";
             BackColor = Color.FromArgb(255, 255, 240);
             RecordingStarted?.Invoke(this, EventArgs.Empty);
         }
@@ -60,18 +112,15 @@ namespace HintOverlay.Controls
             base.OnLeave(e);
             BackColor = SystemColors.Window;
 
-            if (HotkeyVirtualKey != 0)
-                Text = FormatHotkey(HotkeyModifiers, HotkeyVirtualKey);
-            else
-                Text = Prompt;
+            Text = HotkeyVirtualKey != 0
+                ? FormatDisplay(HotkeyModifiers, HotkeyVirtualKey)
+                : Prompt;
 
             RecordingStopped?.Invoke(this, EventArgs.Empty);
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
-            // Intercept all key combinations, including ones normally consumed
-            // by the form (Tab, Enter, Escape, etc.) while the control is focused.
             if (!Focused)
                 return base.ProcessCmdKey(ref msg, keyData);
 
@@ -82,6 +131,34 @@ namespace HintOverlay.Controls
                     or Keys.LWin or Keys.RWin)
                 return true;
 
+            if (_mode == RecorderMode.SingleKey)
+                return ProcessSingleKey(key);
+
+            return ProcessHotkeyCombination(keyData, key);
+        }
+
+        private bool ProcessSingleKey(Keys key)
+        {
+            int vk = (int)key;
+
+            // Only accept A-Z keys in single-key mode
+            if (vk < 0x41 || vk > 0x5A)
+            {
+                System.Media.SystemSounds.Beep.Play();
+                return true;
+            }
+
+            HotkeyModifiers = 0;
+            HotkeyVirtualKey = vk;
+            Text = FormatDisplay(0, vk);
+            BackColor = SystemColors.Window;
+
+            Parent?.SelectNextControl(this, true, true, true, true);
+            return true;
+        }
+
+        private bool ProcessHotkeyCombination(Keys keyData, Keys key)
+        {
             int mods = 0;
             if ((keyData & Keys.Control) != 0) mods |= MOD_CONTROL;
             if ((keyData & Keys.Alt) != 0) mods |= MOD_ALT;
@@ -89,12 +166,27 @@ namespace HintOverlay.Controls
 
             HotkeyModifiers = mods;
             HotkeyVirtualKey = (int)key;
-            Text = FormatHotkey(mods, HotkeyVirtualKey);
+            Text = FormatDisplay(mods, HotkeyVirtualKey);
             BackColor = SystemColors.Window;
 
-            // Move focus away so the user sees the result
             Parent?.SelectNextControl(this, true, true, true, true);
             return true;
+        }
+
+        private string FormatDisplay(int mods, int vk)
+        {
+            if (_mode == RecorderMode.SingleKey)
+                return FormatSingleKey(vk);
+
+            return FormatHotkey(mods, vk);
+        }
+
+        private static string FormatSingleKey(int vk)
+        {
+            if (vk >= 0x41 && vk <= 0x5A)
+                return $"Shift + {(char)vk}";
+
+            return ((Keys)vk).ToString();
         }
 
         private static string FormatHotkey(int mods, int vk)

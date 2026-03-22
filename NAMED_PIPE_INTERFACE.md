@@ -66,11 +66,13 @@ You can also communicate with the named pipe directly from any language/platform
   TOGGLE
   ```
 
-- **SELECT <label>** - Select and activate a hint by its label
+- **SELECT <label> [action]** - Select and activate a hint by its label. Optional action: `LEFT`, `RIGHT`, `DOUBLE`, `MOVE`
   ```
   SELECT A
   SELECT AB
   SELECT XYZ
+  SELECT A MOVE
+  SELECT B RIGHT
   ```
 
 - **DEACTIVATE** - Deactivate the hint overlay
