@@ -1,4 +1,4 @@
-# Create-CodeSigningCert.ps1
+﻿# Create-CodeSigningCert.ps1
 # Creates a self-signed code signing certificate for Windows-Hinting
 
 <#
@@ -35,7 +35,7 @@ param(
     [string]$FriendlyName = "Windows-Hinting Code Signing",
     [int]$ValidityYears = 10,
     [string]$OutputPath = $env:USERPROFILE,
-    [string]$ExportPassword = ""
+    [SecureString]$ExportPassword = ""
 )
 
 # ============================================================================

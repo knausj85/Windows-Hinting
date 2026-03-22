@@ -1,4 +1,4 @@
-# Sign-HintOverlay.ps1
+﻿# Sign-HintOverlay.ps1
 # Code signing script for Windows-Hinting executable
 
 <#
@@ -33,7 +33,7 @@ param(
 
     [string]$CertificatePath = "$env:USERPROFILE\WindowsHinting_CodeSign.pfx",
 
-    [string]$CertificatePassword = "",
+    [SecureString]$CertificatePassword = "",
 
     [string]$TimestampServer = "http://timestamp.sectigo.com",
 

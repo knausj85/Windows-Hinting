@@ -1,4 +1,4 @@
-param([string]$CertName = "WindowsHinting", [string]$CertPath = "$PSScriptRoot\..\Windows-Hinting\certs\WindowsHinting_CodeSign.pfx", [string]$CertPassword = "WindowsHinting_BuildCert_2024", [int]$ValidYears = 10, [switch]$Force)
+﻿param([string]$CertName = "WindowsHinting", [string]$CertPath = "$PSScriptRoot\..\Windows-Hinting\certs\WindowsHinting_CodeSign.pfx", [SecureString]$CertPassword = "WindowsHinting_BuildCert_2024", [int]$ValidYears = 10, [switch]$Force)
 
 $ErrorActionPreference = "Stop"
 $CertDir = Split-Path -Parent $CertPath

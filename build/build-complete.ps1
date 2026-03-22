@@ -1,10 +1,10 @@
-param(
+﻿param(
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
     [switch]$ExeOnly,
     [switch]$SkipSigning,
     [string]$CertPath = "",
-    [string]$CertPassword = "WindowsHinting_BuildCert_2024"
+    [SecureString]$CertPassword = "WindowsHinting_BuildCert_2024"
 )
 
 $ErrorActionPreference = "Stop"
