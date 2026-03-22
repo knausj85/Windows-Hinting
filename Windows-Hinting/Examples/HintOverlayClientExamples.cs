@@ -192,7 +192,8 @@ namespace WindowsHinting.Examples
 
         /// <summary>
         /// Example: Select a hint with a specific click action
-        /// Actions: "LEFT" (left click), "RIGHT" (right click), "DOUBLE" (double click), or null for default activation
+        /// Actions: "LEFT" (left click), "RIGHT" (right click), "DOUBLE" (double click),
+        /// "CTRL" (ctrl+click), "SHIFT" (shift+click), "MOVE" (mouse move), or null for default activation
         /// </summary>
         public static void ClickActionExample()
         {
@@ -222,6 +223,16 @@ namespace WindowsHinting.Examples
             client.Toggle();
             System.Threading.Thread.Sleep(500);
             client.SelectHint("C", "DOUBLE");
+
+            // Ctrl+click the element (e.g., to open in new tab or multi-select)
+            client.Toggle();
+            System.Threading.Thread.Sleep(500);
+            client.SelectHint("D", "CTRL");
+
+            // Shift+click the element (e.g., to extend selection)
+            client.Toggle();
+            System.Threading.Thread.Sleep(500);
+            client.SelectHint("E", "SHIFT");
         }
     }
 }

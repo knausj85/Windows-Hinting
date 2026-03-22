@@ -65,13 +65,6 @@ namespace WindowsHinting.Services.Native
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        public struct INPUT
-        {
-            public uint Type;
-            public MOUSEINPUT Mi;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
         public struct MOUSEINPUT
         {
             public int Dx;
@@ -80,6 +73,30 @@ namespace WindowsHinting.Services.Native
             public uint DwFlags;
             public uint Time;
             public IntPtr DwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct KEYBDINPUT
+        {
+            public ushort Vk;
+            public ushort Scan;
+            public uint Flags;
+            public uint Time;
+            public IntPtr ExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        public struct INPUTUNION
+        {
+            [FieldOffset(0)] public MOUSEINPUT Mi;
+            [FieldOffset(0)] public KEYBDINPUT Ki;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct INPUT
+        {
+            public uint Type;
+            public INPUTUNION U;
         }
     }
 
@@ -106,6 +123,10 @@ namespace WindowsHinting.Services.Native
 
         // Input Types
         public const uint INPUT_MOUSE = 0;
+        public const uint INPUT_KEYBOARD = 1;
+
+        // Keyboard Event Flags
+        public const uint KEYEVENTF_KEYUP = 0x0002;
 
         // Mouse Event Flags
         public const uint MOUSEEVENTF_MOVE = 0x0001;

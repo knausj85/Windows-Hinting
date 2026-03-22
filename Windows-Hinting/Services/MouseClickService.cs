@@ -55,6 +55,22 @@ namespace WindowsHinting.Services
                         SendMove(x, y);
                         break;
 
+                    case ClickAction.CtrlClick:
+                        SendModifierKeyDown(WindowsConstants.VK_CONTROL);
+                        Thread.Sleep(10);
+                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                        Thread.Sleep(10);
+                        SendModifierKeyUp(WindowsConstants.VK_CONTROL);
+                        break;
+
+                    case ClickAction.ShiftClick:
+                        SendModifierKeyDown(WindowsConstants.VK_SHIFT);
+                        Thread.Sleep(10);
+                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                        Thread.Sleep(10);
+                        SendModifierKeyUp(WindowsConstants.VK_SHIFT);
+                        break;
+
                     default:
                         _logger.Warning($"Unsupported click action: {action}");
                         return false;
@@ -80,9 +96,9 @@ namespace WindowsHinting.Services
 
             var inputs = new NativeMethods.INPUT[1];
             inputs[0].Type = WindowsConstants.INPUT_MOUSE;
-            inputs[0].Mi.Dx = absX;
-            inputs[0].Mi.Dy = absY;
-            inputs[0].Mi.DwFlags = WindowsConstants.MOUSEEVENTF_MOVE | WindowsConstants.MOUSEEVENTF_ABSOLUTE;
+            inputs[0].U.Mi.Dx = absX;
+            inputs[0].U.Mi.Dy = absY;
+            inputs[0].U.Mi.DwFlags = WindowsConstants.MOUSEEVENTF_MOVE | WindowsConstants.MOUSEEVENTF_ABSOLUTE;
 
             uint sent = NativeMethods.SendInput(
                 (uint)inputs.Length,
@@ -95,15 +111,47 @@ namespace WindowsHinting.Services
             }
         }
 
+        private void SendModifierKeyDown(int vkCode)
+        {
+            var inputs = new NativeMethods.INPUT[1];
+            inputs[0].Type = WindowsConstants.INPUT_KEYBOARD;
+            inputs[0].U.Ki.Vk = (ushort)vkCode;
+            inputs[0].U.Ki.Flags = 0;
+
+            uint sent = NativeMethods.SendInput(
+                (uint)inputs.Length,
+                inputs,
+                Marshal.SizeOf<NativeMethods.INPUT>());
+
+            if (sent != inputs.Length)
+                _logger.Warning($"SendInput (modifier key down VK=0x{vkCode:X2}) returned {sent}, expected {inputs.Length}");
+        }
+
+        private void SendModifierKeyUp(int vkCode)
+        {
+            var inputs = new NativeMethods.INPUT[1];
+            inputs[0].Type = WindowsConstants.INPUT_KEYBOARD;
+            inputs[0].U.Ki.Vk = (ushort)vkCode;
+            inputs[0].U.Ki.Flags = WindowsConstants.KEYEVENTF_KEYUP;
+
+            uint sent = NativeMethods.SendInput(
+                (uint)inputs.Length,
+                inputs,
+                Marshal.SizeOf<NativeMethods.INPUT>());
+
+            if (sent != inputs.Length)
+                _logger.Warning($"SendInput (modifier key up VK=0x{vkCode:X2}) returned {sent}, expected {inputs.Length}");
+        }
+
         private void SendClick(uint downFlag, uint upFlag)
         {
             var inputs = new NativeMethods.INPUT[2];
 
             inputs[0].Type = WindowsConstants.INPUT_MOUSE;
-            inputs[0].Mi.DwFlags = downFlag;
+            inputs[0].U.Mi.DwFlags = downFlag;
 
             inputs[1].Type = WindowsConstants.INPUT_MOUSE;
-            inputs[1].Mi.DwFlags = upFlag;
+            inputs[1].U.Mi.DwFlags = upFlag;
 
             uint sent = NativeMethods.SendInput(
                 (uint)inputs.Length,

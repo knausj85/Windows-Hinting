@@ -12,6 +12,4 @@ namespace WindowsHinting.Models
         public float CurrentOpacity { get; set; } = 1f;
         public float TargetOpacity { get; set; } = 1f;
     }
-
-    internal sealed record ClickableElement(Rectangle Bounds, IUIAutomationElement Element);
 }

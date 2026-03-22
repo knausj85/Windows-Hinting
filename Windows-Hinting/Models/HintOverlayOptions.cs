@@ -22,6 +22,14 @@ namespace WindowsHinting.Models
         /// container causes the container to be removed.
         /// </summary>
         public int OverlapThreshold { get; set; } = 25;
+
+        /// <summary>
+        /// Maximum time in milliseconds to wait for a UI Automation scan to complete.
+        /// If the scan takes longer, it is aborted and the overlay shows no hints.
+        /// Set to 0 to disable the timeout. Default: 3000ms.
+        /// </summary>
+        public int ScanTimeoutMs { get; set; } = 2500;
+
         public List<WindowRule>? WindowRules { get; set; }
     }
 
@@ -39,6 +47,8 @@ namespace WindowsHinting.Models
         public int RightClickKey { get; set; } = 0x52;  // R key
         public int DoubleClickKey { get; set; } = 0x44;  // D key
         public int MouseMoveKey { get; set; } = 0x4D;   // M key
+        public int CtrlClickKey { get; set; } = 0x43;   // C key
+        public int ShiftClickKey { get; set; } = 0x53;  // S key
     }
 
     internal sealed class AnimationOptions

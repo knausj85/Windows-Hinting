@@ -5,6 +5,7 @@ using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using UIAutomationClient;
 using WindowsHinting.Configuration;
@@ -18,6 +19,9 @@ namespace WindowsHinting.Services
         private readonly IUIAutomation _automation;
         private readonly ILogger _logger;
         private readonly WindowRuleRegistry _ruleRegistry;
+        private readonly IUIAutomationCondition _searchCondition;
+        private readonly IUIAutomationCacheRequest _cacheRequest;
+        private readonly List<IUIAutomationCondition> _ownedConditions;
         private bool _disposed;
 
         public UIAutomationService(ILogger logger, WindowRuleRegistry ruleRegistry)
@@ -25,6 +29,72 @@ namespace WindowsHinting.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _ruleRegistry = ruleRegistry ?? throw new ArgumentNullException(nameof(ruleRegistry));
             _automation = new CUIAutomation();
+
+            (_searchCondition, _cacheRequest, _ownedConditions) = BuildSearchConditionsAndCache();
+        }
+
+        private (IUIAutomationCondition combined, IUIAutomationCacheRequest cache, List<IUIAutomationCondition> owned) BuildSearchConditionsAndCache()
+        {
+            var owned = new List<IUIAutomationCondition>();
+
+            var clickableControlTypes = new int[]
+            {
+                UIA_ControlTypeIds.UIA_ButtonControlTypeId,
+                UIA_ControlTypeIds.UIA_CheckBoxControlTypeId,
+                UIA_ControlTypeIds.UIA_ComboBoxControlTypeId,
+                UIA_ControlTypeIds.UIA_DataGridControlTypeId,
+                UIA_ControlTypeIds.UIA_DataItemControlTypeId,
+                UIA_ControlTypeIds.UIA_EditControlTypeId,
+                UIA_ControlTypeIds.UIA_GroupControlTypeId,
+                UIA_ControlTypeIds.UIA_HyperlinkControlTypeId,
+                UIA_ControlTypeIds.UIA_ListControlTypeId,
+                UIA_ControlTypeIds.UIA_ListItemControlTypeId,
+                UIA_ControlTypeIds.UIA_MenuControlTypeId,
+                UIA_ControlTypeIds.UIA_MenuItemControlTypeId,
+                UIA_ControlTypeIds.UIA_RadioButtonControlTypeId,
+                UIA_ControlTypeIds.UIA_SplitButtonControlTypeId,
+                UIA_ControlTypeIds.UIA_TabItemControlTypeId,
+                UIA_ControlTypeIds.UIA_TreeControlTypeId,
+                UIA_ControlTypeIds.UIA_TreeItemControlTypeId
+            };
+
+            var enabledCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsEnabledPropertyId, true);
+            var onscreenCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false);
+            owned.Add(enabledCondition);
+            owned.Add(onscreenCondition);
+
+            var statusAndCondition = _automation.CreateAndCondition(enabledCondition, onscreenCondition);
+            owned.Add(statusAndCondition);
+
+            var controlTypeConditions = clickableControlTypes
+                .Select(t => _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_ControlTypePropertyId, t))
+                .ToArray();
+            owned.AddRange(controlTypeConditions);
+
+            var controlTypeOrCondition = _automation.CreateOrConditionFromArray(controlTypeConditions);
+            owned.Add(controlTypeOrCondition);
+
+            var combined = _automation.CreateAndCondition(statusAndCondition, controlTypeOrCondition);
+            owned.Add(combined);
+
+            var cache = _automation.CreateCacheRequest();
+            cache.TreeScope = TreeScope.TreeScope_Element;
+            cache.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_ControlTypePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_NamePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_ClassNamePropertyId);
+            cache.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
+            cache.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
+            cache.AddPattern(UIA_PatternIds.UIA_SelectionPatternId);
+            cache.AddPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
+            cache.AddPattern(UIA_PatternIds.UIA_TogglePatternId);
+
+            return (combined, cache, owned);
         }
 
         public IReadOnlyList<ClickableElement> FindClickableElements(IntPtr windowHandle)
@@ -57,6 +127,26 @@ namespace WindowsHinting.Services
             return await Task.Run(() => FindClickableElements(windowHandle));
         }
 
+        public async Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle, int timeoutMs)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            if (timeoutMs <= 0)
+                return await FindClickableElementsAsync(windowHandle);
+
+            using var cts = new CancellationTokenSource(timeoutMs);
+            try
+            {
+                var task = Task.Run(() => FindClickableElements(windowHandle), cts.Token);
+                return await task.WaitAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.Warning($"UIA scan timed out after {timeoutMs}ms — returning empty results");
+                return Array.Empty<ClickableElement>();
+            }
+        }
+
         private IReadOnlyList<ClickableElement> FindClickableElementsCore(IntPtr windowHandle)
         {
             if (windowHandle == IntPtr.Zero)
@@ -66,11 +156,6 @@ namespace WindowsHinting.Services
             }
 
             IUIAutomationElement? root = null;
-            IUIAutomationCondition? combinedCondition = null;
-            IUIAutomationCondition? statusAndCondition = null;
-            IUIAutomationCondition? controlTypeOrCondition = null;
-            IUIAutomationCacheRequest? cache = null;
-            var conditionsToRelease = new List<IUIAutomationCondition>();
             var elementArraysToRelease = new List<IUIAutomationElementArray>();
             var roots = new List<IUIAutomationElement>();
 
@@ -89,65 +174,6 @@ namespace WindowsHinting.Services
                 // Resolve the root element(s) strategy based on window rules
                 roots = ResolveRootElements(windowHandle, root);
 
-                var clickableControlTypes = new int[]
-                {
-                    UIA_ControlTypeIds.UIA_ButtonControlTypeId,
-                    UIA_ControlTypeIds.UIA_CheckBoxControlTypeId,
-                    UIA_ControlTypeIds.UIA_ComboBoxControlTypeId,
-                    UIA_ControlTypeIds.UIA_DataGridControlTypeId,
-                    UIA_ControlTypeIds.UIA_DataItemControlTypeId,
-                    UIA_ControlTypeIds.UIA_EditControlTypeId,
-                    UIA_ControlTypeIds.UIA_GroupControlTypeId,
-                    UIA_ControlTypeIds.UIA_HyperlinkControlTypeId,
-                    UIA_ControlTypeIds.UIA_ListControlTypeId,
-                    UIA_ControlTypeIds.UIA_ListItemControlTypeId,
-                    UIA_ControlTypeIds.UIA_MenuControlTypeId,
-                    UIA_ControlTypeIds.UIA_MenuItemControlTypeId,
-                    UIA_ControlTypeIds.UIA_RadioButtonControlTypeId,
-                    UIA_ControlTypeIds.UIA_SplitButtonControlTypeId,
-                    UIA_ControlTypeIds.UIA_TabItemControlTypeId,
-                    UIA_ControlTypeIds.UIA_TreeControlTypeId,
-                    UIA_ControlTypeIds.UIA_TreeItemControlTypeId
-                };
-
-                using (PerformanceMetrics.Start("BuildSearchConditions", _logger, LogLevel.Debug))
-                {
-                    var enabledCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsEnabledPropertyId, true);
-                    var onscreenCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false);
-                    conditionsToRelease.Add(enabledCondition);
-                    conditionsToRelease.Add(onscreenCondition);
-
-                    statusAndCondition = _automation.CreateAndCondition(enabledCondition, onscreenCondition);
-
-                    var controlTypeConditions = clickableControlTypes
-                        .Select(t => _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_ControlTypePropertyId, t))
-                        .ToArray();
-                    conditionsToRelease.AddRange(controlTypeConditions);
-
-                    controlTypeOrCondition = _automation.CreateOrConditionFromArray(controlTypeConditions);
-                    combinedCondition = _automation.CreateAndCondition(statusAndCondition, controlTypeOrCondition);
-                }
-
-                using (PerformanceMetrics.Start("CreateCacheRequest", _logger, LogLevel.Debug))
-                {
-                    cache = _automation.CreateCacheRequest();
-                    cache.TreeScope = TreeScope.TreeScope_Element;
-                    cache.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
-                    cache.AddProperty(UIA_PropertyIds.UIA_ControlTypePropertyId);
-                    cache.AddProperty(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
-                    cache.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
-                    cache.AddProperty(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId);
-                    cache.AddProperty(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId);
-                    cache.AddProperty(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId);
-                    cache.AddProperty(UIA_PropertyIds.UIA_NamePropertyId);
-                    cache.AddProperty(UIA_PropertyIds.UIA_ClassNamePropertyId);
-                    cache.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
-                    cache.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
-                    cache.AddPattern(UIA_PatternIds.UIA_SelectionPatternId);
-                    cache.AddPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
-                    cache.AddPattern(UIA_PatternIds.UIA_TogglePatternId);
-                }
-
                 var results = new List<ClickableElement>();
 
                 using (PerformanceMetrics.Start("FindAllBuildCache", _logger, LogLevel.Info))
@@ -157,7 +183,7 @@ namespace WindowsHinting.Services
                         IUIAutomationElementArray? found = null;
                         try
                         {
-                            found = scanRoot.FindAllBuildCache(TreeScope.TreeScope_Descendants, combinedCondition, cache);
+                            found = scanRoot.FindAllBuildCache(TreeScope.TreeScope_Descendants, _searchCondition, _cacheRequest);
                         }
                         catch (COMException ex)
                         {
@@ -242,29 +268,11 @@ namespace WindowsHinting.Services
             }
             finally
             {
-                // Release all COM objects
+                // Release per-call COM objects (element arrays and root elements)
                 foreach (var elemArray in elementArraysToRelease)
                 {
                     if (elemArray != null && Marshal.IsComObject(elemArray))
                         Marshal.ReleaseComObject(elemArray);
-                }
-
-                if (cache != null && Marshal.IsComObject(cache))
-                    Marshal.ReleaseComObject(cache);
-
-                if (combinedCondition != null && Marshal.IsComObject(combinedCondition))
-                    Marshal.ReleaseComObject(combinedCondition);
-
-                if (controlTypeOrCondition != null && Marshal.IsComObject(controlTypeOrCondition))
-                    Marshal.ReleaseComObject(controlTypeOrCondition);
-
-                if (statusAndCondition != null && Marshal.IsComObject(statusAndCondition))
-                    Marshal.ReleaseComObject(statusAndCondition);
-
-                foreach (var condition in conditionsToRelease)
-                {
-                    if (condition != null && Marshal.IsComObject(condition))
-                        Marshal.ReleaseComObject(condition);
                 }
 
                 foreach (var r in roots)
@@ -559,6 +567,15 @@ namespace WindowsHinting.Services
         {
             if (_disposed)
                 return;
+
+            if (_cacheRequest != null && Marshal.IsComObject(_cacheRequest))
+                Marshal.ReleaseComObject(_cacheRequest);
+
+            foreach (var condition in _ownedConditions)
+            {
+                if (condition != null && Marshal.IsComObject(condition))
+                    Marshal.ReleaseComObject(condition);
+            }
 
             if (_automation != null && Marshal.IsComObject(_automation))
             {
