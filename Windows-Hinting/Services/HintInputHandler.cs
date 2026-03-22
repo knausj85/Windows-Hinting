@@ -24,6 +24,8 @@ namespace WindowsHinting.Services
         private int _rightClickKey = 0x52;  // R
         private int _doubleClickKey = 0x44; // D
         private int _mouseMoveKey = 0x4D;   // M
+        private int _ctrlClickKey = 0x43;   // C
+        private int _shiftClickKey = 0x53;  // S
 
         public event EventHandler<SelectionCommittedEventArgs>? SelectionCommitted;
 
@@ -39,6 +41,8 @@ namespace WindowsHinting.Services
             _rightClickKey = options.RightClickKey;
             _doubleClickKey = options.DoubleClickKey;
             _mouseMoveKey = options.MouseMoveKey;
+            _ctrlClickKey = options.CtrlClickKey;
+            _shiftClickKey = options.ShiftClickKey;
         }
 
         public bool ProcessKeyDown(int vkCode, KeyModifiers modifiers)
@@ -53,7 +57,7 @@ namespace WindowsHinting.Services
             bool ctrlHeld = (modifiers & KeyModifiers.Control) != 0;
             bool altHeld = (modifiers & KeyModifiers.Alt) != 0;
 
-            // Shift+key toggles click action (no Ctrl/Alt)
+            // Shift+key sets the pending click action (no Ctrl/Alt)
             if (_clickActionShortcutsEnabled && shiftHeld && !ctrlHeld && !altHeld)
             {
                 if (vkCode == _leftClickKey)
@@ -74,6 +78,16 @@ namespace WindowsHinting.Services
                 if (vkCode == _mouseMoveKey)
                 {
                     ToggleAction(ClickAction.MouseMove);
+                    return true;
+                }
+                if (vkCode == _ctrlClickKey)
+                {
+                    ToggleAction(ClickAction.CtrlClick);
+                    return true;
+                }
+                if (vkCode == _shiftClickKey)
+                {
+                    ToggleAction(ClickAction.ShiftClick);
                     return true;
                 }
             }

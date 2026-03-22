@@ -144,6 +144,8 @@ namespace WindowsHinting.Services
                 ClickAction.RightClick => "R",
                 ClickAction.DoubleClick => "D",
                 ClickAction.MouseMove => "M",
+                ClickAction.CtrlClick => "C",
+                ClickAction.ShiftClick => "S",
                 _ => "H"
             };
             UpdateIcon(letter);

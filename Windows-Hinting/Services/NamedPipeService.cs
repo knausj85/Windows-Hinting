@@ -182,6 +182,8 @@ namespace WindowsHinting.Services
                 "RIGHT" => ClickAction.RightClick,
                 "DOUBLE" => ClickAction.DoubleClick,
                 "MOVE" => ClickAction.MouseMove,
+                "CTRL" => ClickAction.CtrlClick,
+                "SHIFT" => ClickAction.ShiftClick,
                 _ => ClickAction.Default
             };
         }

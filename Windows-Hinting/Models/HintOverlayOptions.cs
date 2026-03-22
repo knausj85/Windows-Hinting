@@ -47,6 +47,8 @@ namespace WindowsHinting.Models
         public int RightClickKey { get; set; } = 0x52;  // R key
         public int DoubleClickKey { get; set; } = 0x44;  // D key
         public int MouseMoveKey { get; set; } = 0x4D;   // M key
+        public int CtrlClickKey { get; set; } = 0x43;   // C key
+        public int ShiftClickKey { get; set; } = 0x53;  // S key
     }
 
     internal sealed class AnimationOptions
