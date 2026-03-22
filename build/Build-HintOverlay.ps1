@@ -1,4 +1,4 @@
-# Build-HintOverlay.ps1
+﻿# Build-HintOverlay.ps1
 # Build Windows-Hinting using .NET Framework MSBuild
 
 <#

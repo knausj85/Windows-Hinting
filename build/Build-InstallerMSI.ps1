@@ -1,4 +1,4 @@
-# Build-InstallerMSI.ps1
+﻿# Build-InstallerMSI.ps1
 # Builds Windows-Hinting and creates a signed MSI installer
 
 <#

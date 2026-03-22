@@ -115,12 +115,6 @@ build\build-complete.bat Release --skip-signing
 ```powershell
 -CertPath "C:\my\cert.pfx"  # Custom certificate location
 ```
-
-### `-CertPassword` (Default: "WindowsHinting_BuildCert_2024")
-```powershell
--CertPassword "my_password"  # Custom certificate password
-```
-
 ---
 
 ## Step Count Reference
@@ -278,7 +272,7 @@ Register-ScheduledTask -TaskName "Windows-Hinting-Build" `
 4. **Sign MSI** (optional, recommended for distribution)
    ```powershell
    signtool sign /f "certs\WindowsHinting_CodeSign.pfx" `
-     /p "WindowsHinting_BuildCert_2024" `
+     /p "*****" `
      /fd SHA256 `
      Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
    ```
