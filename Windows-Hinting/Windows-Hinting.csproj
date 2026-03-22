@@ -1,0 +1,105 @@
+﻿
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <AssemblyName>Windows-Hinting</AssemblyName>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest Condition="'$(Configuration)' == 'Release'">app.manifest</ApplicationManifest>
+    <ApplicationManifest Condition="'$(Configuration)' != 'Release'">app.debug.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
+    <EmbedInteropTypes>false</EmbedInteropTypes>
+    <!-- Suppress harmless COM interop warning for CUIAutomation8.SafeArrayToRectNativeArray -->
+    <MSBuildWarningsAsMessages>MSB3305</MSBuildWarningsAsMessages>
+    <!-- Code Signing Configuration for UIAccess -->
+    <SignAssembly>false</SignAssembly>
+    <AssemblyOriginatorKeyFile Condition="'$(AssemblyOriginatorKeyFile)' == ''"></AssemblyOriginatorKeyFile>
+    <DelaySign>false</DelaySign>
+    <!-- Default certificate path for self-signed development certificate -->
+    <DefaultCodeSigningCertPath>$(MSBuildProjectDirectory)\certs\WindowsHinting_CodeSign.pfx</DefaultCodeSigningCertPath>
+    <DefaultCodeSigningPassword>WindowsHinting_BuildCert_2024</DefaultCodeSigningPassword>
+    <!-- Use default cert if available and no explicit cert path provided -->
+    <CodeSigningCertPath Condition="'$(CodeSigningCertPath)' == ''">$(DefaultCodeSigningCertPath)</CodeSigningCertPath>
+    <CodeSigningPassword Condition="'$(CodeSigningPassword)' == ''">$(DefaultCodeSigningPassword)</CodeSigningPassword>
+    <!-- Set SkipCodeSigning=true on the command line to bypass all signing targets -->
+    <SkipCodeSigning Condition="'$(SkipCodeSigning)' == ''">false</SkipCodeSigning>
+  </PropertyGroup>
+
+  <!-- Pre-build target to ensure certificate exists -->
+  <!-- Skipped when: SkipCodeSigning=true, or a cert already exists at CodeSigningCertPath (e.g. decoded from a CI secret) -->
+  <Target Name="EnsureSigningCertificate" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(CI)' != 'true' AND '$(SkipCodeSigning)' != 'true' AND !Exists('$(CodeSigningCertPath)')">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\build\generate-signing-cert.ps1&quot;" IgnoreExitCode="true" />
+  </Target>
+
+  <!-- Post-build signing target using signtool.exe for Authenticode code signing -->
+  <Target Name="SignExecutable" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipCodeSigning)' != 'true' AND '$(CodeSigningCertPath)' != '' AND Exists('$(CodeSigningCertPath)')">
+    <PropertyGroup>
+      <ExecutablePath Condition="'$(ExecutablePath)' == ''">$([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(OutputPath), $(AssemblyName).exe))</ExecutablePath>
+    </PropertyGroup>
+    <Message Text="[Sign] Configuration      : $(Configuration)" Importance="high" />
+    <Message Text="[Sign] SkipCodeSigning    : $(SkipCodeSigning)" Importance="high" />
+    <Message Text="[Sign] CodeSigningCertPath: $(CodeSigningCertPath)" Importance="high" />
+    <Message Text="[Sign] CertPath exists    : $([System.IO.File]::Exists('$(CodeSigningCertPath)'))" Importance="high" />
+    <Message Text="[Sign] ExecutablePath     : $(ExecutablePath)" Importance="high" />
+    <Message Text="[Sign] Exe exists         : $([System.IO.File]::Exists('$(ExecutablePath)'))" Importance="high" />
+    <!-- Locate signtool.exe dynamically across any installed Windows SDK version, then sign -->
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command &quot;$signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like '*x64*' } | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName; if (-not $signtool) { $signtool = Get-ChildItem 'C:\Program Files\Windows Kits\10\bin' -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like '*x64*' } | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName }; if (-not $signtool) { $signtool = (where.exe signtool 2&gt;`$null | Select-Object -First 1) }; Write-Host &quot;[Sign] signtool path: $signtool&quot;; if (-not $signtool) { Write-Error '[Sign] signtool.exe not found — install Windows SDK'; exit 1 }; &amp; $signtool sign /f '$(CodeSigningCertPath)' /p '$(CodeSigningPassword)' /t http://timestamp.digicert.com /fd SHA256 '$(ExecutablePath)'; exit $LASTEXITCODE&quot;" ContinueOnError="false" />
+    <Message Text="[Sign] Executable signed successfully" Importance="high" />
+  </Target>
+
+  <!-- Diagnostic target — always runs for Release builds, reports signing state and signtool discovery -->
+  <Target Name="DiagnoseSkippedSigning" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Message Text="[Sign] --- Signing condition diagnostics ---" Importance="high" />
+    <Message Text="[Sign] SkipCodeSigning    : $(SkipCodeSigning)" Importance="high" />
+    <Message Text="[Sign] CodeSigningCertPath: $(CodeSigningCertPath)" Importance="high" />
+    <Message Text="[Sign] CertPath is empty  : $([System.String]::IsNullOrEmpty('$(CodeSigningCertPath)'))" Importance="high" />
+    <Message Text="[Sign] CertPath exists    : $([System.IO.File]::Exists('$(CodeSigningCertPath)'))" Importance="high" />
+    <Message Text="[Sign] CI env var         : $(CI)" Importance="high" />
+    <Message Text="[Sign] --- signtool.exe search ---" Importance="high" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\build\find-signtool.ps1&quot;" ContinueOnError="true" />
+    <Message Text="[Sign] -------------------------------------------" Importance="high" />
+  </Target>
+  <ItemGroup>
+    <Compile Remove="HintOverlay.Installer\**" />
+    <Compile Remove="Windows-Hinting.Installer\**" />
+    <EmbeddedResource Remove="HintOverlay.Installer\**" />
+    <EmbeddedResource Remove="Windows-Hinting.Installer\**" />
+    <None Remove="HintOverlay.Installer\**" />
+    <Compile Remove="Windows-Hinting\**" />
+    <EmbeddedResource Remove="Windows-Hinting\**" />
+    <None Remove="Windows-Hinting.Installer\**" />
+    <None Remove="Windows-Hinting\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <COMReference Include="UIAutomationClient">
+      <WrapperTool>tlbimp</WrapperTool>
+      <VersionMinor>0</VersionMinor>
+      <VersionMajor>1</VersionMajor>
+      <Guid>944de083-8fb8-45cf-bcb7-c477acb2f897</Guid>
+      <Lcid>0</Lcid>
+      <Isolated>false</Isolated>
+      <EmbedInteropTypes>true</EmbedInteropTypes>
+    </COMReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".github\workflows\build.yml" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include=".github\workflows\README.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.assert" Version="2.9.3" />
+    <PackageReference Include="xunit.v3.extensibility.core" Version="3.2.2" />
+  </ItemGroup>
+
+</Project>

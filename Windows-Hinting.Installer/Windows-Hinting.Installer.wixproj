@@ -10,7 +10,7 @@
     <SignOutput>true</SignOutput>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Windows-Hinting.csproj" />
+    <ProjectReference Include="..\Windows-Hinting\Windows-Hinting.csproj" />
   </ItemGroup>
   <ItemGroup>
     <WixCompile Include="Package.wxs" />

@@ -10,9 +10,10 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
+$ProjectDir = Join-Path $RepoRoot "Windows-Hinting"
 
 if ($CertPath -eq "") {
-    $CertPath = "$RepoRoot\certs\WindowsHinting_CodeSign.pfx"
+    $CertPath = "$ProjectDir\certs\WindowsHinting_CodeSign.pfx"
 }
 
 Write-Host "=========================================="
@@ -39,7 +40,7 @@ if (-not $SkipSigning) {
 
 # Step 2: Build the project
 Write-Host "[2/3] Building Windows-Hinting ($Configuration)..."
-$ProjectPath = Join-Path $RepoRoot "Windows-Hinting.csproj"
+$ProjectPath = Join-Path $ProjectDir "Windows-Hinting.csproj"
 
 if ($SkipSigning) {
     msbuild $ProjectPath /p:Configuration=$Configuration /nologo /v:minimal
@@ -60,7 +61,7 @@ Write-Host ""
 if (-not $SkipSigning) {
     Write-Host "[3/3] Verifying executable signature..."
 
-    $ExePath = Join-Path $RepoRoot "bin\$Configuration\net8.0-windows\Windows-Hinting.exe"
+    $ExePath = Join-Path $ProjectDir "bin\$Configuration\net8.0-windows\Windows-Hinting.exe"
 
     if (-not (Test-Path $ExePath)) {
         Write-Host "Executable not found at: $ExePath"

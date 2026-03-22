@@ -28,7 +28,7 @@ jobs:
         uses: microsoft/setup-msbuild@v3
 
       - name: Restore NuGet packages
-        run: dotnet restore Windows-Hinting.csproj
+        run: dotnet restore Windows-Hinting\Windows-Hinting.csproj
 
       - name: Build Debug (exe only)
         run: build\build-complete.bat Debug --exe-only
@@ -36,14 +36,14 @@ jobs:
       - name: Clean Debug output
         shell: pwsh
         run: |
-          $outDir = "bin\Debug\net8.0-windows"
+          $outDir = "Windows-Hinting\bin\Debug\net8.0-windows"
           Remove-Item "$outDir\xunit.*" -Force -ErrorAction SilentlyContinue
 
       - name: Upload Debug artifact
         uses: actions/upload-artifact@v7
         with:
           name: Windows-Hinting-Debug
-          path: bin\Debug\net8.0-windows\
+          path: Windows-Hinting\bin\Debug\net8.0-windows\
           if-no-files-found: error
 
   build-release:
@@ -67,7 +67,7 @@ jobs:
         run: dotnet tool install --global wix --version 6.0.2
 
       - name: Restore NuGet packages
-        run: dotnet restore Windows-Hinting.csproj
+        run: dotnet restore Windows-Hinting\Windows-Hinting.csproj
 
       - name: Decode signing certificate
         shell: pwsh
@@ -112,7 +112,7 @@ jobs:
       - name: Verify exe signature
         shell: pwsh
         run: |
-          $exePath = "bin\Release\net8.0-windows\Windows-Hinting.exe"
+          $exePath = "Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe"
           Write-Host "--- Signature verification ---"
           if (-not (Test-Path $exePath)) {
             Write-Host "  ERROR: exe not found at $exePath"
@@ -133,7 +133,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: Windows-Hinting-Release
-          path: bin\Release\net8.0-windows\Windows-Hinting.exe
+          path: Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe
           if-no-files-found: error
 
       - name: Upload MSI artifact

@@ -10,9 +10,10 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
+$ProjectDir = Join-Path $RepoRoot "Windows-Hinting"
 
 if ($CertPath -eq "" -and -not $SkipSigning -and $Configuration -eq "Release") {
-    $CertPath = "$RepoRoot\certs\WindowsHinting_CodeSign.pfx"
+    $CertPath = "$ProjectDir\certs\WindowsHinting_CodeSign.pfx"
 }
 
 Write-Host "=========================================="
@@ -42,7 +43,7 @@ Write-Host "[1/$StepCount] Building Windows-Hinting executable..."
 Write-Host ""
 
 $BuildArgs = @(
-    "$RepoRoot\Windows-Hinting.csproj"
+    "$ProjectDir\Windows-Hinting.csproj"
     "/p:Configuration=$Configuration"
     "/nologo"
     "/v:minimal"
@@ -73,7 +74,7 @@ Write-Host ""
 # Verify signature if Release build
 if (($Configuration -eq "Release") -and (-not $SkipSigning)) {
     Write-Host "[$(if ($IsBuildingMsi) { '2' } else { 'Verify' })/$StepCount] Verifying executable signature..."
-    $ExePath = "$RepoRoot\bin\$Configuration\net8.0-windows\Windows-Hinting.exe"
+    $ExePath = "$ProjectDir\bin\$Configuration\net8.0-windows\Windows-Hinting.exe"
 
     if (Test-Path $ExePath) {
         $sig = Get-AuthenticodeSignature -FilePath $ExePath
