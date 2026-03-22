@@ -153,7 +153,8 @@ namespace WindowsHinting.Controls
             Text = FormatDisplay(0, vk);
             BackColor = SystemColors.Window;
 
-            Parent?.SelectNextControl(this, true, true, true, true);
+            // Move focus away without advancing to the next recorder
+            Parent?.Focus();
             return true;
         }
 
@@ -169,7 +170,8 @@ namespace WindowsHinting.Controls
             Text = FormatDisplay(mods, HotkeyVirtualKey);
             BackColor = SystemColors.Window;
 
-            Parent?.SelectNextControl(this, true, true, true, true);
+            // Move focus away without advancing to the next recorder
+            Parent?.Focus();
             return true;
         }
 

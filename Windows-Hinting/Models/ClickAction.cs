@@ -6,6 +6,8 @@ namespace WindowsHinting.Models
         LeftClick,
         RightClick,
         DoubleClick,
-        MouseMove
+        MouseMove,
+        CtrlClick,
+        ShiftClick
     }
 }

@@ -22,6 +22,8 @@ namespace Preferences
         private HotkeyRecorderControl _rightClickKeyRecorder = null!;
         private HotkeyRecorderControl _doubleClickKeyRecorder = null!;
         private HotkeyRecorderControl _mouseMoveKeyRecorder = null!;
+        private HotkeyRecorderControl _ctrlClickKeyRecorder = null!;
+        private HotkeyRecorderControl _shiftClickKeyRecorder = null!;
         private TrackBar _overlapThresholdTrackBar = null!;
         private Label _overlapThresholdValueLabel = null!;
 
@@ -279,17 +281,15 @@ namespace Preferences
             var clickActionLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 5,
+                ColumnCount = 3,
+                RowCount = 7,
                 AutoSize = true
             };
             clickActionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             clickActionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            clickActionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            for (int i = 0; i < 7; i++)
+                clickActionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             _chkClickActionShortcutsEnabled = new CheckBox
             {
@@ -304,29 +304,31 @@ namespace Preferences
                 _rightClickKeyRecorder.Enabled = enabled;
                 _doubleClickKeyRecorder.Enabled = enabled;
                 _mouseMoveKeyRecorder.Enabled = enabled;
+                _ctrlClickKeyRecorder.Enabled = enabled;
+                _shiftClickKeyRecorder.Enabled = enabled;
             };
-            clickActionLayout.SetColumnSpan(_chkClickActionShortcutsEnabled, 2);
+            clickActionLayout.SetColumnSpan(_chkClickActionShortcutsEnabled, 3);
             clickActionLayout.Controls.Add(_chkClickActionShortcutsEnabled, 0, 0);
 
-            var lblLeft = new Label { Text = "Left click:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
+            var defaults = new ClickActionShortcutOptions();
+
             _leftClickKeyRecorder = new HotkeyRecorderControl { Mode = RecorderMode.SingleKey, Dock = DockStyle.Fill, Height = 28 };
-            clickActionLayout.Controls.Add(lblLeft, 0, 1);
-            clickActionLayout.Controls.Add(_leftClickKeyRecorder, 1, 1);
+            AddShortcutRow(clickActionLayout, 1, "Left click:", _leftClickKeyRecorder, defaults.LeftClickKey);
 
-            var lblRight = new Label { Text = "Right click:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
             _rightClickKeyRecorder = new HotkeyRecorderControl { Mode = RecorderMode.SingleKey, Dock = DockStyle.Fill, Height = 28 };
-            clickActionLayout.Controls.Add(lblRight, 0, 2);
-            clickActionLayout.Controls.Add(_rightClickKeyRecorder, 1, 2);
+            AddShortcutRow(clickActionLayout, 2, "Right click:", _rightClickKeyRecorder, defaults.RightClickKey);
 
-            var lblDouble = new Label { Text = "Double click:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
             _doubleClickKeyRecorder = new HotkeyRecorderControl { Mode = RecorderMode.SingleKey, Dock = DockStyle.Fill, Height = 28 };
-            clickActionLayout.Controls.Add(lblDouble, 0, 3);
-            clickActionLayout.Controls.Add(_doubleClickKeyRecorder, 1, 3);
+            AddShortcutRow(clickActionLayout, 3, "Double click:", _doubleClickKeyRecorder, defaults.DoubleClickKey);
 
-            var lblMouseMove = new Label { Text = "Move mouse:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
             _mouseMoveKeyRecorder = new HotkeyRecorderControl { Mode = RecorderMode.SingleKey, Dock = DockStyle.Fill, Height = 28 };
-            clickActionLayout.Controls.Add(lblMouseMove, 0, 4);
-            clickActionLayout.Controls.Add(_mouseMoveKeyRecorder, 1, 4);
+            AddShortcutRow(clickActionLayout, 4, "Move mouse:", _mouseMoveKeyRecorder, defaults.MouseMoveKey);
+
+            _ctrlClickKeyRecorder = new HotkeyRecorderControl { Mode = RecorderMode.SingleKey, Dock = DockStyle.Fill, Height = 28 };
+            AddShortcutRow(clickActionLayout, 5, "Ctrl+Click:", _ctrlClickKeyRecorder, defaults.CtrlClickKey);
+
+            _shiftClickKeyRecorder = new HotkeyRecorderControl { Mode = RecorderMode.SingleKey, Dock = DockStyle.Fill, Height = 28 };
+            AddShortcutRow(clickActionLayout, 6, "Shift+Click:", _shiftClickKeyRecorder, defaults.ShiftClickKey);
 
             clickActionGroup.Controls.Add(clickActionLayout);
             layout.Controls.Add(clickActionGroup, 0, 4);
@@ -541,6 +543,29 @@ namespace Preferences
             return tab;
         }
 
+        private static void AddShortcutRow(TableLayoutPanel layout, int row, string labelText,
+            HotkeyRecorderControl recorder, int defaultVirtualKey)
+        {
+            var label = new Label
+            {
+                Text = labelText,
+                AutoSize = true,
+                Anchor = AnchorStyles.Left,
+                Padding = new Padding(0, 6, 0, 0)
+            };
+            layout.Controls.Add(label, 0, row);
+            layout.Controls.Add(recorder, 1, row);
+
+            var resetButton = new Button
+            {
+                Text = "Reset",
+                AutoSize = true,
+                Padding = new Padding(4, 0, 4, 0)
+            };
+            resetButton.Click += (_, _) => recorder.SetKey(defaultVirtualKey);
+            layout.Controls.Add(resetButton, 2, row);
+        }
+
         private void LoadPreferences()
         {
             _chkShowRectangles.Checked = _options.ShowRectangles;
@@ -557,14 +582,19 @@ namespace Preferences
             _taskbarHotkeyRecorder.SetHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
 
             _chkClickActionShortcutsEnabled.Checked = _options.ClickActionShortcuts.Enabled;
-            _leftClickKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
+            var shortcutsEnabled = _options.ClickActionShortcuts.Enabled;
+            _leftClickKeyRecorder.Enabled = shortcutsEnabled;
             _leftClickKeyRecorder.SetKey(_options.ClickActionShortcuts.LeftClickKey);
-            _rightClickKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
+            _rightClickKeyRecorder.Enabled = shortcutsEnabled;
             _rightClickKeyRecorder.SetKey(_options.ClickActionShortcuts.RightClickKey);
-            _doubleClickKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
+            _doubleClickKeyRecorder.Enabled = shortcutsEnabled;
             _doubleClickKeyRecorder.SetKey(_options.ClickActionShortcuts.DoubleClickKey);
-            _mouseMoveKeyRecorder.Enabled = _options.ClickActionShortcuts.Enabled;
+            _mouseMoveKeyRecorder.Enabled = shortcutsEnabled;
             _mouseMoveKeyRecorder.SetKey(_options.ClickActionShortcuts.MouseMoveKey);
+            _ctrlClickKeyRecorder.Enabled = shortcutsEnabled;
+            _ctrlClickKeyRecorder.SetKey(_options.ClickActionShortcuts.CtrlClickKey);
+            _shiftClickKeyRecorder.Enabled = shortcutsEnabled;
+            _shiftClickKeyRecorder.SetKey(_options.ClickActionShortcuts.ShiftClickKey);
 
             _overlapThresholdTrackBar.Value = Math.Clamp(_options.OverlapThreshold, 0, 100);
             _overlapThresholdValueLabel.Text = $"{_overlapThresholdTrackBar.Value}%";
@@ -593,6 +623,8 @@ namespace Preferences
             _options.ClickActionShortcuts.RightClickKey = _rightClickKeyRecorder.VirtualKey;
             _options.ClickActionShortcuts.DoubleClickKey = _doubleClickKeyRecorder.VirtualKey;
             _options.ClickActionShortcuts.MouseMoveKey = _mouseMoveKeyRecorder.VirtualKey;
+            _options.ClickActionShortcuts.CtrlClickKey = _ctrlClickKeyRecorder.VirtualKey;
+            _options.ClickActionShortcuts.ShiftClickKey = _shiftClickKeyRecorder.VirtualKey;
 
             _options.OverlapThreshold = _overlapThresholdTrackBar.Value;
 
