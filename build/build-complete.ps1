@@ -1,10 +1,10 @@
-﻿param(
+param(
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
     [switch]$ExeOnly,
     [switch]$SkipSigning,
     [string]$CertPath = "",
-    [SecureString]$CertPassword
+    [string]$CertPassword
 )
 
 $ErrorActionPreference = "Stop"

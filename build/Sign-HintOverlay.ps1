@@ -33,7 +33,7 @@ param(
 
     [string]$CertificatePath = "$env:USERPROFILE\WindowsHinting_CodeSign.pfx",
 
-    [SecureString]$CertificatePassword = "",
+    [string]$CertificatePassword = "",
 
     [string]$TimestampServer = "http://timestamp.sectigo.com",
 
