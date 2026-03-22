@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Threading;
 using System.Threading.Tasks;
 using UIAutomationClient;
 using WindowsHinting.Models;
@@ -11,6 +12,7 @@ namespace WindowsHinting.Services
     {
         IReadOnlyList<ClickableElement> FindClickableElements(IntPtr windowHandle);
         Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle);
+        Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle, int timeoutMs);
     }
 
     public class ClickableElement

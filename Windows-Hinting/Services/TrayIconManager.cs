@@ -144,6 +144,8 @@ namespace WindowsHinting.Services
                 ClickAction.RightClick => "R",
                 ClickAction.DoubleClick => "D",
                 ClickAction.MouseMove => "M",
+                ClickAction.CtrlClick => "C",
+                ClickAction.ShiftClick => "S",
                 _ => "H"
             };
             UpdateIcon(letter);
@@ -216,6 +218,11 @@ namespace WindowsHinting.Services
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool DestroyIcon(IntPtr handle);
+
+        public void ShowNotification(string title, string text, ToolTipIcon icon = ToolTipIcon.Warning, int durationMs = 3000)
+        {
+            _trayIcon.ShowBalloonTip(durationMs, title, text, icon);
+        }
 
         public void Dispose()
         {

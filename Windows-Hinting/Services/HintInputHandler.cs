@@ -57,7 +57,7 @@ namespace WindowsHinting.Services
             bool ctrlHeld = (modifiers & KeyModifiers.Control) != 0;
             bool altHeld = (modifiers & KeyModifiers.Alt) != 0;
 
-            // Shift+key toggles click action (no Ctrl/Alt)
+            // Shift+key sets the pending click action (no Ctrl/Alt)
             if (_clickActionShortcutsEnabled && shiftHeld && !ctrlHeld && !altHeld)
             {
                 if (vkCode == _leftClickKey)

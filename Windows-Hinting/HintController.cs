@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
@@ -277,7 +278,7 @@ namespace WindowsHinting
             }
         }
 
-        private void ScanForHints()
+        private async void ScanForHints()
         {
             using (PerformanceMetrics.Start("ScanForHints", _logger, LogLevel.Info))
             {
@@ -294,16 +295,36 @@ namespace WindowsHinting
                 // Ensure overlay is topmost before scanning
                 _overlay.EnsureTopmost();
 
-                var elements = PerformanceMetricsExtensions.MeasureExecution(
-                    "FindClickableElements",
-                    () => _uiaService.FindClickableElements(hwnd),
-                    _logger,
-                    LogLevel.Info);
+                IReadOnlyList<Services.ClickableElement> elements;
+                var timeoutMs = _options.ScanTimeoutMs;
+                var timedOut = false;
+                if (timeoutMs > 0)
+                {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    elements = await _uiaService.FindClickableElementsAsync(hwnd, timeoutMs);
+                    sw.Stop();
+                    timedOut = sw.ElapsedMilliseconds >= timeoutMs;
+                    _logger.Info($"FindClickableElements completed in {sw.ElapsedMilliseconds}ms (timeout={timeoutMs}ms)");
+                }
+                else
+                {
+                    elements = PerformanceMetricsExtensions.MeasureExecution(
+                        "FindClickableElements",
+                        () => _uiaService.FindClickableElements(hwnd),
+                        _logger,
+                        LogLevel.Info);
+                }
 
                 _logger.Info($"Found {elements.Count} clickable elements");
 
                 if (elements.Count == 0)
                 {
+                    if (timedOut)
+                    {
+                        _logger.Warning($"Hint population timed out after {timeoutMs}ms");
+                        _trayIcon.ShowNotification("Hint Timeout", $"Hint population timed out after {timeoutMs}ms. Try increasing the timeout in preferences.");
+                    }
+
                     _logger.Info("No clickable elements found, deactivating");
                     _stateManager.Deactivate();
                     return;
@@ -349,7 +370,7 @@ namespace WindowsHinting
             }
         }
 
-        private void ScanTaskbarForHints()
+        private async void ScanTaskbarForHints()
         {
             using (PerformanceMetrics.Start("ScanTaskbarForHints", _logger, LogLevel.Info))
             {
@@ -366,16 +387,36 @@ namespace WindowsHinting
                 // Ensure overlay is topmost before scanning
                 _overlay.EnsureTopmost();
 
-                var elements = PerformanceMetricsExtensions.MeasureExecution(
-                    "FindClickableElements(Taskbar)",
-                    () => _uiaService.FindClickableElements(hwnd),
-                    _logger,
-                    LogLevel.Info);
+                IReadOnlyList<Services.ClickableElement> elements;
+                var timeoutMs = _options.ScanTimeoutMs;
+                var timedOut = false;
+                if (timeoutMs > 0)
+                {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    elements = await _uiaService.FindClickableElementsAsync(hwnd, timeoutMs);
+                    sw.Stop();
+                    timedOut = sw.ElapsedMilliseconds >= timeoutMs;
+                    _logger.Info($"FindClickableElements(Taskbar) completed in {sw.ElapsedMilliseconds}ms (timeout={timeoutMs}ms)");
+                }
+                else
+                {
+                    elements = PerformanceMetricsExtensions.MeasureExecution(
+                        "FindClickableElements(Taskbar)",
+                        () => _uiaService.FindClickableElements(hwnd),
+                        _logger,
+                        LogLevel.Info);
+                }
 
                 _logger.Info($"Found {elements.Count} taskbar clickable elements");
 
                 if (elements.Count == 0)
                 {
+                    if (timedOut)
+                    {
+                        _logger.Warning($"Taskbar hint population timed out after {timeoutMs}ms");
+                        _trayIcon.ShowNotification("Hint Timeout", $"Taskbar hint population timed out after {timeoutMs}ms. Try increasing the timeout in preferences.");
+                    }
+
                     _logger.Info("No taskbar clickable elements found, deactivating");
                     _stateManager.Deactivate();
                     return;

@@ -18,10 +18,10 @@ namespace WindowsHinting.Services
             _activators = new IElementActivator[]
             {
                 new InvokePatternActivator(logger),
+                new MouseClickActivator(mouseClickService, logger), // Fallback: simulate a left click
                 new ExpandCollapsePatternActivator(logger),
                 new SelectionItemPatternActivator(logger),
                 new TogglePatternActivator(logger),
-                new MouseClickActivator(mouseClickService, logger) // Fallback: simulate a left click
             };
         }
 
