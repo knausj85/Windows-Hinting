@@ -64,10 +64,13 @@
     <Message Text="[Sign] -------------------------------------------" Importance="high" />
   </Target>
   <ItemGroup>
+    <Compile Remove=".github\**" />
     <Compile Remove="HintOverlay.Installer\**" />
     <Compile Remove="Windows-Hinting.Installer\**" />
+    <EmbeddedResource Remove=".github\**" />
     <EmbeddedResource Remove="HintOverlay.Installer\**" />
     <EmbeddedResource Remove="Windows-Hinting.Installer\**" />
+    <None Remove=".github\**" />
     <None Remove="HintOverlay.Installer\**" />
     <Compile Remove="Windows-Hinting\**" />
     <EmbeddedResource Remove="Windows-Hinting\**" />
@@ -86,15 +89,8 @@
     </COMReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include=".github\workflows\build.yml" />
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include=".github\workflows\README.md" />
   </ItemGroup>
 
   <ItemGroup>
