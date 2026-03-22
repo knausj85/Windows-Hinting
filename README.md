@@ -12,6 +12,8 @@ Ctrl + L -> Switch action to Left click
 
 Ctrl + D -> Switch action to Double click
 
+backspace -> deletes last filter character
+
 Space -> Commmits selected hint
 
 Esc -> Resets hint filtering
