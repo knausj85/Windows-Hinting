@@ -7,12 +7,53 @@ on:
     branches: [ "**" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   BUILD_VERSION: 0.1.${{ github.run_number }}
 
+defaults:
+  run:
+    shell: pwsh
+
 jobs:
+  lint:
+    name: Pre-commit Lint
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install PSScriptAnalyzer
+        run: Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1
+
+      - name: Auto-fix and commit
+        if: failure() && github.event_name == 'pull_request'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: auto-fix pre-commit hook violations"
+
   build-debug:
     name: Debug Build
+    needs: lint
     runs-on: windows-latest
 
     steps:
@@ -34,7 +75,6 @@ jobs:
         run: build\build-complete.bat Debug --exe-only
 
       - name: Clean Debug output
-        shell: pwsh
         run: |
           $outDir = "Windows-Hinting\bin\Debug\net8.0-windows"
           Remove-Item "$outDir\xunit.*" -Force -ErrorAction SilentlyContinue
@@ -48,6 +88,7 @@ jobs:
 
   build-release:
     name: Release Build + MSI
+    needs: lint
     runs-on: windows-latest
 
     steps:
@@ -70,7 +111,6 @@ jobs:
         run: dotnet restore Windows-Hinting\Windows-Hinting.csproj
 
       - name: Decode signing certificate
-        shell: pwsh
         env:
           CERT_BASE64: ${{ secrets.SIGNING_CERT_BASE64 }}
         run: |
@@ -84,7 +124,6 @@ jobs:
           }
 
       - name: Build Release + MSI
-        shell: pwsh
         env:
           CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
         run: |
@@ -102,7 +141,6 @@ jobs:
 
       - name: Clean up signing certificate
         if: always()
-        shell: pwsh
         run: |
           if ($env:CERT_PATH -and (Test-Path $env:CERT_PATH)) {
             Remove-Item $env:CERT_PATH -Force
@@ -110,7 +148,6 @@ jobs:
           }
 
       - name: Verify exe signature
-        shell: pwsh
         run: |
           $exePath = "Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe"
           Write-Host "--- Signature verification ---"
@@ -149,8 +186,6 @@ jobs:
     needs: [build-debug, build-release]
     # Only publish a release on direct pushes to main — not PRs or other branches
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    permissions:
-      contents: write
 
     steps:
       - name: Download Debug build

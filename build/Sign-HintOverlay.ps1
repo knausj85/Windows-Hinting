@@ -1,4 +1,4 @@
-# Sign-HintOverlay.ps1
+﻿# Sign-HintOverlay.ps1
 # Code signing script for Windows-Hinting executable
 
 <#

@@ -36,7 +36,7 @@ namespace WindowsHinting.Services
                     return true;
                 }
             }
-            
+
             _logger.Warning("No interaction pattern succeeded for element");
             return false;
         }

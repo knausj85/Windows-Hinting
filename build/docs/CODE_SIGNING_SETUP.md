@@ -169,7 +169,7 @@ For automated builds (GitHub Actions, Azure Pipelines, etc.):
 
 ## Security Notes
 
-⚠️ **Important**: 
+⚠️ **Important**:
 - Never commit certificate files (.pfx) to version control
 - Use environment variables or secrets management for production
 - Code-signing certificates from established CAs (like Sectigo, DigiCert) are recommended for production

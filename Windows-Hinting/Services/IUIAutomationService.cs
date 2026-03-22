@@ -18,7 +18,7 @@ namespace WindowsHinting.Services
         public IUIAutomationElement Element { get; set; } = null!;
         public Rectangle Bounds { get; set; }
     }
-    
+
     internal interface IKeyboardHookService
     {
         event EventHandler<KeyboardEventArgs>? KeyPressed;
@@ -27,7 +27,7 @@ namespace WindowsHinting.Services
         void Stop();
         bool IsActive { get; }
     }
-    
+
     internal interface IPreferencesService
     {
         HintOverlayOptions Load();

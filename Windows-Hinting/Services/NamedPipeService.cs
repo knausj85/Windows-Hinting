@@ -154,9 +154,9 @@ namespace WindowsHinting.Services
                 {
                     "TOGGLE" => new NamedPipeCommand { CommandType = CommandType.Toggle },
                     "TOGGLETASKBAR" => new NamedPipeCommand { CommandType = CommandType.ToggleTaskbar },
-                    "SELECT" => parts.Length > 1 ? new NamedPipeCommand 
-                    { 
-                        CommandType = CommandType.Select, 
+                    "SELECT" => parts.Length > 1 ? new NamedPipeCommand
+                    {
+                        CommandType = CommandType.Select,
                         HintLabel = parts[1],
                         Action = ParseClickAction(parts.Length > 2 ? parts[2] : null)
                     } : null,

@@ -45,7 +45,7 @@ namespace WindowsHinting.Services
                 ClickActionChanged?.Invoke(this, action);
             }
         }
-        
+
         public void Activate(HintSource source = HintSource.ForegroundWindow)
         {
             if (_mode == HintMode.Inactive)
@@ -68,7 +68,7 @@ namespace WindowsHinting.Services
                 HintsChanged?.Invoke(this, _currentHints);
             }
         }
-        
+
         public void SetHints(IReadOnlyList<HintItem> hints)
         {
             _currentHints = hints.ToList();
@@ -78,14 +78,14 @@ namespace WindowsHinting.Services
             }
             HintsChanged?.Invoke(this, _currentHints);
         }
-        
+
         public void AppendToFilter(char c)
         {
             _filterText += c;
             UpdateHintOpacity();
             FilterChanged?.Invoke(this, _filterText);
         }
-        
+
         public void RemoveLastFilterChar()
         {
             if (_filterText.Length > 0)
@@ -95,7 +95,7 @@ namespace WindowsHinting.Services
                 FilterChanged?.Invoke(this, _filterText);
             }
         }
-        
+
         public void ClearFilter()
         {
             if (_filterText.Length > 0)
@@ -105,22 +105,22 @@ namespace WindowsHinting.Services
                 FilterChanged?.Invoke(this, _filterText);
             }
         }
-        
+
         public HintItem? GetExactMatch()
         {
             if (string.IsNullOrEmpty(_filterText))
                 return null;
-                
+
             return _currentHints.FirstOrDefault(h =>
                 h.Label.Equals(_filterText, StringComparison.OrdinalIgnoreCase));
         }
-        
+
         public bool HasMatchingHint(string text)
         {
             return _currentHints.Any(h =>
                 h.Label.StartsWith(text, StringComparison.OrdinalIgnoreCase));
         }
-        
+
         private void UpdateHintOpacity()
         {
             foreach (var hint in _currentHints)
@@ -131,7 +131,7 @@ namespace WindowsHinting.Services
             }
             HintsChanged?.Invoke(this, _currentHints);
         }
-        
+
         private void SetMode(HintMode mode)
         {
             if (_mode != mode)

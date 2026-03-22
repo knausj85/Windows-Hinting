@@ -1,4 +1,4 @@
-# New-HintOverlayMSI.ps1
+﻿# New-HintOverlayMSI.ps1
 # Creates an MSI installer without requiring WiX Toolset
 # Uses DTF (Deployment Tools Foundation) approach
 
@@ -33,9 +33,8 @@ $certPath = "$env:USERPROFILE\WindowsHinting_CodeSign.pfx"
 $certPassword = "test123"
 $exePath = "$ProjectDir\bin\Release\net8.0-windows\Windows-Hinting.exe"
 $msiPath = Join-Path $OutputPath "Windows-Hinting.msi"
-$cabPath = Join-Path $OutputPath "Windows-Hinting.cab"
 
-Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host
 Write-Host "Windows-Hinting MSI Creator (No WiX Required)" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
@@ -49,7 +48,9 @@ try {
         Write-Host "✓ WiX Toolset found: $($lightExe.Source)" -ForegroundColor Green
     }
 }
-catch { }
+catch {
+    Write-Verbose "WiX Toolset not found: $_"
+}
 
 if (-not $hasWiX) {
     Write-Host "⚠ WiX Toolset not found" -ForegroundColor Yellow

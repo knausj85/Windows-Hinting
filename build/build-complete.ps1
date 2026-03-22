@@ -4,7 +4,7 @@ param(
     [switch]$ExeOnly,
     [switch]$SkipSigning,
     [string]$CertPath = "",
-    [string]$CertPassword = "WindowsHinting_BuildCert_2024"
+    [string]$CertPassword
 )
 
 $ErrorActionPreference = "Stop"

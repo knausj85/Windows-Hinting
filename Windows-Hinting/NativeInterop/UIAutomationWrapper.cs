@@ -20,11 +20,11 @@ namespace WindowsHinting.NativeInterop
                 Marshal.ReleaseComObject(_automation);
             }
         }
-    
+
         public IEnumerable<ClickableElement> FindClickableElements(IntPtr windowHandle)
         {
             var results = new List<ClickableElement>();
-            
+
             try
             {
                 var rootElement = _automation.ElementFromHandle(windowHandle);
@@ -35,9 +35,9 @@ namespace WindowsHinting.NativeInterop
 
                 var condition = _automation.CreateTrueCondition();
                 var walker = _automation.CreateTreeWalker(condition);
-                
+
                 TraverseElements(rootElement, walker, results);
-                
+
                 Marshal.ReleaseComObject(rootElement);
                 Marshal.ReleaseComObject(condition);
                 Marshal.ReleaseComObject(walker);
@@ -90,6 +90,6 @@ namespace WindowsHinting.NativeInterop
             }
         }
     }
-    
+
     internal record ClickableElement(Rectangle Bounds, IUIAutomationElement Element);
 }

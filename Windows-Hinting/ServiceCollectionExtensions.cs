@@ -11,9 +11,9 @@ namespace WindowsHinting
         public static IServiceCollection AddHintOverlayServices(this IServiceCollection services)
         {
             // Logging
-            services.AddSingleton<ILogger>(sp => new DebugLogger 
-            { 
-                MinimumLevel = LogLevel.Info 
+            services.AddSingleton<ILogger>(sp => new DebugLogger
+            {
+                MinimumLevel = LogLevel.Info
             });
 
             // Configuration
@@ -29,14 +29,14 @@ namespace WindowsHinting
             services.AddSingleton<ElementActivatorChain>();
             services.AddSingleton<NamedPipeService>();
             services.AddSingleton<MouseClickService>();
-            
+
             // UI Components
             services.AddSingleton<OverlayForm>();
             services.AddSingleton<TrayIconManager>();
-            
+
             // Application Controller
             services.AddSingleton<HintController>();
-            
+
             return services;
         }
     }

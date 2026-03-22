@@ -30,7 +30,7 @@ namespace WindowsHinting.Services
         public IReadOnlyList<ClickableElement> FindClickableElements(IntPtr windowHandle)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            
+
             using (PerformanceMetrics.Start("UIAutomationService.FindClickableElements", _logger, LogLevel.Info))
             {
                 try
@@ -53,7 +53,7 @@ namespace WindowsHinting.Services
         public async Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            
+
             return await Task.Run(() => FindClickableElements(windowHandle));
         }
 
@@ -304,18 +304,18 @@ namespace WindowsHinting.Services
                     //    return ResolveFileExplorerActiveTab(root, windowTitle);
 
                     default:
-                    {
-                        var resolved = ApplyStrategy(strategy, root);
-                        if (resolved != null && resolved != root)
                         {
-                            if (Marshal.IsComObject(root))
+                            var resolved = ApplyStrategy(strategy, root);
+                            if (resolved != null && resolved != root)
                             {
-                                try { Marshal.ReleaseComObject(root); } catch { }
+                                if (Marshal.IsComObject(root))
+                                {
+                                    try { Marshal.ReleaseComObject(root); } catch { }
+                                }
+                                return [resolved];
                             }
-                            return [resolved];
+                            break;
                         }
-                        break;
-                    }
                 }
             }
             catch (COMException ex)
@@ -361,8 +361,8 @@ namespace WindowsHinting.Services
                 {
                     next = walker.GetNextSiblingElement(child);
                 }
-                catch (COMException) 
-                { 
+                catch (COMException)
+                {
 
                 }
 
@@ -430,84 +430,84 @@ namespace WindowsHinting.Services
             switch (strategy)
             {
                 case RootStrategy.ActiveWindowParent:
-                {
-                    var parent = walker.GetParentElement(root);
-                    _logger.Debug(parent != null
-                        ? "ActiveWindowParent: navigated to parent element"
-                        : "ActiveWindowParent: no parent found, falling back to root");
-                    return parent;
-                }
+                    {
+                        var parent = walker.GetParentElement(root);
+                        _logger.Debug(parent != null
+                            ? "ActiveWindowParent: navigated to parent element"
+                            : "ActiveWindowParent: no parent found, falling back to root");
+                        return parent;
+                    }
 
                 case RootStrategy.FocusedElement:
-                {
-                    var focused = _automation.GetFocusedElement();
-                    _logger.Debug(focused != null
-                        ? "FocusedElement: using focused element as root"
-                        : "FocusedElement: no focused element, falling back to root");
-                    return focused;
-                }
+                    {
+                        var focused = _automation.GetFocusedElement();
+                        _logger.Debug(focused != null
+                            ? "FocusedElement: using focused element as root"
+                            : "FocusedElement: no focused element, falling back to root");
+                        return focused;
+                    }
 
                 case RootStrategy.FocusedElementParent:
-                {
-                    var focused = _automation.GetFocusedElement();
-                    if (focused == null)
                     {
-                        _logger.Debug("FocusedElementParent: no focused element, falling back to root");
-                        return null;
+                        var focused = _automation.GetFocusedElement();
+                        if (focused == null)
+                        {
+                            _logger.Debug("FocusedElementParent: no focused element, falling back to root");
+                            return null;
+                        }
+                        var parent = walker.GetParentElement(focused);
+                        if (parent != null && Marshal.IsComObject(focused))
+                        {
+                            try { Marshal.ReleaseComObject(focused); } catch { }
+                        }
+                        _logger.Debug(parent != null
+                            ? "FocusedElementParent: navigated to parent of focused element"
+                            : "FocusedElementParent: no parent found, falling back to root");
+                        return parent;
                     }
-                    var parent = walker.GetParentElement(focused);
-                    if (parent != null && Marshal.IsComObject(focused))
-                    {
-                        try { Marshal.ReleaseComObject(focused); } catch { }
-                    }
-                    _logger.Debug(parent != null
-                        ? "FocusedElementParent: navigated to parent of focused element"
-                        : "FocusedElementParent: no parent found, falling back to root");
-                    return parent;
-                }
 
                 case RootStrategy.FocusedElementFirstParentWindow:
-                {
-                    var focused = _automation.GetFocusedElement();
-                    if (focused == null)
                     {
-                        _logger.Debug("FocusedElementFirstParentWindow: no focused element, falling back to root");
-                        return null;
-                    }
-                    var current = focused;
-                    IUIAutomationElement? windowAncestor = null;
-                    while (true)
-                    {
-                        var parent = walker.GetParentElement(current);
-                        if (parent == null)
-                            break;
-
-                        int controlType = parent.CurrentControlType;
-                        if (controlType == UIA_ControlTypeIds.UIA_WindowControlTypeId)
+                        var focused = _automation.GetFocusedElement();
+                        if (focused == null)
                         {
-                            windowAncestor = parent;
-                            break;
+                            _logger.Debug("FocusedElementFirstParentWindow: no focused element, falling back to root");
+                            return null;
                         }
+                        var current = focused;
+                        IUIAutomationElement? windowAncestor = null;
+                        while (true)
+                        {
+                            var parent = walker.GetParentElement(current);
+                            if (parent == null)
+                                break;
 
-                        if (current != focused && Marshal.IsComObject(current))
+                            int controlType = parent.CurrentControlType;
+                            if (controlType == UIA_ControlTypeIds.UIA_WindowControlTypeId)
+                            {
+                                windowAncestor = parent;
+                                break;
+                            }
+
+                            if (current != focused && Marshal.IsComObject(current))
+                            {
+                                try { Marshal.ReleaseComObject(current); } catch { }
+                            }
+                            current = parent;
+                        }
+                        if (current != focused && current != windowAncestor && Marshal.IsComObject(current))
                         {
                             try { Marshal.ReleaseComObject(current); } catch { }
                         }
-                        current = parent;
+                        if (Marshal.IsComObject(focused) && focused != windowAncestor)
+                        {
+                            try { Marshal.ReleaseComObject(focused); } catch { }
+                        }
+                        _logger.Debug(windowAncestor != null
+                            ? "FocusedElementFirstParentWindow: found Window ancestor"
+                            : "FocusedElementFirstParentWindow: no Window ancestor found, falling back to root");
+                        return windowAncestor;
                     }
-                    if (current != focused && current != windowAncestor && Marshal.IsComObject(current))
-                    {
-                        try { Marshal.ReleaseComObject(current); } catch { }
-                    }
-                    if (Marshal.IsComObject(focused) && focused != windowAncestor)
-                    {
-                        try { Marshal.ReleaseComObject(focused); } catch { }
-                    }
-                    _logger.Debug(windowAncestor != null
-                        ? "FocusedElementFirstParentWindow: found Window ancestor"
-                        : "FocusedElementFirstParentWindow: no Window ancestor found, falling back to root");
-                    return windowAncestor;
-                }
 
                 default:
                     return null;

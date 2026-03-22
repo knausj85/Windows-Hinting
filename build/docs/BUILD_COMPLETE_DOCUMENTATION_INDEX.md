@@ -259,7 +259,7 @@ winget install lessmsi
 **Solution:** Install WiX Toolset or check `Windows-Hinting.Installer` exists
 
 ### Issue: "Certificate not found"
-**Solution:** 
+**Solution:**
 ```powershell
 .\build\generate-signing-cert.ps1    # Generate new
 # OR
@@ -267,7 +267,7 @@ winget install lessmsi
 ```
 
 ### Issue: "MSI file not found"
-**Solution:** 
+**Solution:**
 - Check WiX build output for errors
 - Ensure Visual Studio build tools installed
 

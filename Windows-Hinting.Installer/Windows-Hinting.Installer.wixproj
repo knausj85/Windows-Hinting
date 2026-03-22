@@ -27,7 +27,6 @@
     <None Include="INSTALLATION_GUIDE.md" />
     <None Include="QUICK_START.md" />
     <None Include="RUNTIMES_FOLDER_FIX.md" />
-    <None Include="UIAccessConfig.wixproj.user" />
     <None Include="UIACCESS_SETUP.md" />
   </ItemGroup>
 </Project>

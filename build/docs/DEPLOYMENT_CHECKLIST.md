@@ -197,7 +197,7 @@ The following documentation is provided:
 
 ### Issue: Commands sent but nothing happens
 
-**Likely Cause:** 
+**Likely Cause:**
 - Hints not visible yet (timing issue)
 - Invalid hint label
 
@@ -259,7 +259,7 @@ If issues discovered after deployment:
 - Provide link to code examples
 - Include in help/documentation
 
-### Developers  
+### Developers
 - Reference NAMED_PIPE_INTERFACE.md for technical details
 - Share ARCHITECTURE_DIAGRAMS.md for system design
 - Point to test suite for verification

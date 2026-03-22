@@ -18,7 +18,7 @@ The Windows-Hinting.Installer project has been successfully configured and built
 
 **Shortcuts Created**:
 - ✅ Desktop shortcut: "Windows-Hinting"
-- ✅ Start Menu folder: "Windows-Hinting" 
+- ✅ Start Menu folder: "Windows-Hinting"
 - ✅ Start Menu shortcut: "Windows-Hinting"
 
 ### Registry Configuration
