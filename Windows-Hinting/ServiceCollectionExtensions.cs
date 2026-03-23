@@ -27,7 +27,7 @@ namespace WindowsHinting
             services.AddSingleton<HintStateManager>();
             services.AddSingleton<HintInputHandler>();
             services.AddSingleton<ElementActivatorChain>();
-            services.AddSingleton<NamedPipeService>();
+            services.AddSingleton<CommandFileService>();
             services.AddSingleton<MouseClickService>();
 
             // UI Components

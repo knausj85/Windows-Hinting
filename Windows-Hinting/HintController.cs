@@ -25,7 +25,7 @@ namespace WindowsHinting
         private readonly HintInputHandler _inputHandler;
         private readonly TrayIconManager _trayIcon;
         private readonly ElementActivatorChain _activatorChain;
-        private readonly NamedPipeService _namedPipeService;
+        private readonly CommandFileService _commandFileService;
         private readonly WindowRuleRegistry _ruleRegistry;
         private readonly MouseClickService _mouseClickService;
 
@@ -46,7 +46,7 @@ namespace WindowsHinting
             HintStateManager stateManager,
             HintInputHandler inputHandler,
             ElementActivatorChain activatorChain,
-            NamedPipeService namedPipeService,
+            CommandFileService commandFileService,
             MouseClickService mouseClickService)
         {
             using (PerformanceMetrics.Start("HintController.Constructor", logger, LogLevel.Info))
@@ -65,7 +65,7 @@ namespace WindowsHinting
                 _stateManager = stateManager ?? throw new ArgumentNullException(nameof(stateManager));
                 _inputHandler = inputHandler ?? throw new ArgumentNullException(nameof(inputHandler));
                 _activatorChain = activatorChain ?? throw new ArgumentNullException(nameof(activatorChain));
-                _namedPipeService = namedPipeService ?? throw new ArgumentNullException(nameof(namedPipeService));
+                _commandFileService = commandFileService ?? throw new ArgumentNullException(nameof(commandFileService));
                 _mouseClickService = mouseClickService ?? throw new ArgumentNullException(nameof(mouseClickService));
 
                 // Load preferences
@@ -95,11 +95,11 @@ namespace WindowsHinting
                 _keyboardService.KeyPressed += OnKeyPressed;
                 _keyboardService.KeyReleased += OnKeyReleased;
 
-                _namedPipeService.CommandReceived += OnNamedPipeCommandReceived;
+                _commandFileService.CommandReceived += OnCommandReceived;
 
-                // Start named pipe service
-                _logger.Debug("Starting named pipe service");
-                _namedPipeService.Start();
+                // Start command file service
+                _logger.Debug("Starting command file service");
+                _commandFileService.Start();
 
                 // Show overlay
                 _logger.Debug("Showing overlay");
@@ -132,9 +132,9 @@ namespace WindowsHinting
             _logger.Debug($"Window rules applied: {rules.Count} rule(s)");
         }
 
-        private void OnNamedPipeCommandReceived(object? sender, NamedPipeCommand command)
+        private void OnCommandReceived(object? sender, CommandFileCommand command)
         {
-            _logger.Debug($"Processing named pipe command: {command.CommandType}");
+            _logger.Debug($"Processing command: {command.CommandType}");
 
             switch (command.CommandType)
             {
@@ -645,7 +645,7 @@ namespace WindowsHinting
                 return;
 
             _logger.Info("Disposing HintController");
-            _namedPipeService.Dispose();
+            _commandFileService.Dispose();
             _keyboardService.Stop();
             _trayIcon.Dispose();
             _overlay.Dispose();

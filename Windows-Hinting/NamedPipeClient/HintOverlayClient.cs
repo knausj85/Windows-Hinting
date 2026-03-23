@@ -1,37 +1,39 @@
 using System;
-using System.IO.Pipes;
-using System.Text;
+using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace WindowsHinting.NamedPipeClient
 {
     /// <summary>
-    /// Client for communicating with Windows-Hinting via named pipes.
-    /// This client handles connection retries to support order-independent execution.
+    /// Client for communicating with Windows-Hinting via command files.
+    /// Writes a command to a file in the user's %APPDATA%\Windows-Hinting\commands directory.
+    /// The server watches this directory and processes each file as it appears.
+    ///
+    /// Usage from Talon (Python):
+    ///   from pathlib import Path
+    ///   cmd_dir = Path.home() / "AppData" / "Roaming" / "Windows-Hinting" / "commands"
+    ///   (cmd_dir / "cmd").write_text("TOGGLE")
+    ///
+    /// Usage from C#:
+    ///   new HintOverlayClient().Toggle();
     /// </summary>
     public sealed class HintOverlayClient : IDisposable
     {
-        private const string PipeName = "WindowsHinting_Pipe";
-        private const int ConnectionTimeoutMs = 5000;
-        private const int RetryDelayMs = 100;
-        private const int MaxRetries = 50;
+        private static readonly string CommandDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Windows-Hinting",
+            "commands");
+
         private bool _disposed;
 
         /// <summary>
         /// Toggles the hint overlay on or off.
         /// </summary>
-        /// <returns>True if the command was sent successfully, false otherwise.</returns>
-        public bool Toggle()
-        {
-            return SendCommand("TOGGLE");
-        }
+        public bool Toggle() => SendCommand("TOGGLE");
 
         /// <summary>
-        /// Selects a hint by its label and activates the associated element using the default action.
+        /// Selects a hint by its label using the default action.
         /// </summary>
-        /// <param name="hintLabel">The label of the hint to select (e.g., "A", "B", "AB", etc.)</param>
-        /// <returns>True if the command was sent successfully, false otherwise.</returns>
         public bool SelectHint(string hintLabel)
         {
             if (string.IsNullOrWhiteSpace(hintLabel))
@@ -43,9 +45,8 @@ namespace WindowsHinting.NamedPipeClient
         /// <summary>
         /// Selects a hint by its label and performs the specified click action.
         /// </summary>
-        /// <param name="hintLabel">The label of the hint to select (e.g., "A", "B", "AB", etc.)</param>
-        /// <param name="action">The click action to perform: "LEFT", "RIGHT", "DOUBLE", "MOVE", "CTRL", "SHIFT", or null/empty for default activation.</param>
-        /// <returns>True if the command was sent successfully, false otherwise.</returns>
+        /// <param name="hintLabel">The label of the hint to select (e.g., "A", "B", "AB")</param>
+        /// <param name="action">The click action: "LEFT", "RIGHT", "DOUBLE", "MOVE", "CTRL", "SHIFT", or null for default.</param>
         public bool SelectHint(string hintLabel, string? action)
         {
             if (string.IsNullOrWhiteSpace(hintLabel))
@@ -60,64 +61,31 @@ namespace WindowsHinting.NamedPipeClient
         /// <summary>
         /// Deactivates the hint overlay.
         /// </summary>
-        /// <returns>True if the command was sent successfully, false otherwise.</returns>
-        public bool Deactivate()
-        {
-            return SendCommand("DEACTIVATE");
-        }
+        public bool Deactivate() => SendCommand("DEACTIVATE");
 
         /// <summary>
-        /// Toggles the taskbar-only hint mode on or off.
+        /// Toggles the taskbar-only hint mode.
         /// </summary>
-        /// <returns>True if the command was sent successfully, false otherwise.</returns>
-        public bool ToggleTaskbar()
-        {
-            return SendCommand("TOGGLETASKBAR");
-        }
+        public bool ToggleTaskbar() => SendCommand("TOGGLETASKBAR");
 
         private bool SendCommand(string command)
         {
-            return SendCommandAsync(command).GetAwaiter().GetResult();
-        }
-
-        private async Task<bool> SendCommandAsync(string command)
-        {
-            int retryCount = 0;
-
-            while (retryCount < MaxRetries)
+            try
             {
-                try
-                {
-                    using (var pipeClient = new NamedPipeClientStream(".", PipeName, PipeDirection.Out))
-                    {
-                        pipeClient.Connect(ConnectionTimeoutMs);
+                if (!Directory.Exists(CommandDirectory))
+                    Directory.CreateDirectory(CommandDirectory);
 
-                        using (var writer = new StreamWriter(pipeClient, Encoding.UTF8))
-                        {
-                            await writer.WriteLineAsync(command);
-                            await writer.FlushAsync();
-                        }
+                // Use a unique filename to avoid collisions
+                var filePath = Path.Combine(CommandDirectory,
+                    $"cmd_{Environment.TickCount64}_{Thread.CurrentThread.ManagedThreadId}");
 
-                        return true;
-                    }
-                }
-                catch (TimeoutException)
-                {
-                    // Server not ready yet, retry
-                    retryCount++;
-                    if (retryCount < MaxRetries)
-                    {
-                        await Task.Delay(RetryDelayMs);
-                    }
-                }
-                catch (Exception)
-                {
-                    // Other errors, stop retrying
-                    return false;
-                }
+                File.WriteAllText(filePath, command);
+                return true;
             }
-
-            return false;
+            catch
+            {
+                return false;
+            }
         }
 
         public void Dispose()
