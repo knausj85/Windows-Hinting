@@ -51,7 +51,8 @@ namespace WindowsHinting.Services
                 }
                 else
                 {
-                    key.DeleteSubKey(AppName, false);
+                    key.DeleteValue(AppName);
+
                     _logger.Info("Startup registry entry removed");
                 }
             }
