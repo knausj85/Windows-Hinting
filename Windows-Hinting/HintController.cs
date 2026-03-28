@@ -129,7 +129,6 @@ namespace WindowsHinting
                 _overlay.UnregisterTaskbarHotkey();
 
             _inputHandler.ApplyOptions(_options.ClickActionShortcuts);
-            _startupService.Apply(_options.StartWithWindows);
 
             var rules = WindowRuleRegistry.MergeWithDefaults(_options.WindowRules);
             _ruleRegistry.SetRules(rules);
@@ -604,7 +603,7 @@ namespace WindowsHinting
             using (PerformanceMetrics.Start("ShowPreferencesDialog", _logger, LogLevel.Info))
             {
                 _logger.Info("Opening preferences dialog");
-                var dialog = new PreferencesDialog(_options);
+                var dialog = new PreferencesDialog(_options, _startupService);
                 dialog.HotkeyRecordingStarted += (_, _) =>
                 {
                     _logger.Debug("Hotkey recording started, unregistering global hotkeys");

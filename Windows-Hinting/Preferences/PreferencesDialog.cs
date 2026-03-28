@@ -9,6 +9,7 @@ namespace Preferences
     internal sealed class PreferencesDialog : Form
     {
         private readonly HintOverlayOptions _options;
+        private readonly StartupService _startupService;
 
         // General tab controls
         private CheckBox _chkShowRectangles = null!;
@@ -45,9 +46,10 @@ namespace Preferences
         /// <summary>Raised when the user selects a different hint position.</summary>
         public event EventHandler<HintPosition>? HintPositionChanged;
 
-        public PreferencesDialog(HintOverlayOptions options)
+        public PreferencesDialog(HintOverlayOptions options, StartupService startupService)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
+            _startupService = startupService ?? throw new ArgumentNullException(nameof(startupService));
             InitializeComponent();
             LoadPreferences();
         }
@@ -580,7 +582,7 @@ namespace Preferences
         private void LoadPreferences()
         {
             _chkShowRectangles.Checked = _options.ShowRectangles;
-            _chkStartWithWindows.Checked = _options.StartWithWindows;
+            _chkStartWithWindows.Checked = _startupService.IsEnabled;
             if (_positionButtons.TryGetValue(_options.HintPosition, out var rb))
                 rb.Checked = true;
             else
@@ -620,7 +622,7 @@ namespace Preferences
         private void BtnOk_Click(object? sender, EventArgs e)
         {
             _options.ShowRectangles = _chkShowRectangles.Checked;
-            _options.StartWithWindows = _chkStartWithWindows.Checked;
+            _startupService.Apply(_chkStartWithWindows.Checked);
             _options.HintPosition = _positionButtons
                 .FirstOrDefault(kvp => kvp.Value.Checked).Key;
             _options.Hotkey.Enabled = _chkHotkeyEnabled.Checked;

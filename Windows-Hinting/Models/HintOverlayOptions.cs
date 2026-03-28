@@ -6,7 +6,6 @@ namespace WindowsHinting.Models
     internal sealed class HintOverlayOptions
     {
         public bool ShowRectangles { get; set; } = false;
-        public bool StartWithWindows { get; set; } = false;
         public HotkeyConfiguration Hotkey { get; set; } = new();
         public HotkeyConfiguration TaskbarHotkey { get; set; } = new()
         {

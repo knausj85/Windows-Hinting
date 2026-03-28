@@ -1,4 +1,4 @@
-﻿
+
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -46,8 +46,7 @@
     <Message Text="[Sign] CertPath exists    : $([System.IO.File]::Exists('$(CodeSigningCertPath)'))" Importance="high" />
     <Message Text="[Sign] ExecutablePath     : $(ExecutablePath)" Importance="high" />
     <Message Text="[Sign] Exe exists         : $([System.IO.File]::Exists('$(ExecutablePath)'))" Importance="high" />
-    <!-- Locate signtool.exe dynamically across any installed Windows SDK version, then sign -->
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command &quot;$signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like '*x64*' } | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName; if (-not $signtool) { $signtool = Get-ChildItem 'C:\Program Files\Windows Kits\10\bin' -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like '*x64*' } | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName }; if (-not $signtool) { $signtool = (where.exe signtool 2&gt;`$null | Select-Object -First 1) }; Write-Host &quot;[Sign] signtool path: $signtool&quot;; if (-not $signtool) { Write-Error '[Sign] signtool.exe not found — install Windows SDK'; exit 1 }; &amp; $signtool sign /f '$(CodeSigningCertPath)' /p '$(CodeSigningPassword)' /t http://timestamp.digicert.com /fd SHA256 '$(ExecutablePath)'; exit $LASTEXITCODE&quot;" ContinueOnError="false" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\build\sign-executable.ps1&quot; -CertPath &quot;$(CodeSigningCertPath)&quot; -CertPassword &quot;$(CodeSigningPassword)&quot; -ExePath &quot;$(ExecutablePath)&quot;" ContinueOnError="false" />
     <Message Text="[Sign] Executable signed successfully" Importance="high" />
   </Target>
 
