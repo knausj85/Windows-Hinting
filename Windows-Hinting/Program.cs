@@ -19,7 +19,7 @@ namespace WindowsHinting
             {
                 if (!mutex.WaitOne(0, false))
                 {
-                    MessageBox.Show("Windows-Hinting is already running");
+                    MessageBox.Show("Windows-Hinting is already running!");
                     return;
                 }
 
