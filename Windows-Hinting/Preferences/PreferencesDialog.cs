@@ -9,9 +9,11 @@ namespace Preferences
     internal sealed class PreferencesDialog : Form
     {
         private readonly HintOverlayOptions _options;
+        private readonly StartupService _startupService;
 
         // General tab controls
         private CheckBox _chkShowRectangles = null!;
+        private CheckBox _chkStartWithWindows = null!;
         private readonly Dictionary<HintPosition, RadioButton> _positionButtons = new();
         private CheckBox _chkHotkeyEnabled = null!;
         private HotkeyRecorderControl _hotkeyRecorder = null!;
@@ -44,9 +46,10 @@ namespace Preferences
         /// <summary>Raised when the user selects a different hint position.</summary>
         public event EventHandler<HintPosition>? HintPositionChanged;
 
-        public PreferencesDialog(HintOverlayOptions options)
+        public PreferencesDialog(HintOverlayOptions options, StartupService startupService)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
+            _startupService = startupService ?? throw new ArgumentNullException(nameof(startupService));
             InitializeComponent();
             LoadPreferences();
         }
@@ -128,9 +131,10 @@ namespace Preferences
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 7,
+                RowCount = 8,
                 Padding = new Padding(10)
             };
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -147,6 +151,15 @@ namespace Preferences
                 Dock = DockStyle.Fill
             };
             layout.Controls.Add(_chkShowRectangles, 0, 0);
+
+            // Start with Windows checkbox
+            _chkStartWithWindows = new CheckBox
+            {
+                Text = "Start with Windows",
+                AutoSize = true,
+                Dock = DockStyle.Fill
+            };
+            layout.Controls.Add(_chkStartWithWindows, 0, 1);
 
             // Hint position grid
             var hintPosGroup = new GroupBox
@@ -203,7 +216,7 @@ namespace Preferences
             }
 
             hintPosGroup.Controls.Add(posGrid);
-            layout.Controls.Add(hintPosGroup, 0, 1);
+            layout.Controls.Add(hintPosGroup, 0, 2);
 
             // Hotkey configuration
             var hotkeyGroup = new GroupBox
@@ -235,7 +248,7 @@ namespace Preferences
 
             hotkeyGroup.Controls.Add(_hotkeyRecorder);
             hotkeyGroup.Controls.Add(_chkHotkeyEnabled);
-            layout.Controls.Add(hotkeyGroup, 0, 2);
+            layout.Controls.Add(hotkeyGroup, 0, 3);
 
             // Taskbar hotkey configuration
             var taskbarHotkeyGroup = new GroupBox
@@ -267,7 +280,7 @@ namespace Preferences
 
             taskbarHotkeyGroup.Controls.Add(_taskbarHotkeyRecorder);
             taskbarHotkeyGroup.Controls.Add(_chkTaskbarHotkeyEnabled);
-            layout.Controls.Add(taskbarHotkeyGroup, 0, 3);
+            layout.Controls.Add(taskbarHotkeyGroup, 0, 4);
 
             // Click action shortcuts configuration
             var clickActionGroup = new GroupBox
@@ -331,7 +344,7 @@ namespace Preferences
             AddShortcutRow(clickActionLayout, 6, "Shift+Click:", _shiftClickKeyRecorder, defaults.ShiftClickKey);
 
             clickActionGroup.Controls.Add(clickActionLayout);
-            layout.Controls.Add(clickActionGroup, 0, 4);
+            layout.Controls.Add(clickActionGroup, 0, 5);
 
             // Overlap threshold slider
             var overlapGroup = new GroupBox
@@ -389,7 +402,7 @@ namespace Preferences
             overlapLayout.Controls.Add(_overlapThresholdValueLabel, 1, 1);
 
             overlapGroup.Controls.Add(overlapLayout);
-            layout.Controls.Add(overlapGroup, 0, 5);
+            layout.Controls.Add(overlapGroup, 0, 6);
 
             tab.Controls.Add(layout);
             return tab;
@@ -569,6 +582,7 @@ namespace Preferences
         private void LoadPreferences()
         {
             _chkShowRectangles.Checked = _options.ShowRectangles;
+            _chkStartWithWindows.Checked = _startupService.IsEnabled;
             if (_positionButtons.TryGetValue(_options.HintPosition, out var rb))
                 rb.Checked = true;
             else
@@ -608,6 +622,7 @@ namespace Preferences
         private void BtnOk_Click(object? sender, EventArgs e)
         {
             _options.ShowRectangles = _chkShowRectangles.Checked;
+            _startupService.Apply(_chkStartWithWindows.Checked);
             _options.HintPosition = _positionButtons
                 .FirstOrDefault(kvp => kvp.Value.Checked).Key;
             _options.Hotkey.Enabled = _chkHotkeyEnabled.Checked;

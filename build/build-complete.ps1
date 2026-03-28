@@ -56,7 +56,9 @@ if ($SkipSigning) {
     $BuildArgs += "/p:CodeSigningCertPath="
 } elseif ($Configuration -eq "Release") {
     $BuildArgs += "/p:CodeSigningCertPath=$CertPath"
-    $BuildArgs += "/p:CodeSigningPassword=$CertPassword"
+    if ($CertPassword) {
+        $BuildArgs += "/p:CodeSigningPassword=$CertPassword"
+    }
 }
 
 msbuild @BuildArgs

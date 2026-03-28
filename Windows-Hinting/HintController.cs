@@ -25,9 +25,10 @@ namespace WindowsHinting
         private readonly HintInputHandler _inputHandler;
         private readonly TrayIconManager _trayIcon;
         private readonly ElementActivatorChain _activatorChain;
-        private readonly NamedPipeService _namedPipeService;
+        //private readonly NamedPipeService _namedPipeService;
         private readonly WindowRuleRegistry _ruleRegistry;
         private readonly MouseClickService _mouseClickService;
+        private readonly StartupService _startupService;
 
         private HintOverlayOptions _options;
         private long _lastToggleTicks;
@@ -46,8 +47,9 @@ namespace WindowsHinting
             HintStateManager stateManager,
             HintInputHandler inputHandler,
             ElementActivatorChain activatorChain,
-            NamedPipeService namedPipeService,
-            MouseClickService mouseClickService)
+            //NamedPipeService namedPipeService,
+            MouseClickService mouseClickService,
+            StartupService startupService)
         {
             using (PerformanceMetrics.Start("HintController.Constructor", logger, LogLevel.Info))
             {
@@ -65,8 +67,9 @@ namespace WindowsHinting
                 _stateManager = stateManager ?? throw new ArgumentNullException(nameof(stateManager));
                 _inputHandler = inputHandler ?? throw new ArgumentNullException(nameof(inputHandler));
                 _activatorChain = activatorChain ?? throw new ArgumentNullException(nameof(activatorChain));
-                _namedPipeService = namedPipeService ?? throw new ArgumentNullException(nameof(namedPipeService));
+                //_namedPipeService = namedPipeService ?? throw new ArgumentNullException(nameof(namedPipeService));
                 _mouseClickService = mouseClickService ?? throw new ArgumentNullException(nameof(mouseClickService));
+                _startupService = startupService ?? throw new ArgumentNullException(nameof(startupService));
 
                 // Load preferences
                 _logger.Debug("Loading preferences");
@@ -95,11 +98,11 @@ namespace WindowsHinting
                 _keyboardService.KeyPressed += OnKeyPressed;
                 _keyboardService.KeyReleased += OnKeyReleased;
 
-                _namedPipeService.CommandReceived += OnNamedPipeCommandReceived;
+                //_namedPipeService.CommandReceived += OnNamedPipeCommandReceived;
 
                 // Start named pipe service
                 _logger.Debug("Starting named pipe service");
-                _namedPipeService.Start();
+                //_namedPipeService.Start();
 
                 // Show overlay
                 _logger.Debug("Showing overlay");
@@ -600,7 +603,7 @@ namespace WindowsHinting
             using (PerformanceMetrics.Start("ShowPreferencesDialog", _logger, LogLevel.Info))
             {
                 _logger.Info("Opening preferences dialog");
-                var dialog = new PreferencesDialog(_options);
+                var dialog = new PreferencesDialog(_options, _startupService);
                 dialog.HotkeyRecordingStarted += (_, _) =>
                 {
                     _logger.Debug("Hotkey recording started, unregistering global hotkeys");
@@ -645,7 +648,7 @@ namespace WindowsHinting
                 return;
 
             _logger.Info("Disposing HintController");
-            _namedPipeService.Dispose();
+            //_namedPipeService.Dispose();
             _keyboardService.Stop();
             _trayIcon.Dispose();
             _overlay.Dispose();
