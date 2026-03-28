@@ -28,6 +28,7 @@ namespace WindowsHinting
         private readonly NamedPipeService _namedPipeService;
         private readonly WindowRuleRegistry _ruleRegistry;
         private readonly MouseClickService _mouseClickService;
+        private readonly StartupService _startupService;
 
         private HintOverlayOptions _options;
         private long _lastToggleTicks;
@@ -47,7 +48,8 @@ namespace WindowsHinting
             HintInputHandler inputHandler,
             ElementActivatorChain activatorChain,
             NamedPipeService namedPipeService,
-            MouseClickService mouseClickService)
+            MouseClickService mouseClickService,
+            StartupService startupService)
         {
             using (PerformanceMetrics.Start("HintController.Constructor", logger, LogLevel.Info))
             {
@@ -67,6 +69,7 @@ namespace WindowsHinting
                 _activatorChain = activatorChain ?? throw new ArgumentNullException(nameof(activatorChain));
                 _namedPipeService = namedPipeService ?? throw new ArgumentNullException(nameof(namedPipeService));
                 _mouseClickService = mouseClickService ?? throw new ArgumentNullException(nameof(mouseClickService));
+                _startupService = startupService ?? throw new ArgumentNullException(nameof(startupService));
 
                 // Load preferences
                 _logger.Debug("Loading preferences");
@@ -126,6 +129,7 @@ namespace WindowsHinting
                 _overlay.UnregisterTaskbarHotkey();
 
             _inputHandler.ApplyOptions(_options.ClickActionShortcuts);
+            _startupService.Apply(_options.StartWithWindows);
 
             var rules = WindowRuleRegistry.MergeWithDefaults(_options.WindowRules);
             _ruleRegistry.SetRules(rules);

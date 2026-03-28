@@ -29,6 +29,7 @@ namespace WindowsHinting
             services.AddSingleton<ElementActivatorChain>();
             services.AddSingleton<NamedPipeService>();
             services.AddSingleton<MouseClickService>();
+            services.AddSingleton<StartupService>();
 
             // UI Components
             services.AddSingleton<OverlayForm>();
