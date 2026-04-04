@@ -115,15 +115,22 @@ namespace WindowsHinting.Services
                 return true;
             }
 
-            // Handle Escape - clear filter
+            // Handle Escape - clear filter if present, otherwise exit hint mode
             if (vkCode == 0x1B)
             {
-                _stateManager.ClearFilter();
+                if (!string.IsNullOrEmpty(_stateManager.FilterText))
+                {
+                    _stateManager.ClearFilter();
+                }
+                else
+                {
+                    _stateManager.Deactivate();
+                }
                 return true;
             }
 
-            // Handle Space - commit selection with the pending action
-            if (vkCode == 0x20)
+            // Handle Space or Enter - commit selection with the pending action
+            if (vkCode == 0x20 || vkCode == 0x0D)
             {
                 var match = _stateManager.GetExactMatch();
                 if (match != null)

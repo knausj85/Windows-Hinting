@@ -18,7 +18,10 @@ namespace WindowsHinting.Forms
         private const int HOTKEY_ID = 1;
         private const int TASKBAR_HOTKEY_ID = 2;
 
-        private readonly Font _font = new("Segoe UI", 9, FontStyle.Bold);
+        private const int WM_SETTINGCHANGE = 0x001A;
+        private const int WM_DPICHANGED = 0x02E0;
+
+        private Font _font;
 
         public event EventHandler? ToggleRequested;
         public event EventHandler? TaskbarToggleRequested;
@@ -28,6 +31,8 @@ namespace WindowsHinting.Forms
 
         private int _hotkeyModifiers;
         private int _hotkeyVirtualKey;
+        private int _taskbarHotkeyModifiers;
+        private int _taskbarHotkeyVirtualKey;
 
         public OverlayForm()
         {
@@ -35,6 +40,7 @@ namespace WindowsHinting.Forms
             ShowInTaskbar = false;
             TopMost = true;
             Bounds = SystemInformation.VirtualScreen;
+            _font = CreateHintFont();
 
             SetStyle(ControlStyles.AllPaintingInWmPaint |
                      ControlStyles.OptimizedDoubleBuffer |
@@ -66,6 +72,20 @@ namespace WindowsHinting.Forms
             Invalidate();
         }
 
+        private static Font CreateHintFont()
+        {
+            var baseFont = SystemFonts.CaptionFont;
+            return new Font(baseFont.FontFamily, baseFont.SizeInPoints, FontStyle.Bold, GraphicsUnit.Point);
+        }
+
+        private void RefreshHintFont()
+        {
+            var oldFont = _font;
+            _font = CreateHintFont();
+            oldFont.Dispose();
+            Invalidate();
+        }
+
         public void SetFilterPrefix(string prefix)
         {
             Debug.WriteLine($"SetFilterPrefix '{prefix}'");
@@ -86,7 +106,10 @@ namespace WindowsHinting.Forms
             UnregisterGlobalHotkey();
             _hotkeyModifiers = modifiers;
             _hotkeyVirtualKey = virtualKey;
-            RegisterHotKey(Handle, HOTKEY_ID, modifiers, virtualKey);
+            if (!RegisterHotKey(Handle, HOTKEY_ID, modifiers, virtualKey))
+            {
+                throw new InvalidOperationException($"Failed to register global hotkey: {modifiers}+{virtualKey}");
+            }
         }
 
         public void UnregisterGlobalHotkey()
@@ -97,7 +120,12 @@ namespace WindowsHinting.Forms
         public void RegisterTaskbarHotkey(int modifiers, int virtualKey)
         {
             UnregisterTaskbarHotkey();
-            RegisterHotKey(Handle, TASKBAR_HOTKEY_ID, modifiers, virtualKey);
+            _taskbarHotkeyModifiers = modifiers;
+            _taskbarHotkeyVirtualKey = virtualKey;
+            if (!RegisterHotKey(Handle, TASKBAR_HOTKEY_ID, modifiers, virtualKey))
+            {
+                throw new InvalidOperationException($"Failed to register taskbar hotkey: {modifiers}+{virtualKey}");
+            }
         }
 
         public void UnregisterTaskbarHotkey()
@@ -263,6 +291,65 @@ namespace WindowsHinting.Forms
             EnsureTopmost();
         }
 
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+
+            RefreshHintFont();
+            ReRegisterHotkeys();
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            try
+            {
+                UnregisterGlobalHotkey();
+                UnregisterTaskbarHotkey();
+            }
+            catch
+            {
+                // Best effort only
+            }
+
+            base.OnHandleDestroyed(e);
+        }
+
+        public void ReRegisterHotkeys()
+        {
+            TryRegisterGlobalHotkey();
+            TryRegisterTaskbarHotkey();
+        }
+
+        private void TryRegisterGlobalHotkey()
+        {
+            try
+            {
+                if (_hotkeyVirtualKey != 0)
+                {
+                    RegisterHotKey(Handle, HOTKEY_ID, _hotkeyModifiers, _hotkeyVirtualKey);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to re-register global hotkey: {ex.Message}");
+            }
+        }
+
+        private void TryRegisterTaskbarHotkey()
+        {
+            try
+            {
+                if (_taskbarHotkeyVirtualKey != 0)
+                {
+                    RegisterHotKey(Handle, TASKBAR_HOTKEY_ID, _taskbarHotkeyModifiers, _taskbarHotkeyVirtualKey);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to re-register taskbar hotkey: {ex.Message}");
+            }
+        }
+
         protected override void WndProc(ref Message m)
         {
             const int WM_HOTKEY = 0x0312;
@@ -279,7 +366,23 @@ namespace WindowsHinting.Forms
                 }
                 return;
             }
+
+            if (m.Msg == WM_SETTINGCHANGE || m.Msg == WM_DPICHANGED)
+            {
+                RefreshHintFont();
+            }
+
             base.WndProc(ref m);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _font.Dispose();
+            }
+
+            base.Dispose(disposing);
         }
 
         [DllImport("user32.dll")]
