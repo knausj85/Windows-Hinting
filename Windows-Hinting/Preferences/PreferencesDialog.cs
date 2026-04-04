@@ -15,6 +15,10 @@ namespace Preferences
         private CheckBox _chkShowRectangles = null!;
         private CheckBox _chkStartWithWindows = null!;
         private readonly Dictionary<HintPosition, RadioButton> _positionButtons = new();
+        private TrackBar _overlapThresholdTrackBar = null!;
+        private Label _overlapThresholdValueLabel = null!;
+
+        // Hotkeys tab controls
         private CheckBox _chkHotkeyEnabled = null!;
         private HotkeyRecorderControl _hotkeyRecorder = null!;
         private CheckBox _chkTaskbarHotkeyEnabled = null!;
@@ -26,8 +30,6 @@ namespace Preferences
         private HotkeyRecorderControl _mouseMoveKeyRecorder = null!;
         private HotkeyRecorderControl _ctrlClickKeyRecorder = null!;
         private HotkeyRecorderControl _shiftClickKeyRecorder = null!;
-        private TrackBar _overlapThresholdTrackBar = null!;
-        private Label _overlapThresholdValueLabel = null!;
 
         // Window Rules tab controls
         private DataGridView _rulesGrid = null!;
@@ -84,6 +86,9 @@ namespace Preferences
             // ── General Tab ──────────────────────────────────────────
             tabControl.TabPages.Add(CreateGeneralTab());
 
+            // ── Hotkeys Tab ──────────────────────────────────────────
+            tabControl.TabPages.Add(CreateHotkeysTab());
+
             // ── Window Rules Tab ─────────────────────────────────────
             tabControl.TabPages.Add(CreateWindowRulesTab());
 
@@ -127,16 +132,21 @@ namespace Preferences
         {
             var tab = new TabPage("General");
 
-            var layout = new TableLayoutPanel
+            var scrollPanel = new Panel
             {
                 Dock = DockStyle.Fill,
+                AutoScroll = true
+            };
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 ColumnCount = 1,
-                RowCount = 8,
+                RowCount = 5,
                 Padding = new Padding(10)
             };
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -218,7 +228,94 @@ namespace Preferences
             hintPosGroup.Controls.Add(posGrid);
             layout.Controls.Add(hintPosGroup, 0, 2);
 
-            // Hotkey configuration
+            // Overlap threshold slider
+            var overlapGroup = new GroupBox
+            {
+                Text = "Overlap Deduplication",
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10)
+            };
+
+            var overlapLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 2,
+                AutoSize = true
+            };
+            overlapLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            overlapLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            overlapLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            overlapLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            var overlapDescription = new Label
+            {
+                Text = "Area overlap threshold for removing container elements. " +
+                       "Lower values remove more aggressively.",
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0, 0, 0, 4)
+            };
+            overlapLayout.SetColumnSpan(overlapDescription, 2);
+            overlapLayout.Controls.Add(overlapDescription, 0, 0);
+
+            _overlapThresholdTrackBar = new TrackBar
+            {
+                Minimum = 0,
+                Maximum = 100,
+                TickFrequency = 10,
+                SmallChange = 5,
+                LargeChange = 10,
+                Dock = DockStyle.Fill
+            };
+            _overlapThresholdValueLabel = new Label
+            {
+                Text = "25%",
+                AutoSize = true,
+                Anchor = AnchorStyles.Left,
+                Padding = new Padding(4, 6, 0, 0)
+            };
+            _overlapThresholdTrackBar.ValueChanged += (_, _) =>
+            {
+                _overlapThresholdValueLabel.Text = $"{_overlapThresholdTrackBar.Value}%";
+            };
+            overlapLayout.Controls.Add(_overlapThresholdTrackBar, 0, 1);
+            overlapLayout.Controls.Add(_overlapThresholdValueLabel, 1, 1);
+
+            overlapGroup.Controls.Add(overlapLayout);
+            layout.Controls.Add(overlapGroup, 0, 3);
+
+            scrollPanel.Controls.Add(layout);
+            tab.Controls.Add(scrollPanel);
+            return tab;
+        }
+
+        private TabPage CreateHotkeysTab()
+        {
+            var tab = new TabPage("Hotkeys");
+
+            var scrollPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true
+            };
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 1,
+                RowCount = 4,
+                Padding = new Padding(10)
+            };
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            // Global hotkey configuration
             var hotkeyGroup = new GroupBox
             {
                 Text = "Global Hotkey",
@@ -248,7 +345,7 @@ namespace Preferences
 
             hotkeyGroup.Controls.Add(_hotkeyRecorder);
             hotkeyGroup.Controls.Add(_chkHotkeyEnabled);
-            layout.Controls.Add(hotkeyGroup, 0, 3);
+            layout.Controls.Add(hotkeyGroup, 0, 0);
 
             // Taskbar hotkey configuration
             var taskbarHotkeyGroup = new GroupBox
@@ -280,7 +377,7 @@ namespace Preferences
 
             taskbarHotkeyGroup.Controls.Add(_taskbarHotkeyRecorder);
             taskbarHotkeyGroup.Controls.Add(_chkTaskbarHotkeyEnabled);
-            layout.Controls.Add(taskbarHotkeyGroup, 0, 4);
+            layout.Controls.Add(taskbarHotkeyGroup, 0, 1);
 
             // Click action shortcuts configuration
             var clickActionGroup = new GroupBox
@@ -344,67 +441,10 @@ namespace Preferences
             AddShortcutRow(clickActionLayout, 6, "Shift+Click:", _shiftClickKeyRecorder, defaults.ShiftClickKey);
 
             clickActionGroup.Controls.Add(clickActionLayout);
-            layout.Controls.Add(clickActionGroup, 0, 5);
+            layout.Controls.Add(clickActionGroup, 0, 2);
 
-            // Overlap threshold slider
-            var overlapGroup = new GroupBox
-            {
-                Text = "Overlap Deduplication",
-                AutoSize = true,
-                Dock = DockStyle.Fill,
-                Padding = new Padding(10)
-            };
-
-            var overlapLayout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 2,
-                AutoSize = true
-            };
-            overlapLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            overlapLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            overlapLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            overlapLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-
-            var overlapDescription = new Label
-            {
-                Text = "Area overlap threshold for removing container elements. " +
-                       "Lower values remove more aggressively.",
-                AutoSize = true,
-                Dock = DockStyle.Fill,
-                Padding = new Padding(0, 0, 0, 4)
-            };
-            overlapLayout.SetColumnSpan(overlapDescription, 2);
-            overlapLayout.Controls.Add(overlapDescription, 0, 0);
-
-            _overlapThresholdTrackBar = new TrackBar
-            {
-                Minimum = 0,
-                Maximum = 100,
-                TickFrequency = 10,
-                SmallChange = 5,
-                LargeChange = 10,
-                Dock = DockStyle.Fill
-            };
-            _overlapThresholdValueLabel = new Label
-            {
-                Text = "25%",
-                AutoSize = true,
-                Anchor = AnchorStyles.Left,
-                Padding = new Padding(4, 6, 0, 0)
-            };
-            _overlapThresholdTrackBar.ValueChanged += (_, _) =>
-            {
-                _overlapThresholdValueLabel.Text = $"{_overlapThresholdTrackBar.Value}%";
-            };
-            overlapLayout.Controls.Add(_overlapThresholdTrackBar, 0, 1);
-            overlapLayout.Controls.Add(_overlapThresholdValueLabel, 1, 1);
-
-            overlapGroup.Controls.Add(overlapLayout);
-            layout.Controls.Add(overlapGroup, 0, 6);
-
-            tab.Controls.Add(layout);
+            scrollPanel.Controls.Add(layout);
+            tab.Controls.Add(scrollPanel);
             return tab;
         }
 
