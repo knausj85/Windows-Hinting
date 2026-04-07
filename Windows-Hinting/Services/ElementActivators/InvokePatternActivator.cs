@@ -22,6 +22,25 @@ namespace WindowsHinting.Services.ElementActivators
 
             if (isAvailable)
             {
+                // Skip InvokePattern for same-process elements.  Invoke() sends a
+                // synchronous COM message to the target window, which deadlocks when
+                // the target lives on the same UI thread (e.g., a modal dialog).
+                // Let the MouseClickActivator fallback handle these instead.
+                try
+                {
+                    int elementPid = (int)element.GetCachedPropertyValue(
+                        UIA_PropertyIds.UIA_ProcessIdPropertyId);
+                    if (elementPid == Environment.ProcessId)
+                    {
+                        _logger.Debug($"Skipping InvokePattern for same-process element '{element.CachedName}'");
+                        return false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug($"Could not determine element PID, proceeding with Invoke: {ex.Message}");
+                }
+
                 try
                 {
                     pattern = element.GetCachedPattern(UIA_PatternIds.UIA_InvokePatternId) as IUIAutomationInvokePattern;

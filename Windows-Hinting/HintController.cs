@@ -303,13 +303,6 @@ namespace WindowsHinting
                     return;
                 }
 
-                if (_trayIcon.IsLogViewerWindow(hwnd))
-                {
-                    _logger.Debug("Foreground window is the log viewer, skipping hints");
-                    _stateManager.Deactivate();
-                    return;
-                }
-
                 _logger.Debug($"Scanning window: {hwnd}");
 
                 // Ensure overlay is topmost before scanning
@@ -337,18 +330,21 @@ namespace WindowsHinting
 
                 _logger.Info($"Found {elements.Count} clickable elements");
 
-                if (elements.Count == 0)
+                if (timedOut)
                 {
-                    if (timedOut)
-                    {
-                        _logger.Warning($"Hint population timed out after {timeoutMs}ms");
-                        _trayIcon.ShowNotification("Hint Timeout", $"Hint population timed out after {timeoutMs}ms. Try increasing the timeout in preferences.");
-                    }
+                    _logger.Warning($"Hint population timed out after {timeoutMs}ms");
+                    _stateManager.Deactivate();
+                    _trayIcon.ShowNotification("Hint Timeout", $"Hint population timed out after {timeoutMs}ms. Try increasing the timeout in preferences.");
+                    return;
+                }
+                else if (elements.Count == 0)
+                {
 
                     _logger.Info("No clickable elements found, deactivating");
                     _stateManager.Deactivate();
                     return;
                 }
+
 
                 // Deduplicate overlapping elements
                 //var deduped = PerformanceMetricsExtensions.MeasureExecution(
@@ -488,6 +484,7 @@ namespace WindowsHinting
 
             bool enabled = mode != HintMode.Inactive;
             _overlay.SetEnabled(enabled);
+            _trayIcon.SetStatus(mode);
 
             if (enabled)
             {
@@ -599,27 +596,39 @@ namespace WindowsHinting
 
                 _logger.Info($"Activating element with label: {match.Label}, action: {e.Action}");
 
-                try
+                // Capture values for the closure before deactivating hints
+                var element = match.Element;
+                var rect = match.Rect;
+                var action = e.Action;
+
+                // Hide hints immediately so the overlay is gone before activation
+                _logger.Debug("Deactivating hints before element activation");
+                _stateManager.Deactivate();
+
+                // Defer activation to the message loop so it does not run inside
+                // the low-level keyboard hook callback.  InvokePattern.Invoke() on
+                // same-process UI elements requires the UI thread message pump,
+                // which is blocked while the hook callback is executing — causing a
+                // deadlock.  BeginInvoke posts the work to the message queue and
+                // returns immediately, letting the hook callback complete first.
+                _overlay.BeginInvoke(() =>
                 {
-                    if (e.Action == ClickAction.Default)
+                    try
                     {
-                        _activatorChain.TryActivate(match.Element);
+                        if (action == ClickAction.Default)
+                        {
+                            _activatorChain.TryActivate(element);
+                        }
+                        else
+                        {
+                            _mouseClickService.PerformClick(rect, action);
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        _mouseClickService.PerformClick(match.Rect, e.Action);
+                        _logger.Error("Error activating element", ex);
                     }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error("Error activating element", ex);
-                }
-                finally
-                {
-                    // Hide hints after activation
-                    _logger.Debug("Deactivating hints after element activation");
-                    _stateManager.Deactivate();
-                }
+                });
             }
         }
 

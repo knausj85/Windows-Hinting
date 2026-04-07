@@ -88,6 +88,7 @@ namespace WindowsHinting.Services
             cache.AddProperty(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId);
             cache.AddProperty(UIA_PropertyIds.UIA_NamePropertyId);
             cache.AddProperty(UIA_PropertyIds.UIA_ClassNamePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_ProcessIdPropertyId);
             cache.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
             cache.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
             cache.AddPattern(UIA_PatternIds.UIA_SelectionPatternId);

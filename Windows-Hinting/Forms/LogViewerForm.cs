@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using WindowsHinting.Logging;
 
@@ -32,7 +33,7 @@ namespace WindowsHinting.Forms
             Size = new Size(900, 520);
             MinimumSize = new Size(500, 300);
             StartPosition = FormStartPosition.CenterScreen;
-            Icon = null;
+            Icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath ?? Application.ExecutablePath);
             BackColor = BackColor_;
             KeyPreview = true;
 
@@ -133,6 +134,11 @@ namespace WindowsHinting.Forms
             }
         }
 
+        private const int WM_SETREDRAW = 0x000B;
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
         private void AppendLogLine(LogLevel level, string message)
         {
             // Apply text filter
@@ -149,23 +155,34 @@ namespace WindowsHinting.Forms
                 _ => ForeColorDefault
             };
 
-            _logBox.SelectionStart = _logBox.TextLength;
-            _logBox.SelectionLength = 0;
-            _logBox.SelectionColor = color;
-            _logBox.AppendText(message + Environment.NewLine);
-
-            // Cap at 10,000 lines to prevent memory issues
-            if (_logBox.Lines.Length > 10_000)
-            {
-                _logBox.SelectionStart = 0;
-                _logBox.SelectionLength = _logBox.GetFirstCharIndexFromLine(2000);
-                _logBox.SelectedText = "";
-            }
-
-            if (_autoScroll)
+            // Suppress repainting while we modify the text
+            SendMessage(_logBox.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
+            try
             {
                 _logBox.SelectionStart = _logBox.TextLength;
-                _logBox.ScrollToCaret();
+                _logBox.SelectionLength = 0;
+                _logBox.SelectionColor = color;
+                _logBox.AppendText(message + Environment.NewLine);
+
+                // Cap at ~10,000 lines using O(1) line-count estimation
+                int lineCount = _logBox.GetLineFromCharIndex(_logBox.TextLength) + 1;
+                if (lineCount > 10_000)
+                {
+                    _logBox.SelectionStart = 0;
+                    _logBox.SelectionLength = _logBox.GetFirstCharIndexFromLine(2000);
+                    _logBox.SelectedText = "";
+                }
+
+                if (_autoScroll)
+                {
+                    _logBox.SelectionStart = _logBox.TextLength;
+                    _logBox.ScrollToCaret();
+                }
+            }
+            finally
+            {
+                SendMessage(_logBox.Handle, WM_SETREDRAW, (IntPtr)1, IntPtr.Zero);
+                _logBox.Invalidate();
             }
         }
 

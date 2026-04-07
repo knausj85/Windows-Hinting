@@ -13,8 +13,27 @@ namespace WindowsHinting.Services
     {
         private readonly NotifyIcon _trayIcon;
         private Icon? _currentIcon;
+        private string _currentLetter = "H";
         private readonly DebugLogger? _debugLogger;
         private LogViewerForm? _logViewer;
+
+        // Icon color schemes per status
+        private static readonly IconColors IdleColors = new(
+            Bg: Color.FromArgb(230, 30, 30, 30),
+            Border: Color.FromArgb(180, 255, 220, 50),
+            Fg: Color.FromArgb(255, 255, 220, 50));
+
+        private static readonly IconColors ScanningColors = new(
+            Bg: Color.FromArgb(230, 0, 120, 140),
+            Border: Color.FromArgb(200, 0, 255, 255),
+            Fg: Color.FromArgb(255, 255, 255, 255));
+
+        private static readonly IconColors ActiveColors = new(
+            Bg: Color.FromArgb(230, 255, 255, 0),
+            Border: Color.FromArgb(200, 30, 30, 30),
+            Fg: Color.FromArgb(255, 30, 30, 30));
+
+        private record IconColors(Color Bg, Color Border, Color Fg);
 
         public event EventHandler? ToggleRequested;
         public event EventHandler? PreferencesRequested;
@@ -24,7 +43,7 @@ namespace WindowsHinting.Services
         {
             _debugLogger = logger as DebugLogger;
 
-            _currentIcon = CreateTrayIcon("H");
+            _currentIcon = CreateTrayIcon("H", IdleColors);
             _trayIcon = new NotifyIcon
             {
                 Text = "Windows-Hinting",
@@ -38,6 +57,8 @@ namespace WindowsHinting.Services
             // Logging submenu
             contextMenu.Items.Add(CreateLoggingMenu(logger));
 
+            contextMenu.Items.Add("-");
+            contextMenu.Items.Add("About...", null, (s, e) => ShowAbout());
             contextMenu.Items.Add("-");
             contextMenu.Items.Add("Exit", null, (s, e) => ExitRequested?.Invoke(this, EventArgs.Empty));
 
@@ -136,6 +157,12 @@ namespace WindowsHinting.Services
             _logViewer.Show();
         }
 
+        private static void ShowAbout()
+        {
+            using var about = new AboutForm();
+            about.ShowDialog();
+        }
+
         public void SetClickAction(ClickAction action)
         {
             string letter = action switch
@@ -151,15 +178,33 @@ namespace WindowsHinting.Services
             UpdateIcon(letter);
         }
 
+        public void SetStatus(HintMode mode)
+        {
+            var colors = mode switch
+            {
+                HintMode.Scanning => ScanningColors,
+                HintMode.Active or HintMode.Selecting => ActiveColors,
+                _ => IdleColors
+            };
+            ApplyIcon(_currentLetter, colors);
+        }
+
         public void ResetIcon()
         {
-            UpdateIcon("H");
+            _currentLetter = "H";
+            ApplyIcon(_currentLetter, IdleColors);
         }
 
         private void UpdateIcon(string letter)
         {
+            _currentLetter = letter;
+            ApplyIcon(letter, ActiveColors);
+        }
+
+        private void ApplyIcon(string letter, IconColors colors)
+        {
             var oldIcon = _currentIcon;
-            _currentIcon = CreateTrayIcon(letter);
+            _currentIcon = CreateTrayIcon(letter, colors);
             _trayIcon.Icon = _currentIcon;
             if (oldIcon != null)
             {
@@ -168,7 +213,7 @@ namespace WindowsHinting.Services
             }
         }
 
-        private static Icon CreateTrayIcon(string letter)
+        private static Icon CreateTrayIcon(string letter, IconColors colors)
         {
             const int size = 32;
             var bmp = new Bitmap(size, size);
@@ -182,18 +227,18 @@ namespace WindowsHinting.Services
                 var bgRect = new Rectangle(1, 1, size - 2, size - 2);
                 int radius = 6;
                 using var path = CreateRoundedRect(bgRect, radius);
-                using (var bgBrush = new SolidBrush(Color.FromArgb(230, 30, 30, 30)))
+                using (var bgBrush = new SolidBrush(colors.Bg))
                 {
                     g.FillPath(bgBrush, path);
                 }
-                using (var borderPen = new Pen(Color.FromArgb(180, 255, 220, 50), 1.5f))
+                using (var borderPen = new Pen(colors.Border, 1.5f))
                 {
                     g.DrawPath(borderPen, path);
                 }
 
                 // Centered letter
                 using var font = new Font("Segoe UI", 16, FontStyle.Bold, GraphicsUnit.Pixel);
-                using var brush = new SolidBrush(Color.FromArgb(255, 255, 220, 50));
+                using var brush = new SolidBrush(colors.Fg);
                 var textSize = g.MeasureString(letter, font);
                 float x = (size - textSize.Width) / 2f;
                 float y = (size - textSize.Height) / 2f;
@@ -218,18 +263,6 @@ namespace WindowsHinting.Services
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool DestroyIcon(IntPtr handle);
-
-        /// <summary>
-        /// Returns true if the given window handle belongs to the log viewer.
-        /// </summary>
-        public bool IsLogViewerWindow(IntPtr hwnd)
-        {
-            return hwnd != IntPtr.Zero
-                && _logViewer != null
-                && !_logViewer.IsDisposed
-                && _logViewer.IsHandleCreated
-                && _logViewer.Handle == hwnd;
-        }
 
         public void ShowNotification(string title, string text, ToolTipIcon icon = ToolTipIcon.Warning, int durationMs = 3000)
         {
