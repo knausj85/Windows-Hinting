@@ -110,8 +110,8 @@ jobs:
       - name: Restore NuGet packages
         run: dotnet restore Windows-Hinting\Windows-Hinting.csproj
 
-      - name: Build Release + MSI
-        run: .\build\build-complete.ps1 -Configuration Release
+      - name: Build Release exe
+        run: .\build\build-complete.ps1 -Configuration Release -ExeOnly
 
       - name: Sign exe with SSL.com eSigner
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -123,19 +123,6 @@ jobs:
           credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
           file_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe
-          malware_block: true
-          override: true
-
-      - name: Sign MSI with SSL.com eSigner
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: sslcom/esigner-codesign@develop
-        with:
-          command: sign
-          username: ${{ secrets.ES_USERNAME }}
-          password: ${{ secrets.ES_PASSWORD }}
-          credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
-          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          file_path: ${GITHUB_WORKSPACE}\Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
           malware_block: true
           override: true
 
@@ -158,6 +145,24 @@ jobs:
             }
           }
           Write-Host "------------------------------"
+
+      - name: Build MSI (packages the signed exe)
+        run: |
+          $InstallerProject = "Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj"
+          msbuild $InstallerProject /p:Configuration=Release /p:SignOutput=false /nologo /v:minimal
+
+      - name: Sign MSI with SSL.com eSigner
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: sslcom/esigner-codesign@develop
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: ${GITHUB_WORKSPACE}\Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
+          malware_block: true
+          override: true
 
       - name: Verify MSI signature
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
