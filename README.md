@@ -1,6 +1,8 @@
 # Windows-Hinting
 
-A keyboard-driven accessibility overlay for Windows. Displays hint labels on clickable UI elements so you can activate them by typing, without reaching for the mouse. Works well with [Talon Voice](https://talonvoice.com/), Stream Deck, and other automation tools.
+A prototype keyboard-driven accessibility overlay for Windows. 
+
+Displays hint labels on clickable UI elements so you can activate them by typing, without reaching for the mouse. Works well with [Talon Voice](https://talonvoice.com/), Stream Deck, and other automation tools.
 
 ## How It Works
 
