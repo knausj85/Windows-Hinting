@@ -72,6 +72,15 @@ namespace WindowsHinting
                 _mouseClickService = mouseClickService ?? throw new ArgumentNullException(nameof(mouseClickService));
                 _startupService = startupService ?? throw new ArgumentNullException(nameof(startupService));
 
+                // Auto-hide timer
+                _autoHideTimer = new System.Windows.Forms.Timer();
+                _autoHideTimer.Tick += (_, _) =>
+                {
+                    _autoHideTimer.Stop();
+                    _logger.Info("Auto-hide timeout reached, deactivating hints");
+                    _stateManager.Deactivate();
+                };
+
                 // Load preferences
                 _logger.Debug("Loading preferences");
                 _options = PerformanceMetricsExtensions.MeasureExecution(
@@ -102,7 +111,7 @@ namespace WindowsHinting
                 //_namedPipeService.CommandReceived += OnNamedPipeCommandReceived;
 
                 // Start named pipe service
-                _logger.Debug("Starting named pipe service");
+                // _logger.Debug("Starting named pipe service");
                 //_namedPipeService.Start();
 
                 // Show overlay
@@ -294,6 +303,13 @@ namespace WindowsHinting
                     return;
                 }
 
+                if (_trayIcon.IsLogViewerWindow(hwnd))
+                {
+                    _logger.Debug("Foreground window is the log viewer, skipping hints");
+                    _stateManager.Deactivate();
+                    return;
+                }
+
                 _logger.Debug($"Scanning window: {hwnd}");
 
                 // Ensure overlay is topmost before scanning
@@ -477,9 +493,17 @@ namespace WindowsHinting
             {
                 _logger.Debug("Starting keyboard service");
                 _keyboardService.Start();
+
+                if (mode == HintMode.Active && _options.AutoHideTimeoutSeconds > 0)
+                {
+                    _autoHideTimer.Interval = _options.AutoHideTimeoutSeconds * 1000;
+                    _autoHideTimer.Start();
+                    _logger.Debug($"Auto-hide timer started ({_options.AutoHideTimeoutSeconds}s)");
+                }
             }
             else
             {
+                _autoHideTimer.Stop();
                 _logger.Debug("Stopping keyboard service");
                 _keyboardService.Stop();
                 _inputHandler.Reset();
@@ -649,6 +673,8 @@ namespace WindowsHinting
                 return;
 
             _logger.Info("Disposing HintController");
+            _autoHideTimer.Stop();
+            _autoHideTimer.Dispose();
             //_namedPipeService.Dispose();
             _keyboardService.Stop();
             _trayIcon.Dispose();
