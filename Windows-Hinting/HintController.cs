@@ -33,6 +33,7 @@ namespace WindowsHinting
         private HintOverlayOptions _options;
         private long _lastToggleTicks;
         private const long ToggleDebounceMs = 200;
+        private readonly System.Windows.Forms.Timer _autoHideTimer;
         private bool _disposed;
 
         public HintController(

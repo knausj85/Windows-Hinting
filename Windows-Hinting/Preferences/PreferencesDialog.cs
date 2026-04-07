@@ -15,8 +15,8 @@ namespace Preferences
         private CheckBox _chkShowRectangles = null!;
         private CheckBox _chkStartWithWindows = null!;
         private readonly Dictionary<HintPosition, RadioButton> _positionButtons = new();
-        private TrackBar _overlapThresholdTrackBar = null!;
-        private Label _overlapThresholdValueLabel = null!;
+        private CheckBox _chkAutoHideEnabled = null!;
+        private NumericUpDown _nudAutoHideTimeout = null!;
 
         // Hotkeys tab controls
         private CheckBox _chkHotkeyEnabled = null!;
@@ -228,63 +228,71 @@ namespace Preferences
             hintPosGroup.Controls.Add(posGrid);
             layout.Controls.Add(hintPosGroup, 0, 2);
 
-            // Overlap threshold slider
-            var overlapGroup = new GroupBox
+            // Auto-hide timeout
+            var autoHideGroup = new GroupBox
             {
-                Text = "Overlap Deduplication",
+                Text = "Auto-hide Timeout",
                 AutoSize = true,
                 Dock = DockStyle.Fill,
                 Padding = new Padding(10)
             };
 
-            var overlapLayout = new TableLayoutPanel
+            var autoHideLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 2,
+                ColumnCount = 3,
                 RowCount = 2,
                 AutoSize = true
             };
-            overlapLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            overlapLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            overlapLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            overlapLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            autoHideLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            autoHideLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            autoHideLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            autoHideLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            autoHideLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-            var overlapDescription = new Label
+            var autoHideDescription = new Label
             {
-                Text = "Area overlap threshold for removing container elements. " +
-                       "Lower values remove more aggressively.",
+                Text = "Automatically hide hints after a period of inactivity.",
                 AutoSize = true,
                 Dock = DockStyle.Fill,
                 Padding = new Padding(0, 0, 0, 4)
             };
-            overlapLayout.SetColumnSpan(overlapDescription, 2);
-            overlapLayout.Controls.Add(overlapDescription, 0, 0);
+            autoHideLayout.SetColumnSpan(autoHideDescription, 3);
+            autoHideLayout.Controls.Add(autoHideDescription, 0, 0);
 
-            _overlapThresholdTrackBar = new TrackBar
+            _chkAutoHideEnabled = new CheckBox
             {
-                Minimum = 0,
-                Maximum = 100,
-                TickFrequency = 10,
-                SmallChange = 5,
-                LargeChange = 10,
-                Dock = DockStyle.Fill
+                Text = "Enable auto-hide after",
+                AutoSize = true,
+                Anchor = AnchorStyles.Left
             };
-            _overlapThresholdValueLabel = new Label
+            _chkAutoHideEnabled.CheckedChanged += (_, _) =>
             {
-                Text = "25%",
+                _nudAutoHideTimeout.Enabled = _chkAutoHideEnabled.Checked;
+            };
+            autoHideLayout.Controls.Add(_chkAutoHideEnabled, 0, 1);
+
+            _nudAutoHideTimeout = new NumericUpDown
+            {
+                Minimum = 1,
+                Maximum = 300,
+                Value = 15,
+                Width = 80,
+                Anchor = AnchorStyles.Left
+            };
+            autoHideLayout.Controls.Add(_nudAutoHideTimeout, 1, 1);
+
+            var secondsLabel = new Label
+            {
+                Text = "seconds",
                 AutoSize = true,
                 Anchor = AnchorStyles.Left,
-                Padding = new Padding(4, 6, 0, 0)
+                Padding = new Padding(0, 6, 0, 0)
             };
-            _overlapThresholdTrackBar.ValueChanged += (_, _) =>
-            {
-                _overlapThresholdValueLabel.Text = $"{_overlapThresholdTrackBar.Value}%";
-            };
-            overlapLayout.Controls.Add(_overlapThresholdTrackBar, 0, 1);
-            overlapLayout.Controls.Add(_overlapThresholdValueLabel, 1, 1);
+            autoHideLayout.Controls.Add(secondsLabel, 2, 1);
 
-            overlapGroup.Controls.Add(overlapLayout);
-            layout.Controls.Add(overlapGroup, 0, 3);
+            autoHideGroup.Controls.Add(autoHideLayout);
+            layout.Controls.Add(autoHideGroup, 0, 3);
 
             scrollPanel.Controls.Add(layout);
             tab.Controls.Add(scrollPanel);
@@ -650,8 +658,11 @@ namespace Preferences
             _shiftClickKeyRecorder.Enabled = shortcutsEnabled;
             _shiftClickKeyRecorder.SetKey(_options.ClickActionShortcuts.ShiftClickKey);
 
-            _overlapThresholdTrackBar.Value = Math.Clamp(_options.OverlapThreshold, 0, 100);
-            _overlapThresholdValueLabel.Text = $"{_overlapThresholdTrackBar.Value}%";
+            _chkAutoHideEnabled.Checked = _options.AutoHideTimeoutSeconds > 0;
+            _nudAutoHideTimeout.Value = _options.AutoHideTimeoutSeconds > 0
+                ? Math.Clamp(_options.AutoHideTimeoutSeconds, 1, 300)
+                : 15;
+            _nudAutoHideTimeout.Enabled = _chkAutoHideEnabled.Checked;
 
             // Window rules — always merge with defaults so built-in rules are present
             var rules = WindowRuleRegistry.MergeWithDefaults(_options.WindowRules);
@@ -681,7 +692,9 @@ namespace Preferences
             _options.ClickActionShortcuts.CtrlClickKey = _ctrlClickKeyRecorder.VirtualKey;
             _options.ClickActionShortcuts.ShiftClickKey = _shiftClickKeyRecorder.VirtualKey;
 
-            _options.OverlapThreshold = _overlapThresholdTrackBar.Value;
+            _options.AutoHideTimeoutSeconds = _chkAutoHideEnabled.Checked
+                ? (int)_nudAutoHideTimeout.Value
+                : 0;
 
             // Collect window rules from the grid (exclude incomplete new-row entries)
             _options.WindowRules = _rulesBindingList

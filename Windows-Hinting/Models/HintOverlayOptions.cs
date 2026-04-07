@@ -24,6 +24,12 @@ namespace WindowsHinting.Models
         public int OverlapThreshold { get; set; } = 25;
 
         /// <summary>
+        /// Time in seconds before displayed hints are automatically hidden.
+        /// Set to 0 to disable the auto-hide timeout. Default: 15 seconds.
+        /// </summary>
+        public int AutoHideTimeoutSeconds { get; set; } = 15;
+
+        /// <summary>
         /// Maximum time in milliseconds to wait for a UI Automation scan to complete.
         /// If the scan takes longer, it is aborted and the overlay shows no hints.
         /// Set to 0 to disable the timeout. Default: 3000ms.

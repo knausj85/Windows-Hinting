@@ -219,6 +219,18 @@ namespace WindowsHinting.Services
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool DestroyIcon(IntPtr handle);
 
+        /// <summary>
+        /// Returns true if the given window handle belongs to the log viewer.
+        /// </summary>
+        public bool IsLogViewerWindow(IntPtr hwnd)
+        {
+            return hwnd != IntPtr.Zero
+                && _logViewer != null
+                && !_logViewer.IsDisposed
+                && _logViewer.IsHandleCreated
+                && _logViewer.Handle == hwnd;
+        }
+
         public void ShowNotification(string title, string text, ToolTipIcon icon = ToolTipIcon.Warning, int durationMs = 3000)
         {
             _trayIcon.ShowBalloonTip(durationMs, title, text, icon);
