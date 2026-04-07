@@ -39,16 +39,8 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.nuget/packages
-          key: nuget-${{ runner.os }}-windows-hinting-${{ hashFiles('**/*.csproj','**/packages.lock.json') }}
-          restore-keys: nuget-${{ runner.os }}-windows-hinting-
-
       - name: Restore NuGet packages
-        run: dotnet restore Windows-Hinting\Windows-Hinting.csproj
+        run: dotnet restore
 
       - name: Install PSScriptAnalyzer
         run: Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
@@ -80,7 +72,7 @@ jobs:
         uses: microsoft/setup-msbuild@v3
 
       - name: Restore NuGet packages
-        run: dotnet restore Windows-Hinting\Windows-Hinting.csproj
+        run: dotnet restore
 
       - name: Build Debug (exe only)
         run: build\build-complete.bat Debug --exe-only
@@ -119,7 +111,7 @@ jobs:
         run: dotnet tool install --global wix --version 6.0.2
 
       - name: Restore NuGet packages
-        run: dotnet restore Windows-Hinting\Windows-Hinting.csproj
+        run: dotnet restore
 
       - name: Build Release exe
         run: .\build\build-complete.ps1 -Configuration Release -ExeOnly
