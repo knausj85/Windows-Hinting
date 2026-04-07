@@ -110,44 +110,37 @@ jobs:
       - name: Restore NuGet packages
         run: dotnet restore Windows-Hinting\Windows-Hinting.csproj
 
-      - name: Decode signing certificate
-        env:
-          CERT_BASE64: ${{ secrets.SIGNING_CERT_BASE64 }}
-        run: |
-          if ($env:CERT_BASE64) {
-            $certPath = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
-            [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:CERT_BASE64))
-            "CERT_PATH=$certPath" | Out-File -FilePath $env:GITHUB_ENV -Append
-            Write-Host "Signing certificate decoded to $certPath"
-          } else {
-            Write-Host "SIGNING_CERT_BASE64 secret not configured — build will be unsigned"
-          }
-
       - name: Build Release + MSI
-        env:
-          CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
-        run: |
-          Write-Host "--- Signing params (debug) ---"
-          Write-Host "  CERT_PATH set : $(if ($env:CERT_PATH) { 'yes — ' + $env:CERT_PATH } else { 'no' })"
-          Write-Host "  CERT_PASSWORD : $(if ($env:CERT_PASSWORD) { '(set)' } else { '(empty — secret not configured)' })"
-          Write-Host "------------------------------"
-          if ($env:CERT_PATH) {
-            Write-Host "Building with code signing (cert: $env:CERT_PATH)"
-            .\build\build-complete.ps1 -Configuration Release -CertPath $env:CERT_PATH -CertPassword $env:CERT_PASSWORD
-          } else {
-            Write-Host "Building without code signing"
-            .\build\build-complete.ps1 -Configuration Release -SkipSigning
-          }
+        run: .\build\build-complete.ps1 -Configuration Release
 
-      - name: Clean up signing certificate
-        if: always()
-        run: |
-          if ($env:CERT_PATH -and (Test-Path $env:CERT_PATH)) {
-            Remove-Item $env:CERT_PATH -Force
-            Write-Host "Signing certificate removed"
-          }
+      - name: Sign exe with SSL.com eSigner
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: sslcom/esigner-codesign@develop
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe
+          malware_block: false
+          override: true
+
+      - name: Sign MSI with SSL.com eSigner
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: sslcom/esigner-codesign@develop
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
+          malware_block: false
+          override: true
 
       - name: Verify exe signature
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           $exePath = "Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe"
           Write-Host "--- Signature verification ---"
@@ -165,6 +158,26 @@ jobs:
             }
           }
           Write-Host "------------------------------"
+
+      - name: Verify MSI signature
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          $msiPath = "Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi"
+          Write-Host "--- MSI Signature verification ---"
+          if (-not (Test-Path $msiPath)) {
+            Write-Host "  ERROR: MSI not found at $msiPath"
+          } else {
+            $sig = Get-AuthenticodeSignature -FilePath $msiPath
+            Write-Host "  Status       : $($sig.Status)"
+            Write-Host "  StatusMessage: $($sig.StatusMessage)"
+            if ($sig.SignerCertificate) {
+              Write-Host "  Signer       : $($sig.SignerCertificate.Subject)"
+              Write-Host "  Valid until  : $($sig.SignerCertificate.NotAfter)"
+            } else {
+              Write-Host "  Signer       : (none — MSI is unsigned)"
+            }
+          }
+          Write-Host "----------------------------------"
 
       - name: Upload Release exe artifact
         uses: actions/upload-artifact@v7
