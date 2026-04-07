@@ -8,23 +8,13 @@ Project("{B7DD6F7E-DEF8-4E67-B5B7-07EF123DB6F0}") = "Windows-Hinting.Installer",
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{B1A2C3D4-E5F6-7890-ABCD-EF1234567890}"
 	ProjectSection(SolutionItems) = preProject
-		build\build-and-sign.bat = build\build-and-sign.bat
-		build\build-and-sign.ps1 = build\build-and-sign.ps1
 		build\build-complete.bat = build\build-complete.bat
 		build\build-complete.ps1 = build\build-complete.ps1
-		build\Build-HintOverlay.ps1 = build\Build-HintOverlay.ps1
-		build\Build-InstallerMSI.ps1 = build\Build-InstallerMSI.ps1
-		build\Create-CodeSigningCert.ps1 = build\Create-CodeSigningCert.ps1
-		build\find-signtool.ps1 = build\find-signtool.ps1
-		build\generate-signing-cert.ps1 = build\generate-signing-cert.ps1
-		build\New-HintOverlayMSI.ps1 = build\New-HintOverlayMSI.ps1
-		build\Sign-HintOverlay.ps1 = build\Sign-HintOverlay.ps1
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{A1B2C3D4-5678-9ABC-DEF0-123456789ABC}"
 	ProjectSection(SolutionItems) = preProject
 		.github\workflows\build.yml = .github\workflows\build.yml
-		.github\workflows\README.md = .github\workflows\README.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "config", "config", "{C1D2E3F4-5678-9ABC-DEF0-ABCDEF123456}"
@@ -81,5 +71,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A04098CC-C784-48CE-8942-F0D8ABC60529}
 	EndGlobalSection
 EndGlobal

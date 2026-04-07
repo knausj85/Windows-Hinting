@@ -11,6 +11,7 @@
     <ApplicationManifest Condition="'$(Configuration)' == 'Release'">app.manifest</ApplicationManifest>
     <ApplicationManifest Condition="'$(Configuration)' != 'Release'">app.debug.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
     <EmbedInteropTypes>false</EmbedInteropTypes>
     <!-- Suppress harmless COM interop warning for CUIAutomation8.SafeArrayToRectNativeArray -->

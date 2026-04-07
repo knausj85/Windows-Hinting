@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package
     Id="ProductPackage"
@@ -28,6 +28,10 @@
     </Feature>
 
     <!-- Directory structure definition in Folders.wxs -->
+
+    <!-- Application icon for shortcuts and Add/Remove Programs -->
+    <Icon Id="AppIcon.ico" SourceFile="$(var.Windows_Hinting.TargetDir)Windows-Hinting.exe" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
 
     <!-- License variable -->
     <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />

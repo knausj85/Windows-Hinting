@@ -233,8 +233,8 @@ jobs:
 
             | Asset | Description |
             |---|---|
-            | **Windows-Hinting-Debug.zip** | Debug build (portable) — no UIAccess, no certificate required. Extract the zip and run `Windows-Hinting.exe`. Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). |
-            | **Windows-Hinting.msi** | Installer (Release build with UIAccess) — requires the signing certificate to be manually installed as a trusted root certificate. See the [UIAccess setup guide](https://github.com/knausj85/Windows-Hinting/blob/main/UIACCESS_QUICKSTART.md) for instructions. |
+            | **Windows-Hinting-Debug.zip** | Debug build (Unsigned, portable) — no UIAccess. Hints won't appear above e.g. start menu'. Extract the zip and run `Windows-Hinting.exe`. Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). |
+            | **Windows-Hinting.msi** | Installer — Signed installer and executable providing UIAccess support. Hints will appear above e.g. start menu. |
           artifacts: |
             artifacts/Windows-Hinting-Debug.zip
             artifacts/Windows-Hinting.msi

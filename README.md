@@ -59,26 +59,3 @@ The system tray icon reflects the current state:
 | **S** | Shift+Click mode |
 
 Right-click the tray icon for Preferences, Logging, and Exit.
-
-## Named Pipe Interface
-
-External applications can control Windows-Hinting via the `WindowsHinting_Pipe` named pipe.
-
-| Command | Description |
-|---|---|
-| `TOGGLE` | Toggle hints for the foreground window |
-| `TOGGLETASKBAR` | Toggle hints for the taskbar |
-| `SELECT <label>` | Activate hint with default action |
-| `SELECT <label> <action>` | Activate hint with a specific action (`LEFT`, `RIGHT`, `DOUBLE`, `MOVE`, `CTRL`, `SHIFT`) |
-| `DEACTIVATE` | Dismiss hints |
-
-**C# client example:**
-```csharp
-using var client = new HintOverlayClient();
-client.Toggle();
-client.SelectHint("A");               // Default activation
-client.SelectHint("B", "RIGHT");      // Right click
-client.SelectHint("C", "CTRL");       // Ctrl+click
-```
-
-See [Named Pipe docs](Windows-Hinting/docs/README_NAMED_PIPE_INTERFACE.md) for more details including PowerShell, Python, and C++ examples.

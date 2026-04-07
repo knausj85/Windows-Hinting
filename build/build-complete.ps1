@@ -21,7 +21,7 @@ Write-Host ""
 $IsBuildingMsi = (-not $ExeOnly -and $Configuration -eq "Release")
 $StepCount = if ($IsBuildingMsi) { '3' } else { '1' }
 
-# Step 1: Build the executable (with signing if Release)
+# Step 1: Build the executable
 Write-Host "[1/$StepCount] Building Windows-Hinting executable..."
 Write-Host ""
 

@@ -157,7 +157,8 @@
           Id="DesktopShortcutRef"
           Target="[INSTALLFOLDER]Windows-Hinting.exe"
           Name="Windows-Hinting"
-          WorkingDirectory="INSTALLFOLDER" />
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon.ico" />
 
         <RemoveFolder Id="DesktopFolderRemoveOnUninstall" On="uninstall" />
 
@@ -176,7 +177,8 @@
           Id="ProgramMenuShortcutRef"
           Target="[INSTALLFOLDER]Windows-Hinting.exe"
           Name="Windows-Hinting"
-          WorkingDirectory="INSTALLFOLDER" />
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon.ico" />
 
         <RemoveFolder Id="ApplicationProgramsFolderRemoveOnUninstall" On="uninstall" />
 
