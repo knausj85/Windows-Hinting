@@ -29,11 +29,11 @@ While hints are active:
 | `A`–`Z` | Append to the hint filter |
 | `Backspace` | Remove last filter character |
 | `Escape` | Clear the filter |
-| `Space` | Commit selection (default activation via UI Automation) |
+| `Space` or `Enter` | Commit selection (default activation via UI Automation) |
 
 ## Click Action Shortcuts
 
-While hints are active, use `Shift+key` to toggle the pending click action. The tray icon updates to reflect the current mode. Press `Space` to commit the selection with the pending action.
+By default, Windows-Hinting will call UIAutomation's invoke function on the selected object. At times, this is not the preferred action. While hints are active, use `Shift+key` to toggle the pending click action. The tray icon updates to reflect the current mode. Press `Space` to commit the selection with the pending action.
 
 | Shortcut | Action | Description |
 |---|---|---|
