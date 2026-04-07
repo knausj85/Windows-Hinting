@@ -122,8 +122,8 @@ jobs:
           password: ${{ secrets.ES_PASSWORD }}
           credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          file_path: Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe
-          malware_block: false
+          file_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe
+          malware_block: true
           override: true
 
       - name: Sign MSI with SSL.com eSigner
@@ -135,14 +135,14 @@ jobs:
           password: ${{ secrets.ES_PASSWORD }}
           credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          file_path: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
-          malware_block: false
+          file_path: ${GITHUB_WORKSPACE}\Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
+          malware_block: true
           override: true
 
       - name: Verify exe signature
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          $exePath = "Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe"
+          $exePath = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe"
           Write-Host "--- Signature verification ---"
           if (-not (Test-Path $exePath)) {
             Write-Host "  ERROR: exe not found at $exePath"
@@ -162,7 +162,7 @@ jobs:
       - name: Verify MSI signature
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          $msiPath = "Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi"
+          $msiPath = "$env:GITHUB_WORKSPACE\Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi"
           Write-Host "--- MSI Signature verification ---"
           if (-not (Test-Path $msiPath)) {
             Write-Host "  ERROR: MSI not found at $msiPath"
