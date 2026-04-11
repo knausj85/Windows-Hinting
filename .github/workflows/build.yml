@@ -82,6 +82,39 @@ jobs:
           $outDir = "Windows-Hinting\bin\Debug\net8.0-windows"
           Remove-Item "$outDir\xunit.*" -Force -ErrorAction SilentlyContinue
 
+      - name: Sign Debug exe with SSL.com eSigner
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: sslcom/esigner-codesign@develop
+        with:
+          command: sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          file_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin\Debug\net8.0-windows\Windows-Hinting.exe
+          malware_block: true
+          override: true
+
+      - name: Verify Debug exe signature
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          $exePath = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Debug\net8.0-windows\Windows-Hinting.exe"
+          Write-Host "--- Debug Signature verification ---"
+          if (-not (Test-Path $exePath)) {
+            Write-Host "  ERROR: exe not found at $exePath"
+          } else {
+            $sig = Get-AuthenticodeSignature -FilePath $exePath
+            Write-Host "  Status       : $($sig.Status)"
+            Write-Host "  StatusMessage: $($sig.StatusMessage)"
+            if ($sig.SignerCertificate) {
+              Write-Host "  Signer       : $($sig.SignerCertificate.Subject)"
+              Write-Host "  Valid until  : $($sig.SignerCertificate.NotAfter)"
+            } else {
+              Write-Host "  Signer       : (none — exe is unsigned)"
+            }
+          }
+          Write-Host "------------------------------------"
+
       - name: Upload Debug artifact
         uses: actions/upload-artifact@v7
         with:
@@ -234,10 +267,10 @@ jobs:
           body: |
             ## Downloads
 
-            | Asset | Description |
-            |---|---|
-            | **Windows-Hinting-Debug.zip** | Debug build (Unsigned, portable) — no UIAccess. Hints won't appear above e.g. start menu'. Extract the zip and run `Windows-Hinting.exe`. Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). |
-            | **Windows-Hinting.msi** | Installer — Signed installer and executable providing UIAccess support. Hints will appear above e.g. start menu. |
+              | Asset | Description |
+              |---|---|
+              | **Windows-Hinting-Debug.zip** | Debug build (Signed, portable) — no UIAccess. Hints won't appear above e.g. start menu. Extract the zip and run `Windows-Hinting.exe`. Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). |
+              | **Windows-Hinting.msi** | Installer — Signed installer and executable providing UIAccess support. Hints will appear above e.g. start menu. |
           artifacts: |
             artifacts/Windows-Hinting-Debug.zip
             artifacts/Windows-Hinting.msi
