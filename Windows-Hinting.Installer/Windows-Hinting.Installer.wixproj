@@ -21,12 +21,4 @@
   <ItemGroup>
     <Content Include="License.rtf" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="CONFIGURATION_SUMMARY.md" />
-    <None Include="FIX_SUMMARY.md" />
-    <None Include="INSTALLATION_GUIDE.md" />
-    <None Include="QUICK_START.md" />
-    <None Include="RUNTIMES_FOLDER_FIX.md" />
-    <None Include="UIACCESS_SETUP.md" />
-  </ItemGroup>
 </Project>
