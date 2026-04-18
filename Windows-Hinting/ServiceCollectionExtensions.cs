@@ -30,6 +30,7 @@ namespace WindowsHinting
             //services.AddSingleton<NamedPipeService>();
             services.AddSingleton<MouseClickService>();
             services.AddSingleton<StartupService>();
+            services.AddSingleton<AutoMenuHintService>();
 
             // UI Components
             services.AddSingleton<OverlayForm>();

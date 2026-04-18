@@ -13,6 +13,14 @@ namespace WindowsHinting.Services
         IReadOnlyList<ClickableElement> FindClickableElements(IntPtr windowHandle);
         Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle);
         Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle, int timeoutMs);
+
+        /// <summary>
+        /// Find clickable elements (menu items and activatable descendants) that
+        /// are descendants of the supplied UI Automation element root. Used for
+        /// auto-hinting menus and popups discovered via UIA events.
+        /// Optionally filter by UIA control type ids.
+        /// </summary>
+        IReadOnlyList<ClickableElement> FindClickableElementsFromRoot(IUIAutomationElement root, int[]? controlTypeFilter = null);
     }
 
     public class ClickableElement

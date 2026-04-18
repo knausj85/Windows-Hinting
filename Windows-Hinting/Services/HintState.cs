@@ -17,7 +17,8 @@ namespace WindowsHinting.Services
     {
         None,
         ForegroundWindow,
-        Taskbar
+        Taskbar,
+        AutoMenu
     }
 
     internal sealed class HintStateManager

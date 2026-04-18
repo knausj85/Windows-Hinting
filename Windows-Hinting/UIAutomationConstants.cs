@@ -151,6 +151,19 @@ namespace WindowsHinting
     }
 
     /// <summary>
+    /// UI Automation Event IDs
+    /// </summary>
+    internal static class UIA_EventIds
+    {
+        public const int UIA_MenuOpenedEventId = 20003;
+        public const int UIA_MenuClosedEventId = 20007;
+        public const int UIA_Window_WindowOpenedEventId = 20016;
+        public const int UIA_Window_WindowClosedEventId = 20017;
+        public const int UIA_MenuModeStartEventId = 20018;
+        public const int UIA_MenuModeEndEventId = 20019;
+    }
+
+    /// <summary>
     /// UI Automation Pattern IDs
     /// </summary>
     internal static class UIA_PatternIds

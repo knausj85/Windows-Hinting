@@ -148,6 +148,80 @@ namespace WindowsHinting.Services
             }
         }
 
+        public IReadOnlyList<ClickableElement> FindClickableElementsFromRoot(IUIAutomationElement root, int[]? controlTypeFilter = null)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            if (root == null)
+                return Array.Empty<ClickableElement>();
+
+            using (PerformanceMetrics.Start("UIAutomationService.FindClickableElementsFromRoot", _logger, LogLevel.Info))
+            {
+                var arrays = new List<IUIAutomationElementArray>();
+                try
+                {
+                    IUIAutomationElementArray? found = null;
+                    try
+                    {
+                        found = root.FindAllBuildCache(TreeScope.TreeScope_Subtree, _searchCondition, _cacheRequest);
+                    }
+                    catch (COMException ex)
+                    {
+                        _logger.Debug($"FindAllBuildCache(root) failed: {ex.Message}");
+                    }
+
+                    if (found == null)
+                        return Array.Empty<ClickableElement>();
+
+                    arrays.Add(found);
+                    var results = ProcessElementArrays(arrays);
+
+                    if (controlTypeFilter != null && controlTypeFilter.Length > 0)
+                    {
+                        var filterSet = new HashSet<int>(controlTypeFilter);
+                        var filtered = new List<ClickableElement>(results.Count);
+                        foreach (var ce in results)
+                        {
+                            int ctrlType = 0;
+                            try
+                            {
+                                var v = ce.Element.GetCachedPropertyValue(UIA_PropertyIds.UIA_ControlTypePropertyId);
+                                if (v is int i) ctrlType = i;
+                            }
+                            catch { }
+
+                            if (filterSet.Contains(ctrlType))
+                            {
+                                filtered.Add(ce);
+                            }
+                            else if (Marshal.IsComObject(ce.Element))
+                            {
+                                try { Marshal.ReleaseComObject(ce.Element); } catch { }
+                            }
+                        }
+                        _logger.Info($"FindClickableElementsFromRoot: {filtered.Count} elements after control-type filter");
+                        return filtered;
+                    }
+
+                    _logger.Info($"FindClickableElementsFromRoot: {results.Count} elements");
+                    return results;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("Unexpected error in FindClickableElementsFromRoot", ex);
+                    return Array.Empty<ClickableElement>();
+                }
+                finally
+                {
+                    foreach (var a in arrays)
+                    {
+                        if (a != null && Marshal.IsComObject(a))
+                            Marshal.ReleaseComObject(a);
+                    }
+                }
+            }
+        }
+
         private IReadOnlyList<ClickableElement> FindClickableElementsCore(IntPtr windowHandle)
         {
             if (windowHandle == IntPtr.Zero)
@@ -174,8 +248,6 @@ namespace WindowsHinting.Services
 
                 // Resolve the root element(s) strategy based on window rules
                 roots = ResolveRootElements(windowHandle, root);
-
-                var results = new List<ClickableElement>();
 
                 using (PerformanceMetrics.Start("FindAllBuildCache", _logger, LogLevel.Info))
                 {
@@ -205,64 +277,7 @@ namespace WindowsHinting.Services
                 int totalElements = elementArraysToRelease.Sum(a => a.Length);
                 _logger.Debug($"Processing {totalElements} found elements across {elementArraysToRelease.Count} root(s)");
 
-                using (PerformanceMetrics.Start($"ProcessElements({totalElements})", _logger, LogLevel.Debug))
-                {
-                    foreach (var elemArray in elementArraysToRelease)
-                    {
-                        int elementCount = elemArray.Length;
-                        for (int i = 0; i < elementCount; i++)
-                        {
-                            IUIAutomationElement? element = null;
-                            try
-                            {
-                                element = elemArray.GetElement(i);
-                                if (element == null)
-                                    continue;
-
-                                var rectObj = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
-                                if (rectObj == null)
-                                    continue;
-
-                                if (rectObj is double[] rectArray && rectArray.Length == 4)
-                                {
-                                    var rect = new Rectangle(
-                                        (int)rectArray[0],
-                                        (int)rectArray[1],
-                                        (int)rectArray[2],
-                                        (int)rectArray[3]
-                                    );
-
-                                    if (rect.Width > 0 && rect.Height > 0
-                                        && HasActivatablePattern(element))
-                                    {
-                                        results.Add(new ClickableElement
-                                        {
-                                            Element = element,
-                                            Bounds = rect
-                                        });
-                                        element = null; // Don't release - ownership transferred to ClickableElement
-                                    }
-                                }
-                            }
-                            catch (COMException ex)
-                            {
-                                _logger.Debug($"COM exception processing element {i}: {ex.Message}");
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.Debug($"Exception processing element {i}: {ex.Message}");
-                            }
-                            finally
-                            {
-                                // Only release if we didn't transfer ownership
-                                if (element != null && Marshal.IsComObject(element))
-                                {
-                                    Marshal.ReleaseComObject(element);
-                                }
-                            }
-                        }
-                    }
-                }
+                var results = ProcessElementArrays(elementArraysToRelease);
 
                 _logger.Info($"Found {results.Count} valid clickable elements");
                 return results;
@@ -553,6 +568,72 @@ namespace WindowsHinting.Services
             NativeMethods.GetWindowText(windowHandle, title, maxLength);
             var text = title.ToString();
             return string.IsNullOrEmpty(text) ? null : text;
+        }
+
+        private List<ClickableElement> ProcessElementArrays(List<IUIAutomationElementArray> arrays)
+        {
+            var results = new List<ClickableElement>();
+            int totalElements = arrays.Sum(a => a.Length);
+
+            using (PerformanceMetrics.Start($"ProcessElements({totalElements})", _logger, LogLevel.Debug))
+            {
+                foreach (var elemArray in arrays)
+                {
+                    int elementCount = elemArray.Length;
+                    for (int i = 0; i < elementCount; i++)
+                    {
+                        IUIAutomationElement? element = null;
+                        try
+                        {
+                            element = elemArray.GetElement(i);
+                            if (element == null)
+                                continue;
+
+                            var rectObj = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+                            if (rectObj == null)
+                                continue;
+
+                            if (rectObj is double[] rectArray && rectArray.Length == 4)
+                            {
+                                var rect = new Rectangle(
+                                    (int)rectArray[0],
+                                    (int)rectArray[1],
+                                    (int)rectArray[2],
+                                    (int)rectArray[3]
+                                );
+
+                                if (rect.Width > 0 && rect.Height > 0
+                                    && HasActivatablePattern(element))
+                                {
+                                    results.Add(new ClickableElement
+                                    {
+                                        Element = element,
+                                        Bounds = rect
+                                    });
+                                    element = null; // ownership transferred
+                                }
+                            }
+                        }
+                        catch (COMException ex)
+                        {
+                            _logger.Debug($"COM exception processing element {i}: {ex.Message}");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Debug($"Exception processing element {i}: {ex.Message}");
+                        }
+                        finally
+                        {
+                            if (element != null && Marshal.IsComObject(element))
+                            {
+                                Marshal.ReleaseComObject(element);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return results;
         }
 
         private bool HasActivatablePattern(IUIAutomationElement element)

@@ -29,6 +29,7 @@ namespace WindowsHinting
         private readonly WindowRuleRegistry _ruleRegistry;
         private readonly MouseClickService _mouseClickService;
         private readonly StartupService _startupService;
+        private readonly AutoMenuHintService _autoMenuHintService;
 
         private HintOverlayOptions _options;
         private long _lastToggleTicks;
@@ -50,7 +51,8 @@ namespace WindowsHinting
             ElementActivatorChain activatorChain,
             //NamedPipeService namedPipeService,
             MouseClickService mouseClickService,
-            StartupService startupService)
+            StartupService startupService,
+            AutoMenuHintService autoMenuHintService)
         {
             using (PerformanceMetrics.Start("HintController.Constructor", logger, LogLevel.Info))
             {
@@ -71,6 +73,7 @@ namespace WindowsHinting
                 //_namedPipeService = namedPipeService ?? throw new ArgumentNullException(nameof(namedPipeService));
                 _mouseClickService = mouseClickService ?? throw new ArgumentNullException(nameof(mouseClickService));
                 _startupService = startupService ?? throw new ArgumentNullException(nameof(startupService));
+                _autoMenuHintService = autoMenuHintService ?? throw new ArgumentNullException(nameof(autoMenuHintService));
 
                 // Auto-hide timer
                 _autoHideTimer = new System.Windows.Forms.Timer();
@@ -107,6 +110,11 @@ namespace WindowsHinting
 
                 _keyboardService.KeyPressed += OnKeyPressed;
                 _keyboardService.KeyReleased += OnKeyReleased;
+
+                // Experimental: auto-hint for menus and supported windows
+                _autoMenuHintService.MenuOpened += OnAutoMenuOpened;
+                _autoMenuHintService.MenuClosed += OnAutoMenuClosed;
+                _autoMenuHintService.Enabled = true;
 
                 //_namedPipeService.CommandReceived += OnNamedPipeCommandReceived;
 
@@ -632,6 +640,86 @@ namespace WindowsHinting
             }
         }
 
+        private void OnAutoMenuOpened(object? sender, UIAutomationClient.IUIAutomationElement root)
+        {
+            if (root == null)
+                return;
+
+            // If we're already showing hints from something other than
+            // auto-menu, leave that state alone.
+            if (_stateManager.CurrentMode != HintMode.Inactive
+                && _stateManager.CurrentSource != HintSource.AutoMenu)
+            {
+                _logger.Debug("Auto-menu opened but hints already active from another source — ignoring");
+                return;
+            }
+
+            // Deactivate any prior auto-menu hints so the new menu fully replaces them.
+            if (_stateManager.CurrentMode != HintMode.Inactive)
+            {
+                _stateManager.Deactivate();
+            }
+
+            // Run the UIA scan on a background thread so we never block the
+            // UI thread while a menu is open (blocking it would deadlock the
+            // same-process menu loop).
+            var menuItemFilter = new[]
+            {
+                UIA_ControlTypeIds.UIA_MenuItemControlTypeId,
+                UIA_ControlTypeIds.UIA_ListItemControlTypeId
+            };
+
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                IReadOnlyList<Services.ClickableElement> elements;
+                try
+                {
+                    using (PerformanceMetrics.Start("OnAutoMenuOpened.Scan", _logger, LogLevel.Info))
+                    {
+                        elements = _uiaService.FindClickableElementsFromRoot(root, menuItemFilter);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("Error during auto-menu hint scan", ex);
+                    return;
+                }
+
+                _logger.Info($"Auto-menu scan found {elements.Count} menu item(s)");
+
+                _overlay.BeginInvoke(() =>
+                {
+                    if (elements.Count == 0)
+                        return;
+
+                    _stateManager.Activate(HintSource.AutoMenu);
+                    _overlay.EnsureTopmost();
+
+                    var labels = LabelGenerator.Generate(elements.Count);
+                    var hints = elements.Select((e, i) => new HintItem
+                    {
+                        Rect = e.Bounds,
+                        Element = e.Element,
+                        Label = labels[i],
+                        CurrentOpacity = 1.0f,
+                        TargetOpacity = 1.0f
+                    }).ToList();
+
+                    _stateManager.SetHints(hints);
+                });
+            });
+        }
+
+        private void OnAutoMenuClosed(object? sender, EventArgs e)
+        {
+            if (_stateManager.CurrentSource == HintSource.AutoMenu
+                && _stateManager.CurrentMode != HintMode.Inactive)
+            {
+                _logger.Info("Auto-menu closed — deactivating hints");
+                _stateManager.Deactivate();
+            }
+        }
+
         private void OnPreferencesRequested(object? sender, EventArgs e)
         {
             using (PerformanceMetrics.Start("ShowPreferencesDialog", _logger, LogLevel.Info))
@@ -685,6 +773,7 @@ namespace WindowsHinting
             _autoHideTimer.Stop();
             _autoHideTimer.Dispose();
             //_namedPipeService.Dispose();
+            _autoMenuHintService.Dispose();
             _keyboardService.Stop();
             _trayIcon.Dispose();
             _overlay.Dispose();
