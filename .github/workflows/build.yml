@@ -82,7 +82,22 @@ jobs:
           $outDir = "Windows-Hinting\bin\Debug\net8.0-windows"
           Remove-Item "$outDir\xunit.*" -Force -ErrorAction SilentlyContinue
 
-      - name: Sign Debug exe with SSL.com eSigner
+      - name: Stage Debug binaries for signing
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Debug\net8.0-windows"
+          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_debug"
+          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+          Get-ChildItem -LiteralPath $stageDir -Force | Remove-Item -Recurse -Force
+          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
+            $src = Join-Path $outDir $name
+            if (-not (Test-Path -LiteralPath $src)) { throw "File to sign not found: $src" }
+            Copy-Item -LiteralPath $src -Destination (Join-Path $stageDir $name) -Force
+          }
+          Write-Host "Staged files for signing:"
+          Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
+
+      - name: Sign Debug binaries with SSL.com eSigner
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: sslcom/esigner-codesign@develop
         with:
@@ -91,29 +106,37 @@ jobs:
           password: ${{ secrets.ES_PASSWORD }}
           credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          file_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin\Debug\net8.0-windows\Windows-Hinting.exe
+          dir_path: ${GITHUB_WORKSPACE}\to_be_signed_debug
           malware_block: true
           override: true
 
-      - name: Verify Debug exe signature
+      - name: Copy signed Debug binaries back and verify
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          $exePath = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Debug\net8.0-windows\Windows-Hinting.exe"
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Debug\net8.0-windows"
+          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_debug"
           Write-Host "--- Debug Signature verification ---"
-          if (-not (Test-Path $exePath)) {
-            Write-Host "  ERROR: exe not found at $exePath"
-          } else {
-            $sig = Get-AuthenticodeSignature -FilePath $exePath
-            Write-Host "  Status       : $($sig.Status)"
-            Write-Host "  StatusMessage: $($sig.StatusMessage)"
+          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
+            $signed = Join-Path $stageDir $name
+            $dest   = Join-Path $outDir   $name
+            if (-not (Test-Path -LiteralPath $signed)) {
+              Write-Host "  ERROR: signed file missing: $signed"
+              continue
+            }
+            Copy-Item -LiteralPath $signed -Destination $dest -Force
+            $sig = Get-AuthenticodeSignature -FilePath $dest
+            Write-Host "  File         : $dest"
+            Write-Host "    Status       : $($sig.Status)"
+            Write-Host "    StatusMessage: $($sig.StatusMessage)"
             if ($sig.SignerCertificate) {
-              Write-Host "  Signer       : $($sig.SignerCertificate.Subject)"
-              Write-Host "  Valid until  : $($sig.SignerCertificate.NotAfter)"
+              Write-Host "    Signer       : $($sig.SignerCertificate.Subject)"
+              Write-Host "    Valid until  : $($sig.SignerCertificate.NotAfter)"
             } else {
-              Write-Host "  Signer       : (none — exe is unsigned)"
+              Write-Host "    Signer       : (none - file is unsigned)"
             }
           }
           Write-Host "------------------------------------"
+          Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Upload Debug artifact
         uses: actions/upload-artifact@v7
@@ -149,7 +172,22 @@ jobs:
       - name: Build Release exe
         run: .\build\build-complete.ps1 -Configuration Release -ExeOnly
 
-      - name: Sign exe with SSL.com eSigner
+      - name: Stage Release binaries for signing
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net8.0-windows"
+          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_release"
+          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+          Get-ChildItem -LiteralPath $stageDir -Force | Remove-Item -Recurse -Force
+          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
+            $src = Join-Path $outDir $name
+            if (-not (Test-Path -LiteralPath $src)) { throw "File to sign not found: $src" }
+            Copy-Item -LiteralPath $src -Destination (Join-Path $stageDir $name) -Force
+          }
+          Write-Host "Staged files for signing:"
+          Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
+
+      - name: Sign Release binaries with SSL.com eSigner
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: sslcom/esigner-codesign@develop
         with:
@@ -158,31 +196,39 @@ jobs:
           password: ${{ secrets.ES_PASSWORD }}
           credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          file_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe
+          dir_path: ${GITHUB_WORKSPACE}\to_be_signed_release
           malware_block: true
           override: true
 
-      - name: Verify exe signature
+      - name: Copy signed Release binaries back and verify
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          $exePath = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe"
-          Write-Host "--- Signature verification ---"
-          if (-not (Test-Path $exePath)) {
-            Write-Host "  ERROR: exe not found at $exePath"
-          } else {
-            $sig = Get-AuthenticodeSignature -FilePath $exePath
-            Write-Host "  Status       : $($sig.Status)"
-            Write-Host "  StatusMessage: $($sig.StatusMessage)"
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net8.0-windows"
+          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_release"
+          Write-Host "--- Release Signature verification ---"
+          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
+            $signed = Join-Path $stageDir $name
+            $dest   = Join-Path $outDir   $name
+            if (-not (Test-Path -LiteralPath $signed)) {
+              Write-Host "  ERROR: signed file missing: $signed"
+              continue
+            }
+            Copy-Item -LiteralPath $signed -Destination $dest -Force
+            $sig = Get-AuthenticodeSignature -FilePath $dest
+            Write-Host "  File         : $dest"
+            Write-Host "    Status       : $($sig.Status)"
+            Write-Host "    StatusMessage: $($sig.StatusMessage)"
             if ($sig.SignerCertificate) {
-              Write-Host "  Signer       : $($sig.SignerCertificate.Subject)"
-              Write-Host "  Valid until  : $($sig.SignerCertificate.NotAfter)"
+              Write-Host "    Signer       : $($sig.SignerCertificate.Subject)"
+              Write-Host "    Valid until  : $($sig.SignerCertificate.NotAfter)"
             } else {
-              Write-Host "  Signer       : (none — exe is unsigned)"
+              Write-Host "    Signer       : (none - file is unsigned)"
             }
           }
-          Write-Host "------------------------------"
+          Write-Host "--------------------------------------"
+          Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
 
-      - name: Build MSI (packages the signed exe)
+      - name: Build MSI (packages the signed binaries)
         run: |
           $InstallerProject = "Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj"
           msbuild $InstallerProject /p:Configuration=Release /p:SignOutput=false /nologo /v:minimal
@@ -269,8 +315,8 @@ jobs:
 
               | Asset | Description |
               |---|---|
-              | **Windows-Hinting-Debug.zip** | Debug build (Signed, portable) — no UIAccess. Hints won't appear above e.g. start menu. Extract the zip and run `Windows-Hinting.exe`. Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). |
-              | **Windows-Hinting.msi** | Installer — Signed installer and executable providing UIAccess support. Hints will appear above e.g. start menu. |
+              | **Windows-Hinting-Debug.zip** | Debug build (signed `Windows-Hinting.exe` and `Windows-Hinting.dll`, portable) — no UIAccess. Hints won't appear above e.g. start menu. Extract the zip and run `Windows-Hinting.exe`. Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). |
+              | **Windows-Hinting.msi** | Installer — signed installer, executable, and managed DLL, providing UIAccess support. Hints will appear above e.g. start menu. |
           artifacts: |
             artifacts/Windows-Hinting-Debug.zip
             artifacts/Windows-Hinting.msi
