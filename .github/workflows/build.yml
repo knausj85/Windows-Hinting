@@ -142,6 +142,7 @@ jobs:
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
           dir_path: ${GITHUB_WORKSPACE}\to_be_signed_release
           output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin\Release\net8.0-windows
+          malware_block: true
 
       - name: Verify Release signatures and clean staging
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -252,6 +253,7 @@ jobs:
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
           dir_path: ${GITHUB_WORKSPACE}\to_be_signed_portable
           output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin-portable\Release\net8.0-windows
+          malware_block: true
 
       - name: Verify portable signatures and clean staging
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
