@@ -608,6 +608,9 @@ namespace WindowsHinting
                 var element = match.Element;
                 var rect = match.Rect;
                 var action = e.Action;
+                var source = _stateManager.CurrentSource;
+
+                var isMenuBarRoot = false;
 
                 // Hide hints immediately so the overlay is gone before activation
                 _logger.Debug("Deactivating hints before element activation");
@@ -623,13 +626,35 @@ namespace WindowsHinting
                 {
                     try
                     {
-                        if (action == ClickAction.Default)
+                        // When the selection targets a menu-bar root item
+                        // (File / Edit / View / ...) and another top-level
+                        // menu is already open, a real click would dismiss
+                        // the menu loop.  Moving the mouse over the sibling
+                        // root instead causes the menu-bar tracking to
+                        // switch to the new top-level menu automatically.
+                        if (isMenuBarRoot && action == ClickAction.Default)
                         {
-                            _activatorChain.TryActivate(element);
+                            _mouseClickService.PerformClick(rect, ClickAction.MouseMove);
+                            return;
+                        }
+
+                        // Menu-bar mode: a real left click is required to switch
+                        // between top-level menus (Invoke() on a sibling MenuItem
+                        // does not reliably close the currently open popup and
+                        // open the new one).  Use the mouse click for any
+                        // AutoMenuBar activation when the user picked the
+                        // default action.
+                        bool useClick = action != ClickAction.Default
+                            || source == HintSource.AutoMenuBar;
+
+                        if (useClick)
+                        {
+                            var clickAction = action == ClickAction.Default ? ClickAction.LeftClick : action;
+                            _mouseClickService.PerformClick(rect, clickAction);
                         }
                         else
                         {
-                            _mouseClickService.PerformClick(rect, action);
+                            _activatorChain.TryActivate(element);
                         }
                     }
                     catch (Exception ex)
@@ -640,15 +665,22 @@ namespace WindowsHinting
             }
         }
 
-        private void OnAutoMenuOpened(object? sender, UIAutomationClient.IUIAutomationElement root)
+        private void OnAutoMenuOpened(object? sender, AutoMenuHintService.AutoMenuOpenedEventArgs e)
         {
-            if (root == null)
+            var menuRoot = e.MenuRoot;
+            if (menuRoot == null)
                 return;
 
-            // If we're already showing hints from something other than
-            // auto-menu, leave that state alone.
+            var newSource = e.Kind == AutoMenuHintService.AutoMenuKind.MenuBar
+                ? HintSource.AutoMenuBar
+                : HintSource.AutoContextMenu;
+
+            // If we're already showing hints from something other than an
+            // auto-menu source, leave that state alone.
+            var current = _stateManager.CurrentSource;
             if (_stateManager.CurrentMode != HintMode.Inactive
-                && _stateManager.CurrentSource != HintSource.AutoMenu)
+                && current != HintSource.AutoContextMenu
+                && current != HintSource.AutoMenuBar)
             {
                 _logger.Debug("Auto-menu opened but hints already active from another source — ignoring");
                 return;
@@ -660,23 +692,61 @@ namespace WindowsHinting
                 _stateManager.Deactivate();
             }
 
-            // Run the UIA scan on a background thread so we never block the
-            // UI thread while a menu is open (blocking it would deadlock the
-            // same-process menu loop).
+            // Only auto-hint menu items / list items. Chromium-based apps
+            // (VS Code / Electron) often expose menu items as Button or
+            // ListItem instead of MenuItem, so we include those too.
             var menuItemFilter = new[]
             {
                 UIA_ControlTypeIds.UIA_MenuItemControlTypeId,
-                UIA_ControlTypeIds.UIA_ListItemControlTypeId
+                UIA_ControlTypeIds.UIA_ListItemControlTypeId,
+                UIA_ControlTypeIds.UIA_ButtonControlTypeId
             };
 
+            // Capture the optional menu bar so the background thread can scan it too.
+            var menuBarRoot = e.MenuBarRoot;
+
+            // Run the UIA scan on a background thread so we never block the
+            // UI thread while a menu is open (blocking it would deadlock the
+            // same-process menu loop).
             System.Threading.Tasks.Task.Run(() =>
             {
-                IReadOnlyList<Services.ClickableElement> elements;
+                List<Services.ClickableElement> elements;
+                var menuBarRootIds = new HashSet<string>(StringComparer.Ordinal);
                 try
                 {
                     using (PerformanceMetrics.Start("OnAutoMenuOpened.Scan", _logger, LogLevel.Info))
                     {
-                        elements = _uiaService.FindClickableElementsFromRoot(root, menuItemFilter);
+                        var menuItems = _uiaService.FindClickableElementsFromRoot(menuRoot, menuItemFilter);
+                        elements = new List<Services.ClickableElement>(menuItems);
+
+                        // Menu-bar mode: also include the sibling top-level
+                        // menu bar items (File / Edit / View / ...) so the
+                        // user can switch between top-level menus from the
+                        // hint overlay.
+                        if (newSource == HintSource.AutoMenuBar && menuBarRoot != null)
+                        {
+                            var barItems = _uiaService.FindClickableElementsFromRoot(menuBarRoot, menuItemFilter);
+                            // De-dup against anything already collected (by element runtime id).
+                            var seen = new HashSet<string>(StringComparer.Ordinal);
+                            foreach (var ce in elements)
+                            {
+                                var id = TryGetRuntimeIdString(ce.Element);
+                                if (id != null) seen.Add(id);
+                            }
+                            foreach (var ce in barItems)
+                            {
+                                var id = TryGetRuntimeIdString(ce.Element);
+                                if (id == null || seen.Add(id))
+                                {
+                                    elements.Add(ce);
+                                    if (id != null) menuBarRootIds.Add(id);
+                                }
+                                else if (System.Runtime.InteropServices.Marshal.IsComObject(ce.Element))
+                                {
+                                    try { System.Runtime.InteropServices.Marshal.ReleaseComObject(ce.Element); } catch { }
+                                }
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -685,24 +755,30 @@ namespace WindowsHinting
                     return;
                 }
 
-                _logger.Info($"Auto-menu scan found {elements.Count} menu item(s)");
+                _logger.Info($"Auto-menu scan ({newSource}) found {elements.Count} item(s)");
 
                 _overlay.BeginInvoke(() =>
                 {
                     if (elements.Count == 0)
                         return;
 
-                    _stateManager.Activate(HintSource.AutoMenu);
+                    _stateManager.Activate(newSource);
                     _overlay.EnsureTopmost();
 
                     var labels = LabelGenerator.Generate(elements.Count);
-                    var hints = elements.Select((e, i) => new HintItem
+                    var hints = elements.Select((ce, i) =>
                     {
-                        Rect = e.Bounds,
-                        Element = e.Element,
-                        Label = labels[i],
-                        CurrentOpacity = 1.0f,
-                        TargetOpacity = 1.0f
+                        var rid = TryGetRuntimeIdString(ce.Element);
+                        bool isBarRoot = rid != null && menuBarRootIds.Contains(rid);
+                        return new HintItem
+                        {
+                            Rect = ce.Bounds,
+                            Element = ce.Element,
+                            Label = labels[i],
+                            IsMenuBarRootItem = isBarRoot,
+                            CurrentOpacity = 1.0f,
+                            TargetOpacity = 1.0f
+                        };
                     }).ToList();
 
                     _stateManager.SetHints(hints);
@@ -710,12 +786,27 @@ namespace WindowsHinting
             });
         }
 
+        private static string? TryGetRuntimeIdString(UIAutomationClient.IUIAutomationElement element)
+        {
+            try
+            {
+                var rid = element.GetRuntimeId();
+                if (rid == null) return null;
+                return string.Join(",", rid);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         private void OnAutoMenuClosed(object? sender, EventArgs e)
         {
-            if (_stateManager.CurrentSource == HintSource.AutoMenu
+            var current = _stateManager.CurrentSource;
+            if ((current == HintSource.AutoContextMenu || current == HintSource.AutoMenuBar)
                 && _stateManager.CurrentMode != HintMode.Inactive)
             {
-                _logger.Info("Auto-menu closed — deactivating hints");
+                _logger.Info($"Auto-menu closed ({current}) — deactivating hints");
                 _stateManager.Deactivate();
             }
         }

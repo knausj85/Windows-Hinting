@@ -173,6 +173,8 @@ namespace WindowsHinting.Services
                     if (found == null)
                         return Array.Empty<ClickableElement>();
 
+                    _logger.Info($"FindClickableElementsFromRoot: raw FindAllBuildCache returned {found.Length} element(s) before pattern/control-type filtering");
+
                     arrays.Add(found);
                     var results = ProcessElementArrays(arrays);
 
