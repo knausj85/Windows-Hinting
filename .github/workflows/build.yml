@@ -170,10 +170,54 @@ jobs:
           Write-Host "--------------------------------------"
           Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
 
+      - name: Verify signatures BEFORE MSI build
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          $outDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net8.0-windows"
+          Write-Host "--- Pre-MSI signature check ---"
+          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
+            $dest = Join-Path $outDir $name
+            $sig  = Get-AuthenticodeSignature -FilePath $dest
+            Write-Host "  $name : $($sig.Status) ($($sig.StatusMessage))"
+            if ($sig.Status -ne 'Valid') {
+              throw "Pre-MSI verification failed: $name is not validly signed (status: $($sig.Status))."
+            }
+          }
+          Write-Host "-------------------------------"
+
       - name: Build MSI (packages the signed binaries)
         run: |
+          # IMPORTANT: /p:BuildProjectReferences=false so msbuild does NOT rebuild the
+          # Windows-Hinting project via its ProjectReference. Rebuilding would overwrite
+          # the already-signed Windows-Hinting.exe / Windows-Hinting.dll with fresh
+          # unsigned outputs, and WiX would then harvest those unsigned files into the MSI
+          # (the signed MSI would contain an unsigned managed DLL).
           $InstallerProject = "Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj"
-          msbuild $InstallerProject /p:Configuration=Release /p:SignOutput=false /nologo /v:minimal
+          msbuild $InstallerProject `
+            /p:Configuration=Release `
+            /p:SignOutput=false `
+            /p:BuildProjectReferences=false `
+            /nologo /v:minimal
+
+      - name: Verify signatures AFTER MSI build
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          $outDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net8.0-windows"
+          Write-Host "--- Post-MSI signature check ---"
+          $failed = $false
+          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
+            $dest = Join-Path $outDir $name
+            $sig  = Get-AuthenticodeSignature -FilePath $dest
+            Write-Host "  $name : $($sig.Status) ($($sig.StatusMessage))"
+            if ($sig.Status -ne 'Valid') {
+              Write-Host "    ERROR: $name was stripped/overwritten during MSI build."
+              $failed = $true
+            }
+          }
+          Write-Host "--------------------------------"
+          if ($failed) {
+            throw "MSI build overwrote signed binaries. Check that /p:BuildProjectReferences=false is honored."
+          }
 
       - name: Sign MSI with SSL.com eSigner
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
