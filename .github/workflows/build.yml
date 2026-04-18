@@ -138,7 +138,7 @@ jobs:
           command: batch_sign
           username: ${{ secrets.ES_USERNAME }}
           password: ${{ secrets.ES_PASSWORD }}
-          credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
+          credential_id: ${{ secrets.CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
           dir_path: ${GITHUB_WORKSPACE}\to_be_signed_release
           output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin\Release\net8.0-windows
@@ -182,7 +182,7 @@ jobs:
           command: sign
           username: ${{ secrets.ES_USERNAME }}
           password: ${{ secrets.ES_PASSWORD }}
-          credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
+          credential_id: ${{ secrets.CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
           file_path: ${GITHUB_WORKSPACE}\Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
           malware_block: true
@@ -249,7 +249,7 @@ jobs:
           command: batch_sign
           username: ${{ secrets.ES_USERNAME }}
           password: ${{ secrets.ES_PASSWORD }}
-          credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
+          credential_id: ${{ secrets.CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
           dir_path: ${GITHUB_WORKSPACE}\to_be_signed_portable
           output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin-portable\Release\net8.0-windows
