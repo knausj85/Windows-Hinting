@@ -210,9 +210,15 @@ jobs:
 
       - name: Build portable Release exe (UIAccess disabled)
         run: |
+          # The MSI build above has already consumed/signed Windows-Hinting\bin\Release
+          # and its matching obj\. Remove them so they don't collide with the portable
+          # build's auto-generated AssemblyInfo / AssemblyAttributes files (CS0579).
+          $project = "Windows-Hinting\Windows-Hinting.csproj"
+          Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\bin" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\obj" -Recurse -Force -ErrorAction SilentlyContinue
+
           # Build Release configuration into a separate output path, overriding the manifest
           # to disable UIAccess so the binary can run without being installed to a trusted location.
-          $project    = "Windows-Hinting\Windows-Hinting.csproj"
           $baseOutput = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\"
           $baseInt    = "$env:GITHUB_WORKSPACE\Windows-Hinting\obj-portable\"
           msbuild $project `
