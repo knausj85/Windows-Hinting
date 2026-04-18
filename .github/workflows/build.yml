@@ -82,62 +82,6 @@ jobs:
           $outDir = "Windows-Hinting\bin\Debug\net8.0-windows"
           Remove-Item "$outDir\xunit.*" -Force -ErrorAction SilentlyContinue
 
-      - name: Stage Debug binaries for signing
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Debug\net8.0-windows"
-          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_debug"
-          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
-          Get-ChildItem -LiteralPath $stageDir -Force | Remove-Item -Recurse -Force
-          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
-            $src = Join-Path $outDir $name
-            if (-not (Test-Path -LiteralPath $src)) { throw "File to sign not found: $src" }
-            Copy-Item -LiteralPath $src -Destination (Join-Path $stageDir $name) -Force
-          }
-          Write-Host "Staged files for signing:"
-          Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
-
-      - name: Sign Debug binaries with SSL.com eSigner
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: sslcom/esigner-codesign@develop
-        with:
-          command: sign
-          username: ${{ secrets.ES_USERNAME }}
-          password: ${{ secrets.ES_PASSWORD }}
-          credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
-          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          dir_path: ${GITHUB_WORKSPACE}\to_be_signed_debug
-          malware_block: true
-          override: true
-
-      - name: Copy signed Debug binaries back and verify
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Debug\net8.0-windows"
-          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_debug"
-          Write-Host "--- Debug Signature verification ---"
-          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
-            $signed = Join-Path $stageDir $name
-            $dest   = Join-Path $outDir   $name
-            if (-not (Test-Path -LiteralPath $signed)) {
-              Write-Host "  ERROR: signed file missing: $signed"
-              continue
-            }
-            Copy-Item -LiteralPath $signed -Destination $dest -Force
-            $sig = Get-AuthenticodeSignature -FilePath $dest
-            Write-Host "  File         : $dest"
-            Write-Host "    Status       : $($sig.Status)"
-            Write-Host "    StatusMessage: $($sig.StatusMessage)"
-            if ($sig.SignerCertificate) {
-              Write-Host "    Signer       : $($sig.SignerCertificate.Subject)"
-              Write-Host "    Valid until  : $($sig.SignerCertificate.NotAfter)"
-            } else {
-              Write-Host "    Signer       : (none - file is unsigned)"
-            }
-          }
-          Write-Host "------------------------------------"
-          Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
-
       - name: Upload Debug artifact
         uses: actions/upload-artifact@v7
         with:
@@ -191,29 +135,26 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: sslcom/esigner-codesign@develop
         with:
-          command: sign
+          command: batch_sign
           username: ${{ secrets.ES_USERNAME }}
           password: ${{ secrets.ES_PASSWORD }}
           credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
           dir_path: ${GITHUB_WORKSPACE}\to_be_signed_release
-          malware_block: true
-          override: true
+          output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin\Release\net8.0-windows
 
-      - name: Copy signed Release binaries back and verify
+      - name: Verify Release signatures and clean staging
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net8.0-windows"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_release"
           Write-Host "--- Release Signature verification ---"
           foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
-            $signed = Join-Path $stageDir $name
-            $dest   = Join-Path $outDir   $name
-            if (-not (Test-Path -LiteralPath $signed)) {
-              Write-Host "  ERROR: signed file missing: $signed"
+            $dest = Join-Path $outDir $name
+            if (-not (Test-Path -LiteralPath $dest)) {
+              Write-Host "  ERROR: signed file missing: $dest"
               continue
             }
-            Copy-Item -LiteralPath $signed -Destination $dest -Force
             $sig = Get-AuthenticodeSignature -FilePath $dest
             Write-Host "  File         : $dest"
             Write-Host "    Status       : $($sig.Status)"
@@ -266,11 +207,91 @@ jobs:
           }
           Write-Host "----------------------------------"
 
-      - name: Upload Release exe artifact
+      - name: Build portable Release exe (UIAccess disabled)
+        run: |
+          # Build Release configuration into a separate output path, overriding the manifest
+          # to disable UIAccess so the binary can run without being installed to a trusted location.
+          $project    = "Windows-Hinting\Windows-Hinting.csproj"
+          $baseOutput = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\"
+          $baseInt    = "$env:GITHUB_WORKSPACE\Windows-Hinting\obj-portable\"
+          msbuild $project `
+            /p:Configuration=Release `
+            /p:ApplicationManifest=app.debug.manifest `
+            /p:BaseOutputPath=$baseOutput `
+            /p:BaseIntermediateOutputPath=$baseInt `
+            /restore `
+            /nologo /v:minimal
+          if ($LASTEXITCODE -ne 0) { throw "Portable Release build failed with exit code $LASTEXITCODE" }
+          # Prune xunit test binaries that get pulled into bin\ output.
+          $portableOut = Join-Path $baseOutput "Release\net8.0-windows"
+          Remove-Item "$portableOut\xunit.*" -Force -ErrorAction SilentlyContinue
+
+      - name: Stage portable binaries for signing
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net8.0-windows"
+          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable"
+          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+          Get-ChildItem -LiteralPath $stageDir -Force | Remove-Item -Recurse -Force
+          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
+            $src = Join-Path $outDir $name
+            if (-not (Test-Path -LiteralPath $src)) { throw "File to sign not found: $src" }
+            Copy-Item -LiteralPath $src -Destination (Join-Path $stageDir $name) -Force
+          }
+          Write-Host "Staged portable files for signing:"
+          Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
+
+      - name: Sign portable binaries with SSL.com eSigner
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: sslcom/esigner-codesign@develop
+        with:
+          command: batch_sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.ES_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          dir_path: ${GITHUB_WORKSPACE}\to_be_signed_portable
+          output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin-portable\Release\net8.0-windows
+
+      - name: Verify portable signatures and clean staging
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net8.0-windows"
+          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable"
+          Write-Host "--- Portable Signature verification ---"
+          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
+            $dest = Join-Path $outDir $name
+            if (-not (Test-Path -LiteralPath $dest)) {
+              Write-Host "  ERROR: signed file missing: $dest"
+              continue
+            }
+            $sig = Get-AuthenticodeSignature -FilePath $dest
+            Write-Host "  File         : $dest"
+            Write-Host "    Status       : $($sig.Status)"
+            Write-Host "    StatusMessage: $($sig.StatusMessage)"
+            if ($sig.SignerCertificate) {
+              Write-Host "    Signer       : $($sig.SignerCertificate.Subject)"
+              Write-Host "    Valid until  : $($sig.SignerCertificate.NotAfter)"
+            } else {
+              Write-Host "    Signer       : (none - file is unsigned)"
+            }
+          }
+          Write-Host "---------------------------------------"
+          Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Create portable zip
+        run: |
+          $portableOut = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net8.0-windows"
+          $zipPath     = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable.zip"
+          if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+          Compress-Archive -Path "$portableOut\*" -DestinationPath $zipPath
+          Write-Host "Portable zip created: $zipPath"
+
+      - name: Upload Portable artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Windows-Hinting-Release
-          path: Windows-Hinting\bin\Release\net8.0-windows\Windows-Hinting.exe
+          name: Windows-Hinting-Portable
+          path: Windows-Hinting-Portable.zip
           if-no-files-found: error
 
       - name: Upload MSI artifact
@@ -297,6 +318,12 @@ jobs:
       - name: Zip Debug build
         run: cd artifacts && zip -r Windows-Hinting-Debug.zip Windows-Hinting-Debug/
 
+      - name: Download Portable build
+        uses: actions/download-artifact@v8
+        with:
+          name: Windows-Hinting-Portable
+          path: artifacts
+
       - name: Download MSI installer
         uses: actions/download-artifact@v8
         with:
@@ -315,8 +342,10 @@ jobs:
 
               | Asset | Description |
               |---|---|
-              | **Windows-Hinting-Debug.zip** | Debug build (signed `Windows-Hinting.exe` and `Windows-Hinting.dll`, portable) — no UIAccess. Hints won't appear above e.g. start menu. Extract the zip and run `Windows-Hinting.exe`. Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). |
-              | **Windows-Hinting.msi** | Installer — signed installer, executable, and managed DLL, providing UIAccess support. Hints will appear above e.g. start menu. |
+              | **Windows-Hinting-Portable.zip** | Portable Release build — signed `Windows-Hinting.exe` and `Windows-Hinting.dll`. No UIAccess (hints won't appear above e.g. the start menu). Extract and run `Windows-Hinting.exe`. Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). |
+              | **Windows-Hinting-Debug.zip** | Debug build — **unsigned**, for diagnostics/testing only. Extract and run `Windows-Hinting.exe`. Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). |
+              | **Windows-Hinting.msi** | Installer — fully signed (installer, executable, and managed DLL). Provides UIAccess support so hints appear above e.g. the start menu. |
           artifacts: |
             artifacts/Windows-Hinting-Debug.zip
+            artifacts/Windows-Hinting-Portable.zip
             artifacts/Windows-Hinting.msi
