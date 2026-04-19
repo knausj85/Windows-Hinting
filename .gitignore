@@ -437,3 +437,4 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+/Windows-Hinting/obj-portable-win-x64
