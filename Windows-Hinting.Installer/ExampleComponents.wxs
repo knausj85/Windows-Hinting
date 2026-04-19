@@ -109,11 +109,6 @@
         <File Source="$(var.Windows_Hinting.TargetDir)Microsoft.Extensions.FileProviders.Abstractions.dll" />
         <File Source="$(var.Windows_Hinting.TargetDir)Microsoft.Extensions.FileProviders.Physical.dll" />
         <File Source="$(var.Windows_Hinting.TargetDir)Microsoft.Extensions.FileSystemGlobbing.dll" />
-
-        <!-- System runtime libraries (excluding platform-specific versions in runtimes folder) -->
-        <File Source="$(var.Windows_Hinting.TargetDir)System.Diagnostics.DiagnosticSource.dll" />
-        <File Source="$(var.Windows_Hinting.TargetDir)System.IO.Pipelines.dll" />
-        <File Source="$(var.Windows_Hinting.TargetDir)System.Text.Json.dll" />
       </Component>
 
       <!-- Runtime installation marker -->
@@ -127,27 +122,6 @@
           KeyPath="yes" />
       </Component>
     </DirectoryRef>
-
-    <!-- Platform-specific runtime files - Windows x64 -->
-    <ComponentGroup Id="RuntimesWinFiles" Directory="RuntimesWinLibNet100Folder">
-      <Component Id="RuntimesWin" Bitness="always64" Guid="33333333-4444-5555-6666-777777777503">
-        <File
-          Id="SystemDiagnosticsEventLogDllWin"
-          Source="$(var.Windows_Hinting.TargetDir)runtimes\win\lib\net10.0\System.Diagnostics.EventLog.dll"
-          KeyPath="yes" />
-        <File Source="$(var.Windows_Hinting.TargetDir)runtimes\win\lib\net10.0\System.Diagnostics.EventLog.Messages.dll" />
-      </Component>
-    </ComponentGroup>
-
-    <!-- Browser-specific runtime files -->
-    <ComponentGroup Id="RuntimesBrowserFiles" Directory="RuntimesBrowserLibNet100Folder">
-      <Component Id="RuntimesBrowser" Bitness="always64" Guid="44444444-5555-6666-7777-888888888504">
-        <File
-          Id="SystemTextEncodingsWebDllBrowser"
-          Source="$(var.Windows_Hinting.TargetDir)runtimes\browser\lib\net10.0\System.Text.Encodings.Web.dll"
-          KeyPath="yes" />
-      </Component>
-    </ComponentGroup>
 
     <!-- Desktop and Program Menu shortcuts -->
     <ComponentGroup Id="DesktopShortcuts" Directory="INSTALLFOLDER">
