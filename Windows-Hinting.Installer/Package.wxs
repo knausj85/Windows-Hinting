@@ -21,8 +21,6 @@
       <ComponentGroupRef Id="MainApplicationFiles" />
       <ComponentRef Id="DotNetRuntimeLibraries" />
       <ComponentRef Id="RuntimeRegistry" />
-      <ComponentGroupRef Id="RuntimesWinFiles" />
-      <ComponentGroupRef Id="RuntimesBrowserFiles" />
       <ComponentGroupRef Id="DesktopShortcuts" />
       <ComponentGroupRef Id="RegistryConfiguration" />
     </Feature>
