@@ -1,9 +1,9 @@
-﻿<Project Sdk="WixToolset.Sdk/6.0.2">
+<Project Sdk="WixToolset.Sdk/6.0.2">
   <PropertyGroup>
     <ProductVersion>1.0.0.0</ProductVersion>
     <ProjectGuid>b2c3d4e5-f6a7-8901-bcde-f1234567890a</ProjectGuid>
     <OutputName>Windows-Hinting</OutputName>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <!-- Configure for 64-bit installer -->
     <InstallerPlatform>x64</InstallerPlatform>
     <!-- Enable digital signing for UIAccess -->
