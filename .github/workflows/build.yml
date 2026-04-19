@@ -37,7 +37,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Restore NuGet packages
         run: dotnet restore
@@ -66,7 +66,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v3
@@ -79,14 +79,14 @@ jobs:
 
       - name: Clean Debug output
         run: |
-          $outDir = "Windows-Hinting\bin\Debug\net8.0-windows"
+          $outDir = "Windows-Hinting\bin\Debug\net10.0-windows"
           Remove-Item "$outDir\xunit.*" -Force -ErrorAction SilentlyContinue
 
       - name: Upload Debug artifact
         uses: actions/upload-artifact@v7
         with:
           name: Windows-Hinting-Debug
-          path: Windows-Hinting\bin\Debug\net8.0-windows\
+          path: Windows-Hinting\bin\Debug\net10.0-windows\
           if-no-files-found: error
 
   build-release:
@@ -101,7 +101,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v3
@@ -119,7 +119,7 @@ jobs:
       - name: Stage Release binaries for signing
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net8.0-windows"
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_release"
           New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
           Get-ChildItem -LiteralPath $stageDir -Force | Remove-Item -Recurse -Force
@@ -141,13 +141,13 @@ jobs:
           credential_id: ${{ secrets.CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
           dir_path: ${GITHUB_WORKSPACE}\to_be_signed_release
-          output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin\Release\net8.0-windows
+          output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin\Release\net10.0-windows
           malware_block: true
 
       - name: Verify Release signatures and clean staging
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net8.0-windows"
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_release"
           Write-Host "--- Release Signature verification ---"
           foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
@@ -173,7 +173,7 @@ jobs:
       - name: Verify signatures BEFORE MSI build
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          $outDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net8.0-windows"
+          $outDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
           Write-Host "--- Pre-MSI signature check ---"
           foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
             $dest = Join-Path $outDir $name
@@ -202,7 +202,7 @@ jobs:
       - name: Verify signatures AFTER MSI build
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          $outDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net8.0-windows"
+          $outDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
           Write-Host "--- Post-MSI signature check ---"
           $failed = $false
           foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
@@ -274,13 +274,13 @@ jobs:
             /nologo /v:minimal
           if ($LASTEXITCODE -ne 0) { throw "Portable Release build failed with exit code $LASTEXITCODE" }
           # Prune xunit test binaries that get pulled into bin\ output.
-          $portableOut = Join-Path $baseOutput "Release\net8.0-windows"
+          $portableOut = Join-Path $baseOutput "Release\net10.0-windows"
           Remove-Item "$portableOut\xunit.*" -Force -ErrorAction SilentlyContinue
 
       - name: Stage portable binaries for signing
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net8.0-windows"
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net10.0-windows"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable"
           New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
           Get-ChildItem -LiteralPath $stageDir -Force | Remove-Item -Recurse -Force
@@ -302,13 +302,13 @@ jobs:
           credential_id: ${{ secrets.CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
           dir_path: ${GITHUB_WORKSPACE}\to_be_signed_portable
-          output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin-portable\Release\net8.0-windows
+          output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin-portable\Release\net10.0-windows
           malware_block: true
 
       - name: Verify portable signatures and clean staging
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net8.0-windows"
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net10.0-windows"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable"
           Write-Host "--- Portable Signature verification ---"
           foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
@@ -333,7 +333,7 @@ jobs:
 
       - name: Create portable zip
         run: |
-          $portableOut = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net8.0-windows"
+          $portableOut = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net10.0-windows"
           $zipPath     = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable.zip"
           if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
           Compress-Archive -Path "$portableOut\*" -DestinationPath $zipPath
@@ -394,8 +394,8 @@ jobs:
 
               | Asset | Description |
               |---|---|
-              | **Windows-Hinting-Portable.zip** | Portable Release build — signed `Windows-Hinting.exe` and `Windows-Hinting.dll`. No UIAccess (hints won't appear above e.g. the start menu). Extract and run `Windows-Hinting.exe`. Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). |
-              | **Windows-Hinting-Debug.zip** | Debug build — **unsigned**, for diagnostics/testing only. Extract and run `Windows-Hinting.exe`. Requires [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). |
+              | **Windows-Hinting-Portable.zip** | Portable Release build — signed `Windows-Hinting.exe` and `Windows-Hinting.dll`. No UIAccess (hints won't appear above e.g. the start menu). Extract and run `Windows-Hinting.exe`. Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). |
+              | **Windows-Hinting-Debug.zip** | Debug build — **unsigned**, for diagnostics/testing only. Extract and run `Windows-Hinting.exe`. Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). |
               | **Windows-Hinting.msi** | Installer — fully signed (installer, executable, and managed DLL). Provides UIAccess support so hints appear above e.g. the start menu. |
           artifacts: |
             artifacts/Windows-Hinting-Debug.zip
