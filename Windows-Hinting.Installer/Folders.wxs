@@ -5,12 +5,12 @@
         <Directory Id="RuntimesFolder" Name="runtimes">
           <Directory Id="RuntimesWinFolder" Name="win">
             <Directory Id="RuntimesWinLibFolder" Name="lib">
-              <Directory Id="RuntimesWinLibNet80Folder" Name="net8.0" />
+              <Directory Id="RuntimesWinLibNet100Folder" Name="net10.0" />
             </Directory>
           </Directory>
           <Directory Id="RuntimesBrowserFolder" Name="browser">
             <Directory Id="RuntimesBrowserLibFolder" Name="lib">
-              <Directory Id="RuntimesBrowserLibNet80Folder" Name="net8.0" />
+              <Directory Id="RuntimesBrowserLibNet100Folder" Name="net10.0" />
             </Directory>
           </Directory>
         </Directory>
