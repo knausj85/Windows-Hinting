@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -37,6 +38,7 @@ namespace WindowsHinting.Controls
         /// Controls whether the recorder accepts full modifier+key combinations
         /// or a single A-Z key press. Defaults to <see cref="RecorderMode.HotkeyCombination"/>.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public RecorderMode Mode
         {
             get => _mode;

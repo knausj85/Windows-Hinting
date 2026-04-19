@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -26,7 +27,10 @@ namespace WindowsHinting.Forms
         public event EventHandler? ToggleRequested;
         public event EventHandler? TaskbarToggleRequested;
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool ShowRectangles { get; set; } = false;
+
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public HintPosition HintPosition { get; set; } = HintPosition.UpperLeft;
 
         private int _hotkeyModifiers;
