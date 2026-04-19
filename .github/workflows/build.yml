@@ -338,7 +338,7 @@ jobs:
 
           # Step 1: Restore with the specific RID (SelfContained so runtime packs are fetched)
           Write-Host "Restoring packages for win-x64..."
-          dotnet restore $project -r win-x64 -p:SelfContained=true
+          dotnet restore $project -r win-x64 -p:SelfContained=true -p:PublishReadyToRun=true
           if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed for win-x64 with exit code $LASTEXITCODE" }
 
           # Step 2: Use msbuild (Framework) to compile and generate COM interop
@@ -465,7 +465,7 @@ jobs:
 
           # Step 1: Restore with the specific RID (SelfContained so runtime packs are fetched)
           Write-Host "Restoring packages for win-x86..."
-          dotnet restore $project -r win-x86 -p:SelfContained=true
+          dotnet restore $project -r win-x86 -p:SelfContained=true -p:PublishReadyToRun=true
           if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed for win-x86 with exit code $LASTEXITCODE" }
 
           # Step 2: Use msbuild (Framework) to compile and generate COM interop

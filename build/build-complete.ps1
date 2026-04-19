@@ -46,6 +46,7 @@ if ($Portable) {
             "$ProjectDir\Windows-Hinting.csproj"
             "-r", $Rid
             "-p:SelfContained=true"
+            "-p:PublishReadyToRun=true"
         )
         dotnet @RestoreArgs
 
