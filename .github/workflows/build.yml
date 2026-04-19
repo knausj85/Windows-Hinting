@@ -309,47 +309,73 @@ jobs:
           }
           Write-Host "----------------------------------"
 
-      - name: Build portable Release exe (UIAccess disabled)
+      - name: Build portable self-contained exe for win-x64
         run: |
-          # The MSI build above has already consumed/signed Windows-Hinting\bin\Release
-          # and its matching obj\. Remove them so they don't collide with the portable
-          # build's auto-generated AssemblyInfo / AssemblyAttributes files (CS0579).
-          $project = "Windows-Hinting\Windows-Hinting.csproj"
+          # Clean bin/obj from MSI build to avoid conflicts
           Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\bin" -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\obj" -Recurse -Force -ErrorAction SilentlyContinue
 
-          # Build Release configuration into a separate output path, overriding the manifest
-          # to disable UIAccess so the binary can run without being installed to a trusted location.
-          $baseOutput = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\"
-          $baseInt    = "$env:GITHUB_WORKSPACE\Windows-Hinting\obj-portable\"
+          $project = "Windows-Hinting\Windows-Hinting.csproj"
+          $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
+
+          # Step 1: Restore with the specific RID (SelfContained so runtime packs are fetched)
+          Write-Host "Restoring packages for win-x64..."
+          dotnet restore $project -r win-x64 -p:SelfContained=true
+          if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed for win-x64 with exit code $LASTEXITCODE" }
+
+          # Step 2: Use msbuild (Framework) to compile and generate COM interop
+          # SelfContained=true so runtime packs are resolved for the subsequent publish step
+          Write-Host "Building with msbuild to generate COM interop for win-x64..."
           msbuild $project `
             /p:Configuration=Release `
+            /p:RuntimeIdentifier=win-x64 `
+            /p:SelfContained=true `
             /p:ApplicationManifest=app.debug.manifest `
-            /p:BaseOutputPath=$baseOutput `
-            /p:BaseIntermediateOutputPath=$baseInt `
-            /restore `
             /nologo /v:minimal
-          if ($LASTEXITCODE -ne 0) { throw "Portable Release build failed with exit code $LASTEXITCODE" }
-          # Prune xunit test binaries that get pulled into bin\ output.
-          $portableOut = Join-Path $baseOutput "Release\net10.0-windows"
-          Remove-Item "$portableOut\xunit.*" -Force -ErrorAction SilentlyContinue
 
-      - name: Stage portable binaries for signing
+          if ($LASTEXITCODE -ne 0) { throw "msbuild compile failed for win-x64 with exit code $LASTEXITCODE" }
+
+          # Step 3: Use msbuild /t:Publish for self-contained single-file (reuses COM interop from step 2)
+          Write-Host "Publishing self-contained single-file package for win-x64..."
+          msbuild $project `
+            /t:Publish `
+            /p:Configuration=Release `
+            /p:RuntimeIdentifier=win-x64 `
+            /p:ApplicationManifest=app.debug.manifest `
+            /p:SelfContained=true `
+            /p:PublishSingleFile=true `
+            /p:IncludeNativeLibrariesForSelfExtract=true `
+            /p:EnableCompressionInSingleFile=true `
+            /p:PublishReadyToRun=true `
+            /p:DebugType=embedded `
+            /p:PublishDir=$publishDir\ `
+            /p:NoBuild=true `
+            /nologo /v:minimal
+
+          if ($LASTEXITCODE -ne 0) { throw "Portable x64 publish failed with exit code $LASTEXITCODE" }
+
+          $exePath = Join-Path $publishDir "Windows-Hinting.exe"
+          if (-not (Test-Path $exePath)) { throw "x64 exe not found at $exePath" }
+
+          $exeSize = (Get-Item $exePath).Length / 1MB
+          Write-Host "x64 portable exe published: $exePath ($($exeSize.ToString('0.0')) MB)"
+
+      - name: Stage portable x64 binaries for signing
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net10.0-windows"
-          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable"
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
+          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable_x64"
           New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
           Get-ChildItem -LiteralPath $stageDir -Force | Remove-Item -Recurse -Force
-          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
-            $src = Join-Path $outDir $name
-            if (-not (Test-Path -LiteralPath $src)) { throw "File to sign not found: $src" }
-            Copy-Item -LiteralPath $src -Destination (Join-Path $stageDir $name) -Force
-          }
-          Write-Host "Staged portable files for signing:"
+
+          $src = Join-Path $outDir "Windows-Hinting.exe"
+          if (-not (Test-Path -LiteralPath $src)) { throw "File to sign not found: $src" }
+          Copy-Item -LiteralPath $src -Destination (Join-Path $stageDir "Windows-Hinting.exe") -Force
+
+          Write-Host "Staged x64 portable exe for signing:"
           Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
 
-      - name: Sign portable binaries with SSL.com eSigner
+      - name: Sign portable x64 binaries with SSL.com eSigner
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         uses: sslcom/esigner-codesign@develop
         with:
@@ -358,49 +384,183 @@ jobs:
           password: ${{ secrets.ES_PASSWORD }}
           credential_id: ${{ secrets.CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          dir_path: ${GITHUB_WORKSPACE}\to_be_signed_portable
-          output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin-portable\Release\net10.0-windows
+          dir_path: ${GITHUB_WORKSPACE}\to_be_signed_portable_x64
+          output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin-portable\publish\win-x64
           malware_block: true
 
-      - name: Verify portable signatures and clean staging
+      - name: Verify portable x64 signature and clean staging
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net10.0-windows"
-          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable"
-          Write-Host "--- Portable Signature verification ---"
-          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
-            $dest = Join-Path $outDir $name
-            if (-not (Test-Path -LiteralPath $dest)) {
-              Write-Host "  ERROR: signed file missing: $dest"
-              continue
-            }
-            $sig = Get-AuthenticodeSignature -FilePath $dest
-            Write-Host "  File         : $dest"
-            Write-Host "    Status       : $($sig.Status)"
-            Write-Host "    StatusMessage: $($sig.StatusMessage)"
-            if ($sig.SignerCertificate) {
-              Write-Host "    Signer       : $($sig.SignerCertificate.Subject)"
-              Write-Host "    Valid until  : $($sig.SignerCertificate.NotAfter)"
-            } else {
-              Write-Host "    Signer       : (none - file is unsigned)"
-            }
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
+          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable_x64"
+          $exePath  = Join-Path $outDir "Windows-Hinting.exe"
+
+          Write-Host "--- x64 Portable Signature verification ---"
+          if (-not (Test-Path -LiteralPath $exePath)) {
+            throw "Signed x64 exe missing: $exePath"
           }
-          Write-Host "---------------------------------------"
+
+          $sig = Get-AuthenticodeSignature -FilePath $exePath
+          Write-Host "  Status       : $($sig.Status)"
+          Write-Host "  StatusMessage: $($sig.StatusMessage)"
+          if ($sig.SignerCertificate) {
+            Write-Host "  Signer       : $($sig.SignerCertificate.Subject)"
+            Write-Host "  Valid until  : $($sig.SignerCertificate.NotAfter)"
+          } else {
+            Write-Host "  Signer       : (none - file is unsigned)"
+          }
+          Write-Host "-------------------------------------------"
+
+          if ($sig.Status -ne 'Valid') {
+            throw "x64 portable exe signature invalid (status: $($sig.Status))"
+          }
+
           Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
 
-      - name: Create portable zip
+      - name: Create portable x64 zip
         run: |
-          $portableOut = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net10.0-windows"
-          $zipPath     = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable.zip"
-          if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
-          Compress-Archive -Path "$portableOut\*" -DestinationPath $zipPath
-          Write-Host "Portable zip created: $zipPath"
+          $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
+          $zipPath    = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable-win-x64.zip"
 
-      - name: Upload Portable artifact
+          if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+
+          # Only include Windows-Hinting.exe, exclude .pdb
+          $exePath = Join-Path $publishDir "Windows-Hinting.exe"
+          Compress-Archive -Path $exePath -DestinationPath $zipPath
+          Write-Host "Portable x64 zip created: $zipPath"
+
+      - name: Upload Portable x64 artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Windows-Hinting-Portable${{ env.ARTIFACT_SUFFIX }}
-          path: Windows-Hinting-Portable.zip
+          name: Windows-Hinting-Portable-win-x64${{ env.ARTIFACT_SUFFIX }}
+          path: Windows-Hinting-Portable-win-x64.zip
+          if-no-files-found: error
+
+      - name: Build portable self-contained exe for win-x86
+        run: |
+          # Clean bin/obj again for x86 build
+          Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\bin" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\obj" -Recurse -Force -ErrorAction SilentlyContinue
+
+          $project = "Windows-Hinting\Windows-Hinting.csproj"
+          $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
+
+          # Step 1: Restore with the specific RID (SelfContained so runtime packs are fetched)
+          Write-Host "Restoring packages for win-x86..."
+          dotnet restore $project -r win-x86 -p:SelfContained=true
+          if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed for win-x86 with exit code $LASTEXITCODE" }
+
+          # Step 2: Use msbuild (Framework) to compile and generate COM interop
+          # SelfContained=true so runtime packs are resolved for the subsequent publish step
+          Write-Host "Building with msbuild to generate COM interop for win-x86..."
+          msbuild $project `
+            /p:Configuration=Release `
+            /p:RuntimeIdentifier=win-x86 `
+            /p:SelfContained=true `
+            /p:ApplicationManifest=app.debug.manifest `
+            /nologo /v:minimal
+
+          if ($LASTEXITCODE -ne 0) { throw "msbuild compile failed for win-x86 with exit code $LASTEXITCODE" }
+
+          # Step 3: Use msbuild /t:Publish for self-contained single-file (reuses COM interop from step 2)
+          Write-Host "Publishing self-contained single-file package for win-x86..."
+          msbuild $project `
+            /t:Publish `
+            /p:Configuration=Release `
+            /p:RuntimeIdentifier=win-x86 `
+            /p:ApplicationManifest=app.debug.manifest `
+            /p:SelfContained=true `
+            /p:PublishSingleFile=true `
+            /p:IncludeNativeLibrariesForSelfExtract=true `
+            /p:EnableCompressionInSingleFile=true `
+            /p:PublishReadyToRun=true `
+            /p:DebugType=embedded `
+            /p:PublishDir=$publishDir\ `
+            /p:NoBuild=true `
+            /nologo /v:minimal
+
+          if ($LASTEXITCODE -ne 0) { throw "Portable x86 publish failed with exit code $LASTEXITCODE" }
+
+          $exePath = Join-Path $publishDir "Windows-Hinting.exe"
+          if (-not (Test-Path $exePath)) { throw "x86 exe not found at $exePath" }
+
+          $exeSize = (Get-Item $exePath).Length / 1MB
+          Write-Host "x86 portable exe published: $exePath ($($exeSize.ToString('0.0')) MB)"
+
+      - name: Stage portable x86 binaries for signing
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        run: |
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
+          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable_x86"
+          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+          Get-ChildItem -LiteralPath $stageDir -Force | Remove-Item -Recurse -Force
+
+          $src = Join-Path $outDir "Windows-Hinting.exe"
+          if (-not (Test-Path -LiteralPath $src)) { throw "File to sign not found: $src" }
+          Copy-Item -LiteralPath $src -Destination (Join-Path $stageDir "Windows-Hinting.exe") -Force
+
+          Write-Host "Staged x86 portable exe for signing:"
+          Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
+
+      - name: Sign portable x86 binaries with SSL.com eSigner
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        uses: sslcom/esigner-codesign@develop
+        with:
+          command: batch_sign
+          username: ${{ secrets.ES_USERNAME }}
+          password: ${{ secrets.ES_PASSWORD }}
+          credential_id: ${{ secrets.CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
+          dir_path: ${GITHUB_WORKSPACE}\to_be_signed_portable_x86
+          output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin-portable\publish\win-x86
+          malware_block: true
+
+      - name: Verify portable x86 signature and clean staging
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        run: |
+          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
+          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable_x86"
+          $exePath  = Join-Path $outDir "Windows-Hinting.exe"
+
+          Write-Host "--- x86 Portable Signature verification ---"
+          if (-not (Test-Path -LiteralPath $exePath)) {
+            throw "Signed x86 exe missing: $exePath"
+          }
+
+          $sig = Get-AuthenticodeSignature -FilePath $exePath
+          Write-Host "  Status       : $($sig.Status)"
+          Write-Host "  StatusMessage: $($sig.StatusMessage)"
+          if ($sig.SignerCertificate) {
+            Write-Host "  Signer       : $($sig.SignerCertificate.Subject)"
+            Write-Host "  Valid until  : $($sig.SignerCertificate.NotAfter)"
+          } else {
+            Write-Host "  Signer       : (none - file is unsigned)"
+          }
+          Write-Host "-------------------------------------------"
+
+          if ($sig.Status -ne 'Valid') {
+            throw "x86 portable exe signature invalid (status: $($sig.Status))"
+          }
+
+          Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Create portable x86 zip
+        run: |
+          $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
+          $zipPath    = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable-win-x86.zip"
+
+          if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+
+          # Only include Windows-Hinting.exe, exclude .pdb
+          $exePath = Join-Path $publishDir "Windows-Hinting.exe"
+          Compress-Archive -Path $exePath -DestinationPath $zipPath
+          Write-Host "Portable x86 zip created: $zipPath"
+
+      - name: Upload Portable x86 artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Windows-Hinting-Portable-win-x86${{ env.ARTIFACT_SUFFIX }}
+          path: Windows-Hinting-Portable-win-x86.zip
           if-no-files-found: error
 
       - name: Upload MSI artifact
@@ -427,10 +587,16 @@ jobs:
       - name: Zip Debug build
         run: cd artifacts && zip -r Windows-Hinting-Debug.zip Windows-Hinting-Debug/
 
-      - name: Download Portable build
+      - name: Download Portable x64 build
         uses: actions/download-artifact@v8
         with:
-          name: Windows-Hinting-Portable
+          name: Windows-Hinting-Portable-win-x64
+          path: artifacts
+
+      - name: Download Portable x86 build
+        uses: actions/download-artifact@v8
+        with:
+          name: Windows-Hinting-Portable-win-x86
           path: artifacts
 
       - name: Download MSI installer
@@ -452,10 +618,12 @@ jobs:
 
               | Asset | Description |
               |---|---|
-              | **Windows-Hinting-Portable.zip** | Portable Release build — signed `Windows-Hinting.exe` and `Windows-Hinting.dll`. No UIAccess (hints won't appear above e.g. the start menu). Extract and run `Windows-Hinting.exe`. Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). |
+              | **Windows-Hinting-Portable-win-x64.zip** | Self-contained portable x64 build — signed single-file `Windows-Hinting.exe`. No .NET runtime required. No UIAccess (hints won't appear above e.g. the start menu). Extract and run `Windows-Hinting.exe`. |
+              | **Windows-Hinting-Portable-win-x86.zip** | Self-contained portable x86 build — signed single-file `Windows-Hinting.exe`. No .NET runtime required. No UIAccess (hints won't appear above e.g. the start menu). Extract and run `Windows-Hinting.exe`. |
               | **Windows-Hinting-Debug.zip** | Debug build — **unsigned**, for diagnostics/testing only. Extract and run `Windows-Hinting.exe`. Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). |
-              | **Windows-Hinting.msi** | Installer — fully signed (installer, executable, and managed DLL). Provides UIAccess support so hints appear above e.g. the start menu. |
+              | **Windows-Hinting.msi** | Installer — fully signed (installer, executable, and managed DLL). Provides UIAccess support so hints appear above e.g. the start menu. Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). |
           artifacts: |
             artifacts/Windows-Hinting-Debug.zip
-            artifacts/Windows-Hinting-Portable.zip
+            artifacts/Windows-Hinting-Portable-win-x64.zip
+            artifacts/Windows-Hinting-Portable-win-x86.zip
             artifacts/Windows-Hinting.msi
