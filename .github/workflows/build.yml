@@ -6,12 +6,29 @@ on:
   pull_request:
     branches: [ "**" ]
   workflow_dispatch:
+    inputs:
+      sign_binaries:
+        description: "Sign Release/Portable/MSI binaries with SSL.com eSigner"
+        type: boolean
+        default: true
+      publish_release:
+        description: "Publish a GitHub Release (main branch only; ignored elsewhere)"
+        type: boolean
+        default: false
+      prerelease:
+        description: "Mark the published release as prerelease"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
 
 env:
   BUILD_VERSION: 0.1.${{ github.run_number }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 defaults:
   run:
@@ -63,6 +80,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Compute metadata
+        run: |
+          $refName = "${{ github.ref_name }}"
+          if ("${{ github.head_ref }}" -ne "") {
+            $refName = "${{ github.head_ref }}"
+          }
+          $slug = $refName -replace '[^a-zA-Z0-9]', '-'
+          $slug = $slug.ToLower()
+          if ($slug.Length -gt 20) {
+            $slug = $slug.Substring(0, 20)
+          }
+          $slug = $slug.TrimEnd('-')
+          Write-Host "Branch slug: $slug"
+          echo "BRANCH_SLUG=$slug" >> $env:GITHUB_ENV
+          if ($refName -eq "main") {
+            echo "ARTIFACT_SUFFIX=" >> $env:GITHUB_ENV
+          } else {
+            echo "ARTIFACT_SUFFIX=-$slug" >> $env:GITHUB_ENV
+          }
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
@@ -85,7 +122,7 @@ jobs:
       - name: Upload Debug artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Windows-Hinting-Debug
+          name: Windows-Hinting-Debug${{ env.ARTIFACT_SUFFIX }}
           path: Windows-Hinting\bin\Debug\net10.0-windows\
           if-no-files-found: error
 
@@ -97,6 +134,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Compute metadata
+        run: |
+          $refName = "${{ github.ref_name }}"
+          if ("${{ github.head_ref }}" -ne "") {
+            $refName = "${{ github.head_ref }}"
+          }
+          $slug = $refName -replace '[^a-zA-Z0-9]', '-'
+          $slug = $slug.ToLower()
+          if ($slug.Length -gt 20) {
+            $slug = $slug.Substring(0, 20)
+          }
+          $slug = $slug.TrimEnd('-')
+          Write-Host "Branch slug: $slug"
+          echo "BRANCH_SLUG=$slug" >> $env:GITHUB_ENV
+          if ($refName -eq "main") {
+            echo "ARTIFACT_SUFFIX=" >> $env:GITHUB_ENV
+          } else {
+            echo "ARTIFACT_SUFFIX=-$slug" >> $env:GITHUB_ENV
+          }
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -117,7 +174,7 @@ jobs:
         run: .\build\build-complete.ps1 -Configuration Release -ExeOnly
 
       - name: Stage Release binaries for signing
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         run: |
           $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_release"
@@ -132,7 +189,7 @@ jobs:
           Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
 
       - name: Sign Release binaries with SSL.com eSigner
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         uses: sslcom/esigner-codesign@develop
         with:
           command: batch_sign
@@ -145,7 +202,7 @@ jobs:
           malware_block: true
 
       - name: Verify Release signatures and clean staging
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         run: |
           $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_release"
@@ -171,7 +228,7 @@ jobs:
           Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Verify signatures BEFORE MSI build
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         run: |
           $outDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
           Write-Host "--- Pre-MSI signature check ---"
@@ -200,7 +257,7 @@ jobs:
             /nologo /v:minimal
 
       - name: Verify signatures AFTER MSI build
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         run: |
           $outDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
           Write-Host "--- Post-MSI signature check ---"
@@ -220,7 +277,7 @@ jobs:
           }
 
       - name: Sign MSI with SSL.com eSigner
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         uses: sslcom/esigner-codesign@develop
         with:
           command: sign
@@ -233,7 +290,7 @@ jobs:
           override: true
 
       - name: Verify MSI signature
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         run: |
           $msiPath = "$env:GITHUB_WORKSPACE\Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi"
           Write-Host "--- MSI Signature verification ---"
@@ -278,7 +335,7 @@ jobs:
           Remove-Item "$portableOut\xunit.*" -Force -ErrorAction SilentlyContinue
 
       - name: Stage portable binaries for signing
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         run: |
           $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net10.0-windows"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable"
@@ -293,7 +350,7 @@ jobs:
           Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
 
       - name: Sign portable binaries with SSL.com eSigner
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         uses: sslcom/esigner-codesign@develop
         with:
           command: batch_sign
@@ -306,7 +363,7 @@ jobs:
           malware_block: true
 
       - name: Verify portable signatures and clean staging
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         run: |
           $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\Release\net10.0-windows"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable"
@@ -342,14 +399,14 @@ jobs:
       - name: Upload Portable artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Windows-Hinting-Portable
+          name: Windows-Hinting-Portable${{ env.ARTIFACT_SUFFIX }}
           path: Windows-Hinting-Portable.zip
           if-no-files-found: error
 
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Windows-Hinting-Installer
+          name: Windows-Hinting-Installer${{ env.ARTIFACT_SUFFIX }}
           path: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
           if-no-files-found: error
 
@@ -357,8 +414,8 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: [build-debug, build-release]
-    # Only publish a release on direct pushes to main — not PRs or other branches
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Only publish a release on direct pushes to main or manual workflow_dispatch on main with publish_release=true
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
 
     steps:
       - name: Download Debug build
@@ -388,7 +445,8 @@ jobs:
           tag: v${{ env.BUILD_VERSION }}
           name: v${{ env.BUILD_VERSION }}
           generateReleaseNotes: true
-          makeLatest: true
+          prerelease: ${{ inputs.prerelease || false }}
+          makeLatest: ${{ !(inputs.prerelease || false) }}
           body: |
             ## Downloads
 
