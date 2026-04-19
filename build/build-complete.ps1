@@ -103,7 +103,7 @@ Write-Host "=========================================="
 Write-Host ""
 Write-Host "Build Summary:"
 Write-Host "  Configuration: $Configuration"
-Write-Host "  Executable: bin\$Configuration\net8.0-windows\Windows-Hinting.exe"
+Write-Host "  Executable: bin\$Configuration\net10.0-windows\Windows-Hinting.exe"
 
 if (-not $ExeOnly) {
     $InstallerPathFriendly = "Windows-Hinting.Installer\bin\$Configuration\en-US\Windows-Hinting.msi"
