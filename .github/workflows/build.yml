@@ -683,7 +683,7 @@ jobs:
           global-json-file: global.json
 
       - name: Install NetSparkle AppCastGenerator
-        run: dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 3.0.*
+        run: dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 2.8.*
 
       - name: Stage update artifacts and write Ed25519 private key
         env:
