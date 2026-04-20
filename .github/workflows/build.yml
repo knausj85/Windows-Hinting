@@ -751,16 +751,34 @@ jobs:
           cp "appcast-out/${APPCAST_PORTABLE_X86_NAME}.xml"    "artifacts/${APPCAST_PORTABLE_X86_NAME}.xml"
         shell: bash
 
+      # For rolling beta releases, delete the existing release and tag so a
+      # fresh release is created on the current commit. Without this, GitHub
+      # keeps the original tag target (so Source code zips still reflect the
+      # old commit) and the release's published_at timestamp is never updated.
+      - name: Delete existing beta release and tag
+        if: env.IS_BETA == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ env.RELEASE_TAG }}"
+          # Delete release (ignore if it doesn't exist)
+          gh release delete "$tag" --yes --repo "${{ github.repository }}" || true
+          # Delete tag ref (ignore if it doesn't exist)
+          gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" || true
+        shell: bash
+
       - name: Create GitHub release
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ env.RELEASE_TAG }}
+          commit: ${{ github.sha }}
           name: ${{ env.IS_BETA == 'true' && format('beta (build {0})', env.BUILD_VERSION) || format('v{0}', env.BUILD_VERSION) }}
           generateReleaseNotes: true
           prerelease: ${{ env.IS_BETA == 'true' || inputs.prerelease || false }}
           makeLatest: ${{ env.IS_BETA != 'true' && !(inputs.prerelease || false) }}
-          allowUpdates: ${{ env.IS_BETA == 'true' }}
-          removeArtifacts: ${{ env.IS_BETA == 'true' }}
+          allowUpdates: false
+          removeArtifacts: false
           body: |
             ## Downloads
 

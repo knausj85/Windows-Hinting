@@ -113,6 +113,7 @@
         <!-- NetSparkle auto-update runtime -->
         <File Source="$(var.Windows_Hinting.TargetDir)NetSparkle.dll" />
         <File Source="$(var.Windows_Hinting.TargetDir)NetSparkleUpdater.UI.WinForms.dll" />
+        <File Source="$(var.Windows_Hinting.TargetDir)Chaos.NaCl.dll" />
       </Component>
     </DirectoryRef>
 
