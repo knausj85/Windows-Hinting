@@ -19,6 +19,9 @@ namespace WindowsHinting.Forms
         private const int HOTKEY_ID = 1;
         private const int TASKBAR_HOTKEY_ID = 2;
 
+        private const string BaseTitle = "Windows Hinting Overlay";
+        private const string ActiveTitle = BaseTitle + " [Active]";
+
         private const int WM_SETTINGCHANGE = 0x001A;
         private const int WM_DPICHANGED = 0x02E0;
 
@@ -40,6 +43,11 @@ namespace WindowsHinting.Forms
 
         public OverlayForm()
         {
+            // Stable window title consumed by external tools (e.g. Talon Voice)
+            // to detect the hints overlay. Not visible to end users because the
+            // form has no border, is excluded from the taskbar, and uses
+            // WS_EX_TOOLWINDOW (no Alt+Tab entry).
+            Text = BaseTitle;
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
             TopMost = true;
@@ -66,6 +74,11 @@ namespace WindowsHinting.Forms
             }
 
             Invalidate();
+        }
+
+        public void SetActiveState(bool active)
+        {
+            Text = active ? ActiveTitle : BaseTitle;
         }
 
         public void SetHints(List<HintItem> hints)

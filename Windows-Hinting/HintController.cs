@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Windows.Forms;
 using Preferences;
 using UIAutomationClient;
@@ -33,7 +34,11 @@ namespace WindowsHinting
         private HintOverlayOptions _options;
         private long _lastToggleTicks;
         private const long ToggleDebounceMs = 200;
-        private readonly System.Windows.Forms.Timer _autoHideTimer;
+        // Using System.Threading.Timer (not System.Windows.Forms.Timer) so the
+        // process does not carry a long-lived TimerNativeWindow HWND, which
+        // external tools like Talon Voice can otherwise latch onto instead of
+        // the real overlay window.
+        private readonly System.Threading.Timer _autoHideTimer;
         private bool _disposed;
 
         public HintController(
@@ -72,14 +77,8 @@ namespace WindowsHinting
                 _mouseClickService = mouseClickService ?? throw new ArgumentNullException(nameof(mouseClickService));
                 _startupService = startupService ?? throw new ArgumentNullException(nameof(startupService));
 
-                // Auto-hide timer
-                _autoHideTimer = new System.Windows.Forms.Timer();
-                _autoHideTimer.Tick += (_, _) =>
-                {
-                    _autoHideTimer.Stop();
-                    _logger.Info("Auto-hide timeout reached, deactivating hints");
-                    _stateManager.Deactivate();
-                };
+                // Auto-hide timer (threadpool-based; see field comment).
+                _autoHideTimer = new System.Threading.Timer(OnAutoHideTick, null, Timeout.Infinite, Timeout.Infinite);
 
                 // Load preferences
                 _logger.Debug("Loading preferences");
@@ -478,12 +477,38 @@ namespace WindowsHinting
             }
         }
 
+        private void OnAutoHideTick(object? state)
+        {
+            // Timer callback runs on a threadpool thread; marshal to the UI
+            // thread which owns the state manager and overlay.
+            if (_disposed || !_overlay.IsHandleCreated) return;
+            try
+            {
+                _overlay.BeginInvoke(() =>
+                {
+                    if (_disposed) return;
+                    if (_stateManager.CurrentMode == HintMode.Inactive) return;
+                    _logger.Info("Auto-hide timeout reached, deactivating hints");
+                    _stateManager.Deactivate();
+                });
+            }
+            catch (ObjectDisposedException)
+            {
+                // Shutdown race; ignore.
+            }
+            catch (InvalidOperationException)
+            {
+                // Overlay handle was destroyed between the check and BeginInvoke.
+            }
+        }
+
         private void OnModeChanged(object? sender, HintMode mode)
         {
             _logger.Info($"Mode changed: {mode}");
 
             bool enabled = mode != HintMode.Inactive;
             _overlay.SetEnabled(enabled);
+            _overlay.SetActiveState(enabled);
             _trayIcon.SetStatus(mode);
 
             if (enabled)
@@ -493,14 +518,13 @@ namespace WindowsHinting
 
                 if (mode == HintMode.Active && _options.AutoHideTimeoutSeconds > 0)
                 {
-                    _autoHideTimer.Interval = _options.AutoHideTimeoutSeconds * 1000;
-                    _autoHideTimer.Start();
+                    _autoHideTimer.Change(_options.AutoHideTimeoutSeconds * 1000, Timeout.Infinite);
                     _logger.Debug($"Auto-hide timer started ({_options.AutoHideTimeoutSeconds}s)");
                 }
             }
             else
             {
-                _autoHideTimer.Stop();
+                _autoHideTimer.Change(Timeout.Infinite, Timeout.Infinite);
                 _logger.Debug("Stopping keyboard service");
                 _keyboardService.Stop();
                 _inputHandler.Reset();
@@ -682,7 +706,6 @@ namespace WindowsHinting
                 return;
 
             _logger.Info("Disposing HintController");
-            _autoHideTimer.Stop();
             _autoHideTimer.Dispose();
             //_namedPipeService.Dispose();
             _keyboardService.Stop();
