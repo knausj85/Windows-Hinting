@@ -7,6 +7,7 @@ namespace WindowsHinting.Configuration
         FocusedElement,
         FocusedElementParent,
         FocusedElementFirstParentWindow,
-        FileExplorerCustomStrategy
+        FileExplorerCustomStrategy,
+        SearchHostCustomStrategy
     }
 }

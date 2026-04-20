@@ -130,7 +130,7 @@ namespace WindowsHinting.Configuration
                 Name = "Windows Search",
                 ExecutableName = "SearchHost",
                 ClassName = "Windows.UI.Core.CoreWindow",
-                Strategy = RootStrategy.ActiveWindowParent
+                Strategy = RootStrategy.SearchHostCustomStrategy
             },
             new WindowRule
             {

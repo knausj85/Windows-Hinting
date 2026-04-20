@@ -312,6 +312,20 @@ namespace WindowsHinting.Services
                     //case RootStrategy.FileExplorerCustomStrategy:
                     //    return ResolveFileExplorerActiveTab(root, windowTitle);
 
+                    case RootStrategy.SearchHostCustomStrategy:
+                        {
+                            var resolved = ResolveSearchHostRoot(root);
+                            if (resolved != null && resolved != root)
+                            {
+                                if (Marshal.IsComObject(root))
+                                {
+                                    try { Marshal.ReleaseComObject(root); } catch { }
+                                }
+                                return [resolved];
+                            }
+                            break;
+                        }
+
                     default:
                         {
                             var resolved = ApplyStrategy(strategy, root);
@@ -432,6 +446,80 @@ namespace WindowsHinting.Services
             return targets;
         }
 
+        private static readonly string[] SearchHostTargetNames = { "Start", "Search" };
+
+        /// <summary>
+        /// For SearchHost (Start menu / Search), the visible UI lives on a sibling of the
+        /// initial CoreWindow. Walks up to the parent and does a single cached child search
+        /// for a Window named "Start" or "Search" to efficiently locate the correct root.
+        /// </summary>
+        private IUIAutomationElement? ResolveSearchHostRoot(IUIAutomationElement root)
+        {
+            IUIAutomationCondition? windowCondition = null;
+            IUIAutomationCondition? nameOr = null;
+            IUIAutomationCondition? combined = null;
+            var nameConditions = new List<IUIAutomationCondition>();
+
+            try
+            {
+                windowCondition = _automation.CreatePropertyCondition(
+                    UIA_PropertyIds.UIA_ControlTypePropertyId,
+                    UIA_ControlTypeIds.UIA_WindowControlTypeId);
+
+                foreach (var name in SearchHostTargetNames)
+                {
+                    nameConditions.Add(_automation.CreatePropertyCondition(
+                        UIA_PropertyIds.UIA_NamePropertyId, name));
+                }
+
+                nameOr = _automation.CreateOrConditionFromArray(nameConditions.ToArray());
+                combined = _automation.CreateAndCondition(windowCondition, nameOr);
+
+                IUIAutomationElement? match = null;
+                try
+                {
+                    match = _automation.GetRootElement().FindFirstBuildCache(TreeScope.TreeScope_Children, combined, _cacheRequest);
+                }
+                catch (COMException ex)
+                {
+                    _logger.Debug($"SearchHostCustomStrategy: FindFirstBuildCache failed: {ex.Message}");
+                }
+
+                if (match != null)
+                {
+                    string matchedName;
+                    try { matchedName = match.CachedName ?? ""; } catch (COMException) { matchedName = ""; }
+                    _logger.Info($"SearchHostCustomStrategy: matched window \"{matchedName}\"");
+
+                    return match;
+                }
+
+                return null;
+            }
+            finally
+            {
+                if (combined != null && Marshal.IsComObject(combined))
+                {
+                    try { Marshal.ReleaseComObject(combined); } catch { }
+                }
+                if (nameOr != null && Marshal.IsComObject(nameOr))
+                {
+                    try { Marshal.ReleaseComObject(nameOr); } catch { }
+                }
+                foreach (var nc in nameConditions)
+                {
+                    if (nc != null && Marshal.IsComObject(nc))
+                    {
+                        try { Marshal.ReleaseComObject(nc); } catch { }
+                    }
+                }
+                if (windowCondition != null && Marshal.IsComObject(windowCondition))
+                {
+                    try { Marshal.ReleaseComObject(windowCondition); } catch { }
+                }
+            }
+        }
+
         private IUIAutomationElement? ApplyStrategy(RootStrategy strategy, IUIAutomationElement root)
         {
             var walker = _automation.ControlViewWalker;
@@ -441,6 +529,7 @@ namespace WindowsHinting.Services
                 case RootStrategy.ActiveWindowParent:
                     {
                         var parent = walker.GetParentElement(root);
+
                         _logger.Debug(parent != null
                             ? "ActiveWindowParent: navigated to parent element"
                             : "ActiveWindowParent: no parent found, falling back to root");
