@@ -12,11 +12,11 @@ on:
         type: boolean
         default: true
       publish_release:
-        description: "Publish a GitHub Release (main branch only; ignored elsewhere)"
+        description: "Publish a GitHub Release (main => stable 'v<ver>' tag; other branches => rolling 'beta' tag)"
         type: boolean
         default: false
       prerelease:
-        description: "Mark the published release as prerelease"
+        description: "Mark the published release as prerelease (ignored for beta, which is always a prerelease)"
         type: boolean
         default: true
 
@@ -607,14 +607,50 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: [build-debug, build-release]
-    # Only publish a release on direct pushes to main or manual workflow_dispatch on main with publish_release=true
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
+    # Publish a release when:
+    #  - Direct pushes to main                                 => stable channel (tag v<ver>)
+    #  - Manual dispatch on main with publish_release=true     => stable channel (tag v<ver>)
+    #  - Manual dispatch on any non-main branch with
+    #    publish_release=true                                  => beta channel (rolling 'beta' tag)
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
 
     steps:
+      - name: Compute release metadata
+        run: |
+          refName="${{ github.ref_name }}"
+          if [ "${{ github.head_ref }}" != "" ]; then
+            refName="${{ github.head_ref }}"
+          fi
+          slug=$(echo "$refName" | tr -c 'a-zA-Z0-9' '-' | tr '[:upper:]' '[:lower:]' | cut -c1-20 | sed 's/-*$//')
+          echo "BRANCH_SLUG=$slug" >> "$GITHUB_ENV"
+
+          if [ "$refName" = "main" ]; then
+            echo "UPDATE_CHANNEL=Stable"                                       >> "$GITHUB_ENV"
+            echo "ARTIFACT_SUFFIX="                                            >> "$GITHUB_ENV"
+            echo "RELEASE_TAG=v${BUILD_VERSION}"                               >> "$GITHUB_ENV"
+            echo "APPCAST_INSTALLER_NAME=appcast-installer"                    >> "$GITHUB_ENV"
+            echo "APPCAST_PORTABLE_X64_NAME=appcast-portable-win-x64"          >> "$GITHUB_ENV"
+            echo "APPCAST_PORTABLE_X86_NAME=appcast-portable-win-x86"          >> "$GITHUB_ENV"
+            echo "APPCAST_URL_PREFIX=https://github.com/${{ github.repository }}/releases/download/v${BUILD_VERSION}" >> "$GITHUB_ENV"
+            echo "IS_BETA=false"                                               >> "$GITHUB_ENV"
+          else
+            echo "UPDATE_CHANNEL=Beta"                                         >> "$GITHUB_ENV"
+            echo "ARTIFACT_SUFFIX=-$slug"                                      >> "$GITHUB_ENV"
+            echo "RELEASE_TAG=beta"                                            >> "$GITHUB_ENV"
+            echo "APPCAST_INSTALLER_NAME=appcast-installer-beta"               >> "$GITHUB_ENV"
+            echo "APPCAST_PORTABLE_X64_NAME=appcast-portable-win-x64-beta"     >> "$GITHUB_ENV"
+            echo "APPCAST_PORTABLE_X86_NAME=appcast-portable-win-x86-beta"     >> "$GITHUB_ENV"
+            echo "APPCAST_URL_PREFIX=https://github.com/${{ github.repository }}/releases/download/beta" >> "$GITHUB_ENV"
+            echo "IS_BETA=true"                                                >> "$GITHUB_ENV"
+          fi
+        shell: bash
+
       - name: Download Debug build
         uses: actions/download-artifact@v8
         with:
-          name: Windows-Hinting-Debug
+          name: Windows-Hinting-Debug${{ env.ARTIFACT_SUFFIX }}
           path: artifacts/Windows-Hinting-Debug
 
       - name: Zip Debug build
@@ -623,19 +659,19 @@ jobs:
       - name: Download Portable x64 build
         uses: actions/download-artifact@v8
         with:
-          name: Windows-Hinting-Portable-win-x64
+          name: Windows-Hinting-Portable-win-x64${{ env.ARTIFACT_SUFFIX }}
           path: artifacts
 
       - name: Download Portable x86 build
         uses: actions/download-artifact@v8
         with:
-          name: Windows-Hinting-Portable-win-x86
+          name: Windows-Hinting-Portable-win-x86${{ env.ARTIFACT_SUFFIX }}
           path: artifacts
 
       - name: Download MSI installer
         uses: actions/download-artifact@v8
         with:
-          name: Windows-Hinting-Installer
+          name: Windows-Hinting-Installer${{ env.ARTIFACT_SUFFIX }}
           path: artifacts
 
       - name: Setup .NET (for NetSparkle CLI)
@@ -679,7 +715,7 @@ jobs:
           set -euo pipefail
 
           version="${BUILD_VERSION}"
-          base="https://github.com/knausj85/Windows-Hinting/releases/download/v${version}"
+          base="${APPCAST_URL_PREFIX}"
 
           gen() {
             local input_dir="$1"
@@ -701,25 +737,27 @@ jobs:
 
           mkdir -p appcast-out
 
-          gen appcast-work/installer     msi "${base}" appcast-installer
-          gen appcast-work/portable-x64  zip "${base}" appcast-portable-win-x64
-          gen appcast-work/portable-x86  zip "${base}" appcast-portable-win-x86
+          gen appcast-work/installer     msi "${base}" "${APPCAST_INSTALLER_NAME}"
+          gen appcast-work/portable-x64  zip "${base}" "${APPCAST_PORTABLE_X64_NAME}"
+          gen appcast-work/portable-x86  zip "${base}" "${APPCAST_PORTABLE_X86_NAME}"
 
           ls -la appcast-out
 
-          cp appcast-out/appcast-installer.xml         artifacts/appcast-installer.xml
-          cp appcast-out/appcast-portable-win-x64.xml  artifacts/appcast-portable-win-x64.xml
-          cp appcast-out/appcast-portable-win-x86.xml  artifacts/appcast-portable-win-x86.xml
+          cp "appcast-out/${APPCAST_INSTALLER_NAME}.xml"       "artifacts/${APPCAST_INSTALLER_NAME}.xml"
+          cp "appcast-out/${APPCAST_PORTABLE_X64_NAME}.xml"    "artifacts/${APPCAST_PORTABLE_X64_NAME}.xml"
+          cp "appcast-out/${APPCAST_PORTABLE_X86_NAME}.xml"    "artifacts/${APPCAST_PORTABLE_X86_NAME}.xml"
         shell: bash
 
       - name: Create GitHub release
         uses: ncipollo/release-action@v1
         with:
-          tag: v${{ env.BUILD_VERSION }}
-          name: v${{ env.BUILD_VERSION }}
+          tag: ${{ env.RELEASE_TAG }}
+          name: ${{ env.IS_BETA == 'true' && format('beta (build {0})', env.BUILD_VERSION) || format('v{0}', env.BUILD_VERSION) }}
           generateReleaseNotes: true
-          prerelease: ${{ inputs.prerelease || false }}
-          makeLatest: ${{ !(inputs.prerelease || false) }}
+          prerelease: ${{ env.IS_BETA == 'true' || inputs.prerelease || false }}
+          makeLatest: ${{ env.IS_BETA != 'true' && !(inputs.prerelease || false) }}
+          allowUpdates: ${{ env.IS_BETA == 'true' }}
+          removeArtifacts: ${{ env.IS_BETA == 'true' }}
           body: |
             ## Downloads
 
@@ -734,6 +772,6 @@ jobs:
             artifacts/Windows-Hinting-Portable-win-x64.zip
             artifacts/Windows-Hinting-Portable-win-x86.zip
             artifacts/Windows-Hinting.msi
-            artifacts/appcast-installer.xml
-            artifacts/appcast-portable-win-x64.xml
-            artifacts/appcast-portable-win-x86.xml
+            artifacts/${{ env.APPCAST_INSTALLER_NAME }}.xml
+            artifacts/${{ env.APPCAST_PORTABLE_X64_NAME }}.xml
+            artifacts/${{ env.APPCAST_PORTABLE_X86_NAME }}.xml
