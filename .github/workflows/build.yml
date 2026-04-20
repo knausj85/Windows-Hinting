@@ -733,7 +733,8 @@ jobs:
               --file-version "${version}" \
               --search-binary-subdirectories false \
               --ext "${ext}" \
-              --url-prefix-version "${download_url}" \
+              --base-url "${download_url}" \
+              --url-prefix-version=false \
               --output-file-name "${out_name}" \
               --signature-file-extension signature
           }

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Reflection;
 using System.Windows.Forms;
+using WindowsHinting.Services;
 
 namespace WindowsHinting.Forms
 {
@@ -63,11 +64,16 @@ namespace WindowsHinting.Forms
                 Margin = new Padding(0, 0, 0, emSize / 4)
             };
 
+            var isBeta = string.Equals(UpdateService.ChannelName, "Beta", StringComparison.OrdinalIgnoreCase);
+            var versionText = isBeta
+                ? $"Version {displayVersion} (Beta)"
+                : $"Version {displayVersion}";
+
             var versionLabel = new Label
             {
-                Text = $"Version {displayVersion}",
+                Text = versionText,
                 Font = new Font("Segoe UI", 10f),
-                ForeColor = ForeColorDefault,
+                ForeColor = isBeta ? AccentColor : ForeColorDefault,
                 AutoSize = true,
                 Margin = new Padding(2, 0, 0, emSize / 4)
             };

@@ -59,6 +59,9 @@ namespace WindowsHinting.Services
         {
             try
             {
+                _logger.Info(
+                    $"UpdateService: initializing (channel={ChannelName}, deployment={DeploymentMode.Current}, runtime={DeploymentMode.RuntimeId}).");
+
                 _sparkle = CreateSparkle();
                 if (_sparkle == null)
                 {
@@ -70,7 +73,7 @@ namespace WindowsHinting.Services
                 if (options.AutoCheckForUpdates)
                 {
                     _sparkle.StartLoop(doInitialCheck: true, forceInitialCheck: false);
-                    _logger.Info("UpdateService: automatic update checks enabled.");
+                    _logger.Info("UpdateService: automatic update checks enabled; initial check scheduled.");
                 }
                 else
                 {
@@ -92,9 +95,12 @@ namespace WindowsHinting.Services
         {
             try
             {
+                _logger.Info($"UpdateService: manual update check requested (channel={ChannelName}).");
+
                 _sparkle ??= CreateSparkle();
                 if (_sparkle == null)
                 {
+                    _logger.Info("UpdateService: manual check aborted; updater not available for this build.");
                     MessageBox.Show(
                         "Automatic updates are not available for this build.\n\n" +
                         "Please visit the releases page to download the latest version.",
@@ -106,6 +112,16 @@ namespace WindowsHinting.Services
                 }
 
                 var info = await _sparkle.CheckForUpdatesAtUserRequest().ConfigureAwait(true);
+                if (info == null)
+                {
+                    _logger.Info("UpdateService: manual check returned no result.");
+                }
+                else
+                {
+                    var count = info.Updates?.Count ?? 0;
+                    _logger.Info($"UpdateService: manual check completed (status={info.Status}, updatesAvailable={count}).");
+                }
+
                 if (info == null || info.Status == UpdateStatus.CouldNotDetermine)
                 {
                     MessageBox.Show(
@@ -139,7 +155,12 @@ namespace WindowsHinting.Services
 
             var appcastUrl = BuildAppcastUrl();
             if (appcastUrl == null)
+            {
+                _logger.Info($"UpdateService: no appcast URL for deployment={DeploymentMode.Current}; updates disabled.");
                 return null;
+            }
+
+            _logger.Info($"UpdateService: using appcast {appcastUrl}");
 
             var signatureChecker = new Ed25519Checker(SecurityMode.Strict, publicKey);
 
@@ -157,6 +178,14 @@ namespace WindowsHinting.Services
                 UserInteractionMode = UserInteractionMode.NotSilent,
                 LogWriter = new NetSparkleUpdater.LogWriter(NetSparkleUpdater.Enums.LogWriterOutputMode.Console),
             };
+
+            sparkle.UpdateCheckStarted += (_) =>
+                _logger.Info("UpdateService: update check started.");
+            sparkle.UpdateCheckFinished += (_, status) =>
+                _logger.Info($"UpdateService: update check finished (status={status}).");
+            sparkle.UpdateDetected += (_, e) =>
+                _logger.Info(
+                    $"UpdateService: update detected (latest={e.LatestVersion?.Version}, current={e.ApplicationConfig?.InstalledVersion}).");
 
             // Portable: intercept the close-to-install phase and do our own
             // self-replacement via the helper script.
