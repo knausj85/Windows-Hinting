@@ -1,7 +1,21 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="Windows-Hinting" />
+      <Directory Id="INSTALLFOLDER" Name="Windows-Hinting">
+        <!-- Culture subdirectories for NetSparkleUpdater.UI.WinForms satellite resource DLLs. -->
+        <Directory Id="INSTALLFOLDER_bg"    Name="bg" />
+        <Directory Id="INSTALLFOLDER_de"    Name="de" />
+        <Directory Id="INSTALLFOLDER_esMX"  Name="es-MX" />
+        <Directory Id="INSTALLFOLDER_fr"    Name="fr" />
+        <Directory Id="INSTALLFOLDER_it"    Name="it" />
+        <Directory Id="INSTALLFOLDER_ja"    Name="ja" />
+        <Directory Id="INSTALLFOLDER_lt"    Name="lt" />
+        <Directory Id="INSTALLFOLDER_nl"    Name="nl" />
+        <Directory Id="INSTALLFOLDER_ptBR"  Name="pt-BR" />
+        <Directory Id="INSTALLFOLDER_ru"    Name="ru" />
+        <Directory Id="INSTALLFOLDER_zhCN"  Name="zh-CN" />
+        <Directory Id="INSTALLFOLDER_zhTW"  Name="zh-TW" />
+      </Directory>
     </StandardDirectory>
 
     <StandardDirectory Id="ProgramMenuFolder">

@@ -20,6 +20,7 @@
     <Feature Id="ProductFeature" Title="Windows-Hinting" Level="1">
       <ComponentGroupRef Id="MainApplicationFiles" />
       <ComponentRef Id="DotNetRuntimeLibraries" />
+      <ComponentGroupRef Id="NetSparkleResources" />
       <ComponentRef Id="RuntimeRegistry" />
       <ComponentGroupRef Id="DesktopShortcuts" />
       <ComponentGroupRef Id="RegistryConfiguration" />

@@ -446,23 +446,23 @@ jobs:
 
           Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
 
-      - name: Create portable x64 zip
+      - name: Stage portable x64 exe for release
         run: |
           $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
-          $zipPath    = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable-win-x64.zip"
+          $exeOut     = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable-win-x64.exe"
 
-          if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+          if (Test-Path -LiteralPath $exeOut) { Remove-Item -LiteralPath $exeOut -Force }
 
           # Only include Windows-Hinting.exe, exclude .pdb
           $exePath = Join-Path $publishDir "Windows-Hinting.exe"
-          Compress-Archive -Path $exePath -DestinationPath $zipPath
-          Write-Host "Portable x64 zip created: $zipPath"
+          Copy-Item -LiteralPath $exePath -Destination $exeOut -Force
+          Write-Host "Portable x64 exe staged: $exeOut"
 
       - name: Upload Portable x64 artifact
         uses: actions/upload-artifact@v7
         with:
           name: Windows-Hinting-Portable-win-x64${{ env.ARTIFACT_SUFFIX }}
-          path: Windows-Hinting-Portable-win-x64.zip
+          path: Windows-Hinting-Portable-win-x64.exe
           if-no-files-found: error
 
       - name: Build portable self-contained exe for win-x86
@@ -577,23 +577,23 @@ jobs:
 
           Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
 
-      - name: Create portable x86 zip
+      - name: Stage portable x86 exe for release
         run: |
           $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
-          $zipPath    = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable-win-x86.zip"
+          $exeOut     = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable-win-x86.exe"
 
-          if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+          if (Test-Path -LiteralPath $exeOut) { Remove-Item -LiteralPath $exeOut -Force }
 
           # Only include Windows-Hinting.exe, exclude .pdb
           $exePath = Join-Path $publishDir "Windows-Hinting.exe"
-          Compress-Archive -Path $exePath -DestinationPath $zipPath
-          Write-Host "Portable x86 zip created: $zipPath"
+          Copy-Item -LiteralPath $exePath -Destination $exeOut -Force
+          Write-Host "Portable x86 exe staged: $exeOut"
 
       - name: Upload Portable x86 artifact
         uses: actions/upload-artifact@v7
         with:
           name: Windows-Hinting-Portable-win-x86${{ env.ARTIFACT_SUFFIX }}
-          path: Windows-Hinting-Portable-win-x86.zip
+          path: Windows-Hinting-Portable-win-x86.exe
           if-no-files-found: error
 
       - name: Upload MSI artifact
@@ -701,8 +701,8 @@ jobs:
           mkdir -p appcast-work/portable-x86
 
           cp artifacts/Windows-Hinting.msi                       appcast-work/installer/
-          cp artifacts/Windows-Hinting-Portable-win-x64.zip      appcast-work/portable-x64/
-          cp artifacts/Windows-Hinting-Portable-win-x86.zip      appcast-work/portable-x86/
+          cp artifacts/Windows-Hinting-Portable-win-x64.exe      appcast-work/portable-x64/
+          cp artifacts/Windows-Hinting-Portable-win-x86.exe      appcast-work/portable-x86/
 
           # NetSparkle's AppCastGenerator reads the private key from the
           # SparklePrivateKey env var (base64). Export it for later steps.
@@ -741,8 +741,8 @@ jobs:
           mkdir -p appcast-out
 
           gen appcast-work/installer     msi "${base}" "${APPCAST_INSTALLER_NAME}"
-          gen appcast-work/portable-x64  zip "${base}" "${APPCAST_PORTABLE_X64_NAME}"
-          gen appcast-work/portable-x86  zip "${base}" "${APPCAST_PORTABLE_X86_NAME}"
+          gen appcast-work/portable-x64  exe "${base}" "${APPCAST_PORTABLE_X64_NAME}"
+          gen appcast-work/portable-x86  exe "${base}" "${APPCAST_PORTABLE_X86_NAME}"
 
           ls -la appcast-out
 
@@ -766,14 +766,14 @@ jobs:
 
               | Asset | Description |
               |---|---|
-              | **Windows-Hinting-Portable-win-x64.zip** | Self-contained portable x64 build — signed single-file `Windows-Hinting.exe`. No .NET runtime required. No UIAccess (hints won't appear above e.g. the start menu). Extract and run `Windows-Hinting.exe`. |
-              | **Windows-Hinting-Portable-win-x86.zip** | Self-contained portable x86 build — signed single-file `Windows-Hinting.exe`. No .NET runtime required. No UIAccess (hints won't appear above e.g. the start menu). Extract and run `Windows-Hinting.exe`. |
+              | **Windows-Hinting-Portable-win-x64.exe** | Self-contained portable x64 build — signed single-file executable. No .NET runtime required. No UIAccess (hints won't appear above e.g. the start menu). Download and run. |
+              | **Windows-Hinting-Portable-win-x86.exe** | Self-contained portable x86 build — signed single-file executable. No .NET runtime required. No UIAccess (hints won't appear above e.g. the start menu). Download and run. |
               | **Windows-Hinting-Debug.zip** | Debug build — **unsigned**, for diagnostics/testing only. Extract and run `Windows-Hinting.exe`. Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). |
               | **Windows-Hinting.msi** | Installer — fully signed (installer, executable, and managed DLL). Provides UIAccess support so hints appear above e.g. the start menu. Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). |
           artifacts: |
             artifacts/Windows-Hinting-Debug.zip
-            artifacts/Windows-Hinting-Portable-win-x64.zip
-            artifacts/Windows-Hinting-Portable-win-x86.zip
+            artifacts/Windows-Hinting-Portable-win-x64.exe
+            artifacts/Windows-Hinting-Portable-win-x86.exe
             artifacts/Windows-Hinting.msi
             artifacts/${{ env.APPCAST_INSTALLER_NAME }}.xml
             artifacts/${{ env.APPCAST_PORTABLE_X64_NAME }}.xml
