@@ -726,6 +726,10 @@ jobs:
             local download_url="$3"
             local out_name="$4"
 
+            # Clean any leftover default-named outputs from a previous call so
+            # we can reliably detect / rename this run's output.
+            rm -f appcast-out/appcast.xml appcast-out/appcast.xml.signature
+
             netsparkle-generate-appcast \
               --appcast-output-directory appcast-out \
               --binaries "${input_dir}" \
@@ -736,6 +740,21 @@ jobs:
               --url-prefix "${download_url}" \
               --output-file-name "${out_name}" \
               --signature-file-extension signature
+
+            # AppCastGenerator 2.8.x ignores --output-file-name and always
+            # writes appcast.xml; rename to the requested name.
+            if [ ! -f "appcast-out/${out_name}.xml" ] && [ -f "appcast-out/appcast.xml" ]; then
+              mv "appcast-out/appcast.xml" "appcast-out/${out_name}.xml"
+              if [ -f "appcast-out/appcast.xml.signature" ]; then
+                mv "appcast-out/appcast.xml.signature" "appcast-out/${out_name}.xml.signature"
+              fi
+            fi
+
+            if [ ! -f "appcast-out/${out_name}.xml" ]; then
+              echo "ERROR: expected appcast-out/${out_name}.xml after generation" >&2
+              ls -la appcast-out >&2 || true
+              exit 1
+            fi
           }
 
           mkdir -p appcast-out
