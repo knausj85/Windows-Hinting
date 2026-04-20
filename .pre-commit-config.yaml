@@ -4,7 +4,9 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$
       - id: end-of-file-fixer
+        exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$
       - id: check-yaml
       - id: check-xml
       - id: check-merge-conflict
@@ -12,6 +14,7 @@ repos:
         args: ['--maxkb=500']
       - id: mixed-line-ending
         args: ['--fix=crlf']
+        exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$
 
   # C# formatting via dotnet format
   - repo: local
