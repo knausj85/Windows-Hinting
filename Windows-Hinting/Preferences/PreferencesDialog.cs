@@ -17,6 +17,7 @@ namespace Preferences
         private readonly Dictionary<HintPosition, RadioButton> _positionButtons = new();
         private CheckBox _chkAutoHideEnabled = null!;
         private NumericUpDown _nudAutoHideTimeout = null!;
+        private CheckBox _chkAutoCheckForUpdates = null!;
 
         // Hotkeys tab controls
         private CheckBox _chkHotkeyEnabled = null!;
@@ -294,6 +295,18 @@ namespace Preferences
 
             autoHideGroup.Controls.Add(autoHideLayout);
             layout.Controls.Add(autoHideGroup, 0, 3);
+
+            // Check for updates on startup checkbox (last row before the spacer)
+            _chkAutoCheckForUpdates = new CheckBox
+            {
+                Text = "Check for updates on startup",
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                Margin = new Padding(3, 8, 3, 3),
+            };
+            layout.RowCount = 6;
+            layout.RowStyles.Insert(4, new RowStyle(SizeType.AutoSize));
+            layout.Controls.Add(_chkAutoCheckForUpdates, 0, 4);
 
             scrollPanel.Controls.Add(layout);
             tab.Controls.Add(scrollPanel);
@@ -632,6 +645,7 @@ namespace Preferences
         {
             _chkShowRectangles.Checked = _options.ShowRectangles;
             _chkStartWithWindows.Checked = _startupService.IsEnabled;
+            _chkAutoCheckForUpdates.Checked = _options.AutoCheckForUpdates;
             if (_positionButtons.TryGetValue(_options.HintPosition, out var rb))
                 rb.Checked = true;
             else
@@ -675,6 +689,7 @@ namespace Preferences
         {
             _options.ShowRectangles = _chkShowRectangles.Checked;
             _startupService.Apply(_chkStartWithWindows.Checked);
+            _options.AutoCheckForUpdates = _chkAutoCheckForUpdates.Checked;
             _options.HintPosition = _positionButtons
                 .FirstOrDefault(kvp => kvp.Value.Checked).Key;
             _options.Hotkey.Enabled = _chkHotkeyEnabled.Checked;

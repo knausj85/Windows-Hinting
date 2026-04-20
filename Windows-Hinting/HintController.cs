@@ -30,6 +30,7 @@ namespace WindowsHinting
         private readonly WindowRuleRegistry _ruleRegistry;
         private readonly MouseClickService _mouseClickService;
         private readonly StartupService _startupService;
+        private readonly UpdateService _updateService;
 
         private HintOverlayOptions _options;
         private long _lastToggleTicks;
@@ -55,7 +56,8 @@ namespace WindowsHinting
             ElementActivatorChain activatorChain,
             //NamedPipeService namedPipeService,
             MouseClickService mouseClickService,
-            StartupService startupService)
+            StartupService startupService,
+            UpdateService updateService)
         {
             using (PerformanceMetrics.Start("HintController.Constructor", logger, LogLevel.Info))
             {
@@ -76,6 +78,7 @@ namespace WindowsHinting
                 //_namedPipeService = namedPipeService ?? throw new ArgumentNullException(nameof(namedPipeService));
                 _mouseClickService = mouseClickService ?? throw new ArgumentNullException(nameof(mouseClickService));
                 _startupService = startupService ?? throw new ArgumentNullException(nameof(startupService));
+                _updateService = updateService ?? throw new ArgumentNullException(nameof(updateService));
 
                 // Auto-hide timer (threadpool-based; see field comment).
                 _autoHideTimer = new System.Threading.Timer(OnAutoHideTick, null, Timeout.Infinite, Timeout.Infinite);
@@ -96,6 +99,8 @@ namespace WindowsHinting
                 _trayIcon.ToggleRequested += (s, e) => Toggle();
                 _trayIcon.PreferencesRequested += OnPreferencesRequested;
                 _trayIcon.ExitRequested += (s, e) => Application.Exit();
+                _trayIcon.CheckForUpdatesRequested += async (s, e) =>
+                    await _updateService.CheckForUpdatesManuallyAsync().ConfigureAwait(true);
 
                 _stateManager.ModeChanged += OnModeChanged;
                 _stateManager.HintsChanged += OnHintsChanged;
@@ -116,6 +121,9 @@ namespace WindowsHinting
                 // Show overlay
                 _logger.Debug("Showing overlay");
                 _overlay.Show();
+
+                // Kick off the auto-update background loop (no-op if disabled in prefs).
+                _updateService.Initialize();
 
                 _logger.Info("HintController initialized successfully");
             }
@@ -709,6 +717,7 @@ namespace WindowsHinting
             _autoHideTimer.Dispose();
             //_namedPipeService.Dispose();
             _keyboardService.Stop();
+            _updateService.Dispose();
             _trayIcon.Dispose();
             _overlay.Dispose();
             _uiaService.Dispose();

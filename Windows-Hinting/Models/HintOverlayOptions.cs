@@ -36,6 +36,13 @@ namespace WindowsHinting.Models
         /// </summary>
         public int ScanTimeoutMs { get; set; } = 2500;
 
+        /// <summary>
+        /// When true, the app checks the GitHub Releases appcast for a newer
+        /// version shortly after startup. The manual "Check for updates..."
+        /// tray command works regardless of this setting.
+        /// </summary>
+        public bool AutoCheckForUpdates { get; set; } = true;
+
         public List<WindowRule>? WindowRules { get; set; }
     }
 

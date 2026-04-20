@@ -10,6 +10,8 @@ namespace WindowsHinting.Forms
     {
         private const string GitHubUrl = "https://github.com/knausj85/Windows-Hinting";
 
+        public event EventHandler? CheckForUpdatesRequested;
+
         private static readonly Color BackColor_ = Color.FromArgb(30, 30, 30);
         private static readonly Color ForeColorDefault = Color.FromArgb(204, 204, 204);
         private static readonly Color AccentColor = Color.FromArgb(255, 220, 50);
@@ -98,6 +100,18 @@ namespace WindowsHinting.Forms
                 });
             };
 
+            var updateLink = new LinkLabel
+            {
+                Text = "Check for updates",
+                Font = new Font("Segoe UI", 9f),
+                LinkColor = LinkColor_,
+                ActiveLinkColor = LinkColor_,
+                VisitedLinkColor = LinkColor_,
+                AutoSize = true,
+                Margin = new Padding(0, 0, 0, emSize)
+            };
+            updateLink.LinkClicked += (_, _) => CheckForUpdatesRequested?.Invoke(this, EventArgs.Empty);
+
             // Right-align the OK button inside a panel that stretches to match the content width
             var buttonPanel = new FlowLayoutPanel
             {
@@ -129,6 +143,7 @@ namespace WindowsHinting.Forms
             contentPanel.Controls.Add(versionLabel);
             contentPanel.Controls.Add(authorLabel);
             contentPanel.Controls.Add(linkLabel);
+            contentPanel.Controls.Add(updateLink);
             contentPanel.Controls.Add(buttonPanel);
 
             Controls.Add(contentPanel);

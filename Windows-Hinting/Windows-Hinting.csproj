@@ -16,7 +16,14 @@
     <EmbedInteropTypes>false</EmbedInteropTypes>
     <!-- Suppress harmless COM interop warning for CUIAutomation8.SafeArrayToRectNativeArray -->
     <MSBuildWarningsAsMessages>MSB3305</MSBuildWarningsAsMessages>
-    </PropertyGroup>
+  </PropertyGroup>
+
+  <!-- Portable (self-contained single-file) builds: build script passes /p:PortableBuild=true.
+       Emits a PORTABLE compile-time constant so UpdateService picks the portable appcast
+       and PortableUpdateInstaller instead of the MSI install path. -->
+  <PropertyGroup Condition="'$(PortableBuild)' == 'true'">
+    <DefineConstants>$(DefineConstants);PORTABLE</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Remove=".github\**" />
     <Compile Remove="HintOverlay.Installer\**" />
@@ -45,6 +52,12 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
+    <PackageReference Include="NetSparkleUpdater.SparkleUpdater" Version="3.0.4" />
+    <PackageReference Include="NetSparkleUpdater.UI.WinForms.NetCore" Version="3.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\netsparkle_pub.txt" />
   </ItemGroup>
 
   <ItemGroup>

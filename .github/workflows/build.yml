@@ -349,6 +349,7 @@ jobs:
             /p:RuntimeIdentifier=win-x64 `
             /p:SelfContained=true `
             /p:ApplicationManifest=app.debug.manifest `
+            /p:PortableBuild=true `
             /nologo /v:minimal
 
           if ($LASTEXITCODE -ne 0) { throw "msbuild compile failed for win-x64 with exit code $LASTEXITCODE" }
@@ -367,6 +368,7 @@ jobs:
             /p:PublishReadyToRun=true `
             /p:DebugType=embedded `
             /p:PublishDir=$publishDir\ `
+            /p:PortableBuild=true `
             /p:NoBuild=true `
             /nologo /v:minimal
 
@@ -476,6 +478,7 @@ jobs:
             /p:RuntimeIdentifier=win-x86 `
             /p:SelfContained=true `
             /p:ApplicationManifest=app.debug.manifest `
+            /p:PortableBuild=true `
             /nologo /v:minimal
 
           if ($LASTEXITCODE -ne 0) { throw "msbuild compile failed for win-x86 with exit code $LASTEXITCODE" }
@@ -494,6 +497,7 @@ jobs:
             /p:PublishReadyToRun=true `
             /p:DebugType=embedded `
             /p:PublishDir=$publishDir\ `
+            /p:PortableBuild=true `
             /p:NoBuild=true `
             /nologo /v:minimal
 
@@ -623,6 +627,80 @@ jobs:
           name: Windows-Hinting-Installer
           path: artifacts
 
+      - name: Setup .NET (for NetSparkle CLI)
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Install NetSparkle AppCastGenerator
+        run: dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 3.0.*
+
+      - name: Stage update artifacts and write Ed25519 private key
+        env:
+          NETSPARKLE_ED25519_PRIVATE_KEY: ${{ secrets.NETSPARKLE_ED25519_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NETSPARKLE_ED25519_PRIVATE_KEY:-}" ]; then
+            echo "::warning::NETSPARKLE_ED25519_PRIVATE_KEY secret is not set. Skipping appcast generation."
+            echo "APPCAST_SKIPPED=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          mkdir -p appcast-work/installer
+          mkdir -p appcast-work/portable-x64
+          mkdir -p appcast-work/portable-x86
+
+          cp artifacts/Windows-Hinting.msi                       appcast-work/installer/
+          cp artifacts/Windows-Hinting-Portable-win-x64.zip      appcast-work/portable-x64/
+          cp artifacts/Windows-Hinting-Portable-win-x86.zip      appcast-work/portable-x86/
+
+          # NetSparkle's AppCastGenerator reads the private key from the
+          # SparklePrivateKey env var (base64). Export it for later steps.
+          echo "SparklePrivateKey=${NETSPARKLE_ED25519_PRIVATE_KEY}" >> "$GITHUB_ENV"
+        shell: bash
+
+      - name: Generate signed appcasts
+        if: env.APPCAST_SKIPPED != 'true'
+        env:
+          BUILD_VERSION: ${{ env.BUILD_VERSION }}
+          SparklePrivateKey: ${{ env.SparklePrivateKey }}
+        run: |
+          set -euo pipefail
+
+          version="${BUILD_VERSION}"
+          base="https://github.com/knausj85/Windows-Hinting/releases/download/v${version}"
+
+          gen() {
+            local input_dir="$1"
+            local ext="$2"
+            local download_url="$3"
+            local out_name="$4"
+
+            netsparkle-generate-appcast \
+              --appcast-output-directory appcast-out \
+              --binaries "${input_dir}" \
+              --file-extract-version=false \
+              --file-version "${version}" \
+              --search-binary-subdirectories false \
+              --extensions "${ext}" \
+              --url-prefix "${download_url}" \
+              --output-file-name "${out_name}" \
+              --signature-file-extension signature
+          }
+
+          mkdir -p appcast-out
+
+          gen appcast-work/installer     msi "${base}" appcast-installer
+          gen appcast-work/portable-x64  zip "${base}" appcast-portable-win-x64
+          gen appcast-work/portable-x86  zip "${base}" appcast-portable-win-x86
+
+          ls -la appcast-out
+
+          cp appcast-out/appcast-installer.xml         artifacts/appcast-installer.xml
+          cp appcast-out/appcast-portable-win-x64.xml  artifacts/appcast-portable-win-x64.xml
+          cp appcast-out/appcast-portable-win-x86.xml  artifacts/appcast-portable-win-x86.xml
+        shell: bash
+
       - name: Create GitHub release
         uses: ncipollo/release-action@v1
         with:
@@ -645,3 +723,6 @@ jobs:
             artifacts/Windows-Hinting-Portable-win-x64.zip
             artifacts/Windows-Hinting-Portable-win-x86.zip
             artifacts/Windows-Hinting.msi
+            artifacts/appcast-installer.xml
+            artifacts/appcast-portable-win-x64.xml
+            artifacts/appcast-portable-win-x86.xml

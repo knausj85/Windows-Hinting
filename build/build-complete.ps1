@@ -66,6 +66,7 @@ if ($Portable) {
             "/p:RuntimeIdentifier=$Rid"
             "/p:SelfContained=true"
             "/p:ApplicationManifest=app.debug.manifest"
+            "/p:PortableBuild=true"
             "/nologo"
             "/v:minimal"
         )
@@ -99,6 +100,7 @@ if ($Portable) {
             "/p:PublishReadyToRun=true"
             "/p:DebugType=embedded"
             "/p:PublishDir=$PublishDir\"
+            "/p:PortableBuild=true"
             "/p:NoBuild=true"
             "/nologo"
             "/v:minimal"

@@ -38,6 +38,7 @@ namespace WindowsHinting.Services
         public event EventHandler? ToggleRequested;
         public event EventHandler? PreferencesRequested;
         public event EventHandler? ExitRequested;
+        public event EventHandler? CheckForUpdatesRequested;
 
         public TrayIconManager(ILogger logger)
         {
@@ -58,6 +59,7 @@ namespace WindowsHinting.Services
             contextMenu.Items.Add(CreateLoggingMenu(logger));
 
             contextMenu.Items.Add("-");
+            contextMenu.Items.Add("Check for updates...", null, (s, e) => CheckForUpdatesRequested?.Invoke(this, EventArgs.Empty));
             contextMenu.Items.Add("About...", null, (s, e) => ShowAbout());
             contextMenu.Items.Add("-");
             contextMenu.Items.Add("Exit", null, (s, e) => ExitRequested?.Invoke(this, EventArgs.Empty));
@@ -157,9 +159,14 @@ namespace WindowsHinting.Services
             _logViewer.Show();
         }
 
-        private static void ShowAbout()
+        private void ShowAbout()
         {
             using var about = new AboutForm();
+            about.CheckForUpdatesRequested += (_, _) =>
+            {
+                about.Close();
+                CheckForUpdatesRequested?.Invoke(this, EventArgs.Empty);
+            };
             about.ShowDialog();
         }
 
