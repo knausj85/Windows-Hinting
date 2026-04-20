@@ -96,8 +96,10 @@ jobs:
           echo "BRANCH_SLUG=$slug" >> $env:GITHUB_ENV
           if ($refName -eq "main") {
             echo "ARTIFACT_SUFFIX=" >> $env:GITHUB_ENV
+            echo "UPDATE_CHANNEL=Stable" >> $env:GITHUB_ENV
           } else {
             echo "ARTIFACT_SUFFIX=-$slug" >> $env:GITHUB_ENV
+            echo "UPDATE_CHANNEL=Beta" >> $env:GITHUB_ENV
           }
 
       - name: Setup .NET
@@ -121,7 +123,9 @@ jobs:
         run: dotnet restore
 
       - name: Build Debug (exe only)
-        run: build\build-complete.bat Debug --exe-only
+        env:
+          UPDATE_CHANNEL: ${{ env.UPDATE_CHANNEL }}
+        run: .\build\build-complete.ps1 -Configuration Debug -ExeOnly -UpdateChannel $env:UPDATE_CHANNEL
 
       - name: Clean Debug output
         run: |
@@ -160,8 +164,10 @@ jobs:
           echo "BRANCH_SLUG=$slug" >> $env:GITHUB_ENV
           if ($refName -eq "main") {
             echo "ARTIFACT_SUFFIX=" >> $env:GITHUB_ENV
+            echo "UPDATE_CHANNEL=Stable" >> $env:GITHUB_ENV
           } else {
             echo "ARTIFACT_SUFFIX=-$slug" >> $env:GITHUB_ENV
+            echo "UPDATE_CHANNEL=Beta" >> $env:GITHUB_ENV
           }
 
       - name: Setup .NET
@@ -189,7 +195,7 @@ jobs:
         run: dotnet restore
 
       - name: Build Release exe
-        run: .\build\build-complete.ps1 -Configuration Release -ExeOnly
+        run: .\build\build-complete.ps1 -Configuration Release -ExeOnly -UpdateChannel $env:UPDATE_CHANNEL
 
       - name: Stage Release binaries for signing
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
@@ -272,6 +278,7 @@ jobs:
             /p:Configuration=Release `
             /p:SignOutput=false `
             /p:BuildProjectReferences=false `
+            /p:UpdateChannel=$env:UPDATE_CHANNEL `
             /nologo /v:minimal
 
       - name: Verify signatures AFTER MSI build
@@ -350,6 +357,7 @@ jobs:
             /p:SelfContained=true `
             /p:ApplicationManifest=app.debug.manifest `
             /p:PortableBuild=true `
+            /p:UpdateChannel=$env:UPDATE_CHANNEL `
             /nologo /v:minimal
 
           if ($LASTEXITCODE -ne 0) { throw "msbuild compile failed for win-x64 with exit code $LASTEXITCODE" }
@@ -369,6 +377,7 @@ jobs:
             /p:DebugType=embedded `
             /p:PublishDir=$publishDir\ `
             /p:PortableBuild=true `
+            /p:UpdateChannel=$env:UPDATE_CHANNEL `
             /p:NoBuild=true `
             /nologo /v:minimal
 
@@ -479,6 +488,7 @@ jobs:
             /p:SelfContained=true `
             /p:ApplicationManifest=app.debug.manifest `
             /p:PortableBuild=true `
+            /p:UpdateChannel=$env:UPDATE_CHANNEL `
             /nologo /v:minimal
 
           if ($LASTEXITCODE -ne 0) { throw "msbuild compile failed for win-x86 with exit code $LASTEXITCODE" }
@@ -498,6 +508,7 @@ jobs:
             /p:DebugType=embedded `
             /p:PublishDir=$publishDir\ `
             /p:PortableBuild=true `
+            /p:UpdateChannel=$env:UPDATE_CHANNEL `
             /p:NoBuild=true `
             /nologo /v:minimal
 

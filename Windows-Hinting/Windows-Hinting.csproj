@@ -24,6 +24,12 @@
   <PropertyGroup Condition="'$(PortableBuild)' == 'true'">
     <DefineConstants>$(DefineConstants);PORTABLE</DefineConstants>
   </PropertyGroup>
+
+  <!-- Update channel is baked into each build. CI passes /p:UpdateChannel=Beta for beta
+       releases; omitting the property (or Stable) yields the default stable appcast. -->
+  <PropertyGroup Condition="'$(UpdateChannel)' == 'Beta'">
+    <DefineConstants>$(DefineConstants);UPDATE_CHANNEL_BETA</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Remove=".github\**" />
     <Compile Remove="HintOverlay.Installer\**" />

@@ -23,12 +23,21 @@ namespace WindowsHinting.Services
     /// </summary>
     internal sealed class UpdateService : IDisposable
     {
+#if UPDATE_CHANNEL_BETA
+        private const string AppcastBaseUrl =
+            "https://github.com/knausj85/Windows-Hinting/releases/download/beta";
+        private const string AppcastSuffix = "-beta";
+        private const string ReleasesPageUrl =
+            "https://github.com/knausj85/Windows-Hinting/releases/tag/beta";
+        public const string ChannelName = "Beta";
+#else
         private const string AppcastBaseUrl =
             "https://github.com/knausj85/Windows-Hinting/releases/latest/download";
-        private const string InstallerAppcast = "appcast-installer.xml";
-
+        private const string AppcastSuffix = "";
         private const string ReleasesPageUrl =
             "https://github.com/knausj85/Windows-Hinting/releases/latest";
+        public const string ChannelName = "Stable";
+#endif
 
         private readonly ILogger _logger;
         private readonly IPreferencesService _preferencesService;
@@ -171,9 +180,9 @@ namespace WindowsHinting.Services
         {
             return DeploymentMode.Current switch
             {
-                DeploymentKind.Installer => $"{AppcastBaseUrl}/{InstallerAppcast}",
-                DeploymentKind.Portable => $"{AppcastBaseUrl}/appcast-portable-{DeploymentMode.RuntimeId}.xml",
-                DeploymentKind.Unknown => $"{AppcastBaseUrl}/{InstallerAppcast}",
+                DeploymentKind.Installer => $"{AppcastBaseUrl}/appcast-installer{AppcastSuffix}.xml",
+                DeploymentKind.Portable => $"{AppcastBaseUrl}/appcast-portable-{DeploymentMode.RuntimeId}{AppcastSuffix}.xml",
+                DeploymentKind.Unknown => $"{AppcastBaseUrl}/appcast-installer{AppcastSuffix}.xml",
                 _ => null,
             };
         }

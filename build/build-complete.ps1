@@ -4,7 +4,12 @@ param(
     [switch]$ExeOnly,
     [switch]$Portable,
     [ValidateSet("win-x64", "win-x86", "all")]
-    [string]$Runtime = "all"
+    [string]$Runtime = "all",
+    # Selects the update channel baked into the build. "Stable" (default) uses
+    # the GitHub "latest" release; "Beta" uses the "beta" tag and the
+    # appcast-*-beta.xml naming. See UpdateService.cs and Windows-Hinting.csproj.
+    [ValidateSet("Stable", "Beta")]
+    [string]$UpdateChannel = "Stable"
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +26,7 @@ Write-Host "Portable Mode: $(if ($Portable) { 'True' } else { 'False' })"
 if ($Portable) {
     Write-Host "Runtime: $Runtime"
 }
+Write-Host "Update Channel: $UpdateChannel"
 Write-Host "Repository Root: $RepoRoot"
 Write-Host ""
 
@@ -67,6 +73,7 @@ if ($Portable) {
             "/p:SelfContained=true"
             "/p:ApplicationManifest=app.debug.manifest"
             "/p:PortableBuild=true"
+            "/p:UpdateChannel=$UpdateChannel"
             "/nologo"
             "/v:minimal"
         )
@@ -101,6 +108,7 @@ if ($Portable) {
             "/p:DebugType=embedded"
             "/p:PublishDir=$PublishDir\"
             "/p:PortableBuild=true"
+            "/p:UpdateChannel=$UpdateChannel"
             "/p:NoBuild=true"
             "/nologo"
             "/v:minimal"
@@ -156,6 +164,7 @@ Write-Host ""
 $BuildArgs = @(
     "$ProjectDir\Windows-Hinting.csproj"
     "/p:Configuration=$Configuration"
+    "/p:UpdateChannel=$UpdateChannel"
     "/nologo"
     "/v:minimal"
 )
