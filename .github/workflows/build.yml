@@ -711,13 +711,17 @@ jobs:
         if: env.APPCAST_SKIPPED != 'true'
         env:
           BUILD_VERSION: ${{ env.BUILD_VERSION }}
-          # NetSparkle's AppCastGenerator reads BOTH keys (base64) from env
-          # vars: SparklePrivateKey and SparklePublicKey. If either is missing,
-          # it falls back to disk-based key lookup
-          # (~/.local/share/netsparkle/NetSparkle_Ed25519.{priv,pub}) and, on a
-          # clean runner, fails with:
+          # NetSparkle's AppCastGenerator is documented to read BOTH keys
+          # (base64) from env vars SparklePrivateKey and SparklePublicKey.
+          # In practice, on a clean Linux runner it still falls through to the
+          # disk-based key lookup
+          # (~/.local/share/netsparkle/NetSparkle_Ed25519.{priv,pub}) and fails
+          # with:
           #   "File does not exist: .../NetSparkle_Ed25519.pub
           #    Skipped generating signature. Generate keys with --generate-keys"
+          # As a reliable workaround we ALSO materialize the keys to that
+          # disk location below before invoking the generator. Both are kept
+          # so signing works regardless of which path the tool takes.
           SparklePrivateKey: ${{ secrets.NETSPARKLE_ED25519_PRIVATE_KEY }}
           SparklePublicKey:  ${{ secrets.NETSPARKLE_ED25519_PUBLIC_KEY }}
         run: |
@@ -725,6 +729,19 @@ jobs:
 
           version="${BUILD_VERSION}"
           base="${APPCAST_URL_PREFIX}"
+
+          # Materialize the Ed25519 keys to the on-disk location NetSparkle
+          # AppCastGenerator falls back to when env vars aren't honored.
+          # The secrets are stored as base64 strings; write them verbatim.
+          if [ -n "${SparklePrivateKey:-}" ] && [ -n "${SparklePublicKey:-}" ]; then
+            key_dir="${HOME}/.local/share/netsparkle"
+            mkdir -p "${key_dir}"
+            # printf avoids trailing newline differences across shells.
+            printf '%s' "${SparklePrivateKey}" > "${key_dir}/NetSparkle_Ed25519.priv"
+            printf '%s' "${SparklePublicKey}"  > "${key_dir}/NetSparkle_Ed25519.pub"
+            chmod 600 "${key_dir}/NetSparkle_Ed25519.priv"
+            chmod 644 "${key_dir}/NetSparkle_Ed25519.pub"
+          fi
 
           gen() {
             local input_dir="$1"
