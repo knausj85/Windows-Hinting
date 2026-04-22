@@ -162,6 +162,10 @@ namespace WindowsHinting.Services
 
             _logger.Info($"UpdateService: using appcast {appcastUrl}");
 
+            // Load preferences to configure NetSparkle logging
+            var options = _preferencesService.Load();
+            _logger.Info($"UpdateService: NetSparkle log routing enabled={options.Logging.NetSparkleEnabled}");
+
             var signatureChecker = new Ed25519Checker(SecurityMode.Strict, publicKey);
 
             var icon = TryLoadAppIcon();
@@ -176,7 +180,7 @@ namespace WindowsHinting.Services
                 },
                 RelaunchAfterUpdate = true,
                 UserInteractionMode = UserInteractionMode.NotSilent,
-                LogWriter = new NetSparkleUpdater.LogWriter(NetSparkleUpdater.Enums.LogWriterOutputMode.Console),
+                LogWriter = new NetSparkleLoggerAdapter(_logger, options.Logging.NetSparkleEnabled),
             };
 
             sparkle.UpdateCheckStarted += (_) =>

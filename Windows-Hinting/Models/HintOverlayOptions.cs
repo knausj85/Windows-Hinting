@@ -68,6 +68,13 @@ namespace WindowsHinting.Models
         /// (off) is used.
         /// </summary>
         public bool? FileLoggingEnabled { get; set; }
+
+        /// <summary>
+        /// When true (default), NetSparkle diagnostic messages are routed through
+        /// the application logger. Set to false in preferences.json to completely
+        /// silence NetSparkle output.
+        /// </summary>
+        public bool NetSparkleEnabled { get; set; } = true;
     }
 
     internal sealed class HotkeyConfiguration

@@ -5,6 +5,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <AssemblyName>Windows-Hinting</AssemblyName>
+    <Configurations>Debug;Release;Debug-Beta</Configurations>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -26,9 +27,19 @@
   </PropertyGroup>
 
   <!-- Update channel is baked into each build. CI passes /p:UpdateChannel=Beta for beta
-       releases; omitting the property (or Stable) yields the default stable appcast. -->
-  <PropertyGroup Condition="'$(UpdateChannel)' == 'Beta'">
+       releases; omitting the property (or Stable) yields the default stable appcast.
+       The 'Debug-Beta' solution configuration also defines UPDATE_CHANNEL_BETA so
+       F5 from Visual Studio can target the beta appcast without editing anything. -->
+  <PropertyGroup Condition="'$(UpdateChannel)' == 'Beta' Or '$(Configuration)' == 'Debug-Beta'">
     <DefineConstants>$(DefineConstants);UPDATE_CHANNEL_BETA</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Debug-Beta inherits Debug behavior (non-optimized, full PDBs, DEBUG symbol). -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug-Beta'">
+    <DebugType>full</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>false</Optimize>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove=".github\**" />
