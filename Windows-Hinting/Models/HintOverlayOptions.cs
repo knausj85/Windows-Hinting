@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using WindowsHinting.Configuration;
+using WindowsHinting.Logging;
 
 namespace WindowsHinting.Models
 {
@@ -43,7 +44,30 @@ namespace WindowsHinting.Models
         /// </summary>
         public bool AutoCheckForUpdates { get; set; } = true;
 
+        /// <summary>
+        /// Optional forced logging settings. When any field is non-null the
+        /// corresponding value is applied to the logger at startup, overriding
+        /// the default (Info, file logging off). Useful for diagnostics: edit
+        /// preferences.json to enable Debug + file logging without recompiling.
+        /// </summary>
+        public LoggingOptions Logging { get; set; } = new();
+
         public List<WindowRule>? WindowRules { get; set; }
+    }
+
+    internal sealed class LoggingOptions
+    {
+        /// <summary>
+        /// If set, forces the logger's minimum level at startup. When null the
+        /// default (<see cref="LogLevel.Info"/>) is used.
+        /// </summary>
+        public LogLevel? MinimumLevel { get; set; }
+
+        /// <summary>
+        /// If set, forces file logging on/off at startup. When null the default
+        /// (off) is used.
+        /// </summary>
+        public bool? FileLoggingEnabled { get; set; }
     }
 
     internal sealed class HotkeyConfiguration
