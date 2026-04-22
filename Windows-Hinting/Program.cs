@@ -23,7 +23,6 @@ namespace WindowsHinting
                     return;
                 }
 
-                Application.SetHighDpiMode(HighDpiMode.SystemAware);
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
 

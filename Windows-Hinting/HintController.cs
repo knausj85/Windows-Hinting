@@ -16,7 +16,8 @@ namespace WindowsHinting
 {
     internal sealed class HintController : IDisposable
     {
-        private readonly OverlayForm _overlay;
+        private readonly OverlayManager _overlay;
+        private readonly HotkeyWindow _hotkeyWindow;
         private readonly IUIAutomationService _uiaService;
         private readonly IKeyboardHookService _keyboardService;
         private readonly IPreferencesService _preferencesService;
@@ -43,7 +44,8 @@ namespace WindowsHinting
         private bool _disposed;
 
         public HintController(
-            OverlayForm overlay,
+            OverlayManager overlay,
+            HotkeyWindow hotkeyWindow,
             IUIAutomationService uiaService,
             IKeyboardHookService keyboardService,
             IPreferencesService preferencesService,
@@ -65,6 +67,7 @@ namespace WindowsHinting
                 _logger.Info("Initializing HintController");
 
                 _overlay = overlay ?? throw new ArgumentNullException(nameof(overlay));
+                _hotkeyWindow = hotkeyWindow ?? throw new ArgumentNullException(nameof(hotkeyWindow));
                 _uiaService = uiaService ?? throw new ArgumentNullException(nameof(uiaService));
                 _keyboardService = keyboardService ?? throw new ArgumentNullException(nameof(keyboardService));
                 _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
@@ -94,8 +97,9 @@ namespace WindowsHinting
 
                 // Wire up events
                 _logger.Debug("Wiring up event handlers");
-                _overlay.ToggleRequested += (s, e) => Toggle();
-                _overlay.TaskbarToggleRequested += (s, e) => ToggleTaskbar();
+                _hotkeyWindow.ToggleRequested += (s, e) => Toggle();
+                _hotkeyWindow.TaskbarToggleRequested += (s, e) => ToggleTaskbar();
+                _hotkeyWindow.DisplaySettingsChanged += OnDisplaySettingsChanged;
                 _trayIcon.ToggleRequested += (s, e) => Toggle();
                 _trayIcon.PreferencesRequested += OnPreferencesRequested;
                 _trayIcon.ExitRequested += (s, e) => Application.Exit();
@@ -118,10 +122,6 @@ namespace WindowsHinting
                 // _logger.Debug("Starting named pipe service");
                 //_namedPipeService.Start();
 
-                // Show overlay
-                _logger.Debug("Showing overlay");
-                _overlay.Show();
-
                 // Kick off the auto-update background loop (no-op if disabled in prefs).
                 _updateService.Initialize();
 
@@ -132,24 +132,31 @@ namespace WindowsHinting
         private void ApplyOptions()
         {
             _logger.Debug($"Applying options - ShowRectangles: {_options.ShowRectangles}, HintPosition: {_options.HintPosition}, Hotkey: {_options.Hotkey.Modifiers}+{_options.Hotkey.VirtualKey}");
-            _overlay.ShowRectangles = _options.ShowRectangles;
-            _overlay.HintPosition = _options.HintPosition;
+            _overlay.ApplyShowRectangles(_options.ShowRectangles);
+            _overlay.ApplyHintPosition(_options.HintPosition);
 
             if (_options.Hotkey.Enabled)
-                _overlay.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
+                _hotkeyWindow.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
             else
-                _overlay.UnregisterGlobalHotkey();
+                _hotkeyWindow.UnregisterGlobalHotkey();
 
             if (_options.TaskbarHotkey.Enabled)
-                _overlay.RegisterTaskbarHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
+                _hotkeyWindow.RegisterTaskbarHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
             else
-                _overlay.UnregisterTaskbarHotkey();
+                _hotkeyWindow.UnregisterTaskbarHotkey();
 
             _inputHandler.ApplyOptions(_options.ClickActionShortcuts);
 
             var rules = WindowRuleRegistry.MergeWithDefaults(_options.WindowRules);
             _ruleRegistry.SetRules(rules);
             _logger.Debug($"Window rules applied: {rules.Count} rule(s)");
+        }
+
+        private void OnDisplaySettingsChanged(object? sender, EventArgs e)
+        {
+            _logger.Info("Display settings changed - deactivating hints and rebuilding overlays");
+            _stateManager.Deactivate();
+            _overlay.RebuildOverlays();
         }
 
         private void OnNamedPipeCommandReceived(object? sender, NamedPipeCommand command)
@@ -397,44 +404,61 @@ namespace WindowsHinting
         {
             using (PerformanceMetrics.Start("ScanTaskbarForHints", _logger, LogLevel.Info))
             {
-                var hwnd = _windowManager.GetTaskbarWindow();
-                if (!_windowManager.IsWindowValid(hwnd))
+                var taskbarWindows = _windowManager.GetTaskbarWindows();
+                if (taskbarWindows.Count == 0)
                 {
-                    _logger.Warning("Taskbar window not found");
+                    _logger.Warning("No taskbar windows found");
                     _stateManager.Deactivate();
                     return;
                 }
 
-                _logger.Debug($"Scanning taskbar window: {hwnd}");
+                _logger.Debug($"Scanning {taskbarWindows.Count} taskbar window(s)");
 
                 // Ensure overlay is topmost before scanning
                 _overlay.EnsureTopmost();
 
-                IReadOnlyList<Services.ClickableElement> elements;
+                var allElements = new List<Services.ClickableElement>();
                 var timeoutMs = _options.ScanTimeoutMs;
-                var timedOut = false;
-                if (timeoutMs > 0)
+                var anyTimedOut = false;
+
+                foreach (var hwnd in taskbarWindows)
                 {
-                    var sw = System.Diagnostics.Stopwatch.StartNew();
-                    elements = await _uiaService.FindClickableElementsAsync(hwnd, timeoutMs);
-                    sw.Stop();
-                    timedOut = sw.ElapsedMilliseconds >= timeoutMs;
-                    _logger.Info($"FindClickableElements(Taskbar) completed in {sw.ElapsedMilliseconds}ms (timeout={timeoutMs}ms)");
-                }
-                else
-                {
-                    elements = PerformanceMetricsExtensions.MeasureExecution(
-                        "FindClickableElements(Taskbar)",
-                        () => _uiaService.FindClickableElements(hwnd),
-                        _logger,
-                        LogLevel.Info);
+                    if (!_windowManager.IsWindowValid(hwnd))
+                    {
+                        _logger.Warning($"Invalid taskbar window handle: {hwnd}");
+                        continue;
+                    }
+
+                    _logger.Debug($"Scanning taskbar window: {hwnd}");
+
+                    IReadOnlyList<Services.ClickableElement> elements;
+                    var timedOut = false;
+                    if (timeoutMs > 0)
+                    {
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
+                        elements = await _uiaService.FindClickableElementsAsync(hwnd, timeoutMs);
+                        sw.Stop();
+                        timedOut = sw.ElapsedMilliseconds >= timeoutMs;
+                        if (timedOut) anyTimedOut = true;
+                        _logger.Info($"FindClickableElements(Taskbar {hwnd}) completed in {sw.ElapsedMilliseconds}ms (timeout={timeoutMs}ms)");
+                    }
+                    else
+                    {
+                        elements = PerformanceMetricsExtensions.MeasureExecution(
+                            $"FindClickableElements(Taskbar {hwnd})",
+                            () => _uiaService.FindClickableElements(hwnd),
+                            _logger,
+                            LogLevel.Info);
+                    }
+
+                    allElements.AddRange(elements);
                 }
 
-                _logger.Info($"Found {elements.Count} taskbar clickable elements");
+                _logger.Info($"Found {allElements.Count} total taskbar clickable elements across {taskbarWindows.Count} taskbar(s)");
 
-                if (elements.Count == 0)
+                if (allElements.Count == 0)
                 {
-                    if (timedOut)
+                    if (anyTimedOut)
                     {
                         _logger.Warning($"Taskbar hint population timed out after {timeoutMs}ms");
                         _trayIcon.ShowNotification("Hint Timeout", $"Taskbar hint population timed out after {timeoutMs}ms. Try increasing the timeout in preferences.");
@@ -448,7 +472,7 @@ namespace WindowsHinting
                 // Deduplicate overlapping elements
                 var deduped = PerformanceMetricsExtensions.MeasureExecution(
                     "DeduplicateElements(Taskbar)",
-                    () => ElementDeduplicator.Deduplicate(elements, _logger, _options.OverlapThreshold),
+                    () => ElementDeduplicator.Deduplicate(allElements, _logger, _options.OverlapThreshold),
                     _logger,
                     LogLevel.Debug);
 
@@ -487,8 +511,7 @@ namespace WindowsHinting
 
         private void OnAutoHideTick(object? state)
         {
-            // Timer callback runs on a threadpool thread; marshal to the UI
-            // thread which owns the state manager and overlay.
+            // Timer callback runs on a threadpool thread; marshal to the UI thread.
             if (_disposed || !_overlay.IsHandleCreated) return;
             try
             {
@@ -506,7 +529,7 @@ namespace WindowsHinting
             }
             catch (InvalidOperationException)
             {
-                // Overlay handle was destroyed between the check and BeginInvoke.
+                // Handle was destroyed between the check and BeginInvoke.
             }
         }
 
@@ -673,23 +696,22 @@ namespace WindowsHinting
                 dialog.HotkeyRecordingStarted += (_, _) =>
                 {
                     _logger.Debug("Hotkey recording started, unregistering global hotkeys");
-                    _overlay.UnregisterGlobalHotkey();
-                    _overlay.UnregisterTaskbarHotkey();
+                    _hotkeyWindow.UnregisterGlobalHotkey();
+                    _hotkeyWindow.UnregisterTaskbarHotkey();
                 };
                 dialog.HotkeyRecordingStopped += (_, _) =>
                 {
                     _logger.Debug("Hotkey recording stopped, re-registering global hotkeys");
                     if (_options.Hotkey.Enabled)
-                        _overlay.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
+                        _hotkeyWindow.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
                     if (_options.TaskbarHotkey.Enabled)
-                        _overlay.RegisterTaskbarHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
+                        _hotkeyWindow.RegisterTaskbarHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
                 };
                 var previousPosition = _overlay.HintPosition;
                 dialog.HintPositionChanged += (_, newPos) =>
                 {
                     _logger.Debug($"Live preview: hint position changed to {newPos}");
-                    _overlay.HintPosition = newPos;
-                    _overlay.Invalidate();
+                    _overlay.ApplyHintPosition(newPos);
                 };
                 if (dialog.ShowDialog() == DialogResult.OK)
                 {
@@ -697,13 +719,11 @@ namespace WindowsHinting
                     // Reload and apply
                     _options = _preferencesService.Load();
                     ApplyOptions();
-                    _overlay.Invalidate();
                 }
                 else
                 {
                     _logger.Debug("Preferences dialog cancelled, reverting hint position");
-                    _overlay.HintPosition = previousPosition;
-                    _overlay.Invalidate();
+                    _overlay.ApplyHintPosition(previousPosition);
                 }
             }
         }
@@ -720,6 +740,7 @@ namespace WindowsHinting
             _updateService.Dispose();
             _trayIcon.Dispose();
             _overlay.Dispose();
+            _hotkeyWindow.Dispose();
             _uiaService.Dispose();
             _logger.Info("HintController disposed");
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace WindowsHinting.Services
 {
@@ -6,6 +7,7 @@ namespace WindowsHinting.Services
     {
         IntPtr GetForegroundWindow();
         IntPtr GetTaskbarWindow();
+        IReadOnlyList<IntPtr> GetTaskbarWindows();
         bool IsWindowValid(IntPtr hwnd);
     }
 }

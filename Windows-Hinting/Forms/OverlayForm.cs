@@ -16,9 +16,6 @@ namespace WindowsHinting.Forms
         private bool _enabled;
         private string _filterPrefix = "";
 
-        private const int HOTKEY_ID = 1;
-        private const int TASKBAR_HOTKEY_ID = 2;
-
         private const string BaseTitle = "Windows Hinting Overlay";
         private const string ActiveTitle = BaseTitle + " [Active]";
 
@@ -26,10 +23,8 @@ namespace WindowsHinting.Forms
         private const int WM_DPICHANGED = 0x02E0;
 
         private readonly ILogger _logger;
+        private readonly Screen _screen;
         private Font _font;
-
-        public event EventHandler? ToggleRequested;
-        public event EventHandler? TaskbarToggleRequested;
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool ShowRectangles { get; set; } = false;
@@ -37,13 +32,9 @@ namespace WindowsHinting.Forms
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public HintPosition HintPosition { get; set; } = HintPosition.UpperLeft;
 
-        private int _hotkeyModifiers;
-        private int _hotkeyVirtualKey;
-        private int _taskbarHotkeyModifiers;
-        private int _taskbarHotkeyVirtualKey;
-
-        public OverlayForm(ILogger logger)
+        public OverlayForm(Screen screen, ILogger logger)
         {
+            _screen = screen ?? throw new ArgumentNullException(nameof(screen));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
             // Stable window title consumed by external tools (e.g. Talon Voice)
@@ -54,7 +45,14 @@ namespace WindowsHinting.Forms
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
             TopMost = true;
-            Bounds = SystemInformation.VirtualScreen;
+
+            // Disable WinForms auto-scaling: we set Bounds in physical pixels
+            // to match the target Screen exactly, so we don't want the framework
+            // re-scaling our layout after the form's DPI is established.
+            AutoScaleMode = AutoScaleMode.None;
+
+            StartPosition = FormStartPosition.Manual;
+            Bounds = _screen.Bounds;
             _font = CreateHintFont();
 
             SetStyle(ControlStyles.AllPaintingInWmPaint |
@@ -86,16 +84,37 @@ namespace WindowsHinting.Forms
 
         public void SetHints(List<HintItem> hints)
         {
-            _logger.Debug($"SetHints {hints.Count}");
-            _hints = hints;
+            // Filter hints to those intersecting this screen's bounds
+            var screenBounds = _screen.Bounds;
+            var filtered = new List<HintItem>();
+
+            foreach (var hint in hints)
+            {
+                if (hint.Rect.IntersectsWith(screenBounds))
+                {
+                    filtered.Add(hint);
+                }
+            }
+
+            _logger.Debug($"SetHints {hints.Count} total, {filtered.Count} on this screen");
+            _hints = filtered;
 
             Invalidate();
         }
 
-        private static Font CreateHintFont()
+        private Font CreateHintFont()
         {
+            // Use a pixel-sized font so it renders crisply at any DPI without
+            // relying on WinForms' point-to-pixel conversion (which depends on
+            // whichever DPI context the form was created under).
+            //
+            // Base size: the system caption font in points, converted to pixels
+            // at this form's current DPI (DeviceDpi reflects the owning monitor
+            // under PerMonitorV2).
             var baseFont = SystemFonts.CaptionFont;
-            return new Font(baseFont.FontFamily, baseFont.SizeInPoints, FontStyle.Bold, GraphicsUnit.Point);
+            float dpi = DeviceDpi > 0 ? DeviceDpi : 96f;
+            float pixelSize = baseFont.SizeInPoints * dpi / 72f;
+            return new Font(baseFont.FontFamily, pixelSize, FontStyle.Bold, GraphicsUnit.Pixel);
         }
 
         private void RefreshHintFont()
@@ -121,43 +140,21 @@ namespace WindowsHinting.Forms
             Invalidate(); // redraw text highlight immediately
         }
 
-        public void RegisterGlobalHotkey(int modifiers, int virtualKey)
-        {
-            UnregisterGlobalHotkey();
-            _hotkeyModifiers = modifiers;
-            _hotkeyVirtualKey = virtualKey;
-            if (!RegisterHotKey(Handle, HOTKEY_ID, modifiers, virtualKey))
-            {
-                throw new InvalidOperationException($"Failed to register global hotkey: {modifiers}+{virtualKey}");
-            }
-        }
-
-        public void UnregisterGlobalHotkey()
-        {
-            UnregisterHotKey(Handle, HOTKEY_ID);
-        }
-
-        public void RegisterTaskbarHotkey(int modifiers, int virtualKey)
-        {
-            UnregisterTaskbarHotkey();
-            _taskbarHotkeyModifiers = modifiers;
-            _taskbarHotkeyVirtualKey = virtualKey;
-            if (!RegisterHotKey(Handle, TASKBAR_HOTKEY_ID, modifiers, virtualKey))
-            {
-                throw new InvalidOperationException($"Failed to register taskbar hotkey: {modifiers}+{virtualKey}");
-            }
-        }
-
-        public void UnregisterTaskbarHotkey()
-        {
-            UnregisterHotKey(Handle, TASKBAR_HOTKEY_ID);
-        }
-
         protected override void OnPaint(PaintEventArgs e)
         {
             if (!_enabled) return;
 
             var g = e.Graphics;
+
+            // Prefer GDI TextRenderer (ClearType) over GDI+ DrawString for crisp text at high DPI.
+            // Set high-quality smoothing for rectangles; TextRenderer handles text independently.
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+
+            const TextFormatFlags textFlags =
+                TextFormatFlags.NoPadding |
+                TextFormatFlags.SingleLine |
+                TextFormatFlags.NoPrefix;
 
             int matches = 0;
             foreach (var h in _hints)
@@ -171,22 +168,29 @@ namespace WindowsHinting.Forms
                 int alpha = (int)(255 * Math.Clamp(h.CurrentOpacity, 0f, 1f));
 
                 using var labelBg = new SolidBrush(Color.FromArgb((int)(170 * Math.Clamp(h.CurrentOpacity, 0f, 1f)), 0, 0, 0));
-                using var labelFg = new SolidBrush(Color.FromArgb(alpha, 255, 255, 0));
-                using var labelHi = new SolidBrush(Color.FromArgb(alpha, 0, 255, 255)); // highlight
+                var labelFgColor = Color.FromArgb(alpha, 255, 255, 0);
+                var labelHiColor = Color.FromArgb(alpha, 0, 255, 255); // highlight
 
                 // rectangle outline (optional based on preference)
                 if (ShowRectangles)
                 {
-                    using var pen = new Pen(Color.FromArgb(alpha, 255, 255, 0), 2);
+                    // Scale pen width by DPI for visibility on 4K monitors
+                    float penWidth = Math.Max(2f, DeviceDpi / 96f * 2f);
+                    using var pen = new Pen(Color.FromArgb(alpha, 255, 255, 0), penWidth);
                     g.DrawRectangle(pen, h.Rect);
                 }
 
                 // label background size based on full label, positioned per HintPosition
-                var size = g.MeasureString(h.Label, _font);
-                float bgWidth = size.Width + 6;
-                float bgHeight = size.Height + 2;
+                var labelSize = TextRenderer.MeasureText(g, h.Label, _font, Size.Empty, textFlags);
 
-                float bgX, bgY;
+                // Scale padding by DPI so it matches visual proportions at 4K
+                int padX = Math.Max(3, (int)Math.Round(DeviceDpi / 96f * 3f));
+                int padY = Math.Max(1, (int)Math.Round(DeviceDpi / 96f * 1f));
+
+                int bgWidth = labelSize.Width + padX * 2;
+                int bgHeight = labelSize.Height + padY * 2;
+
+                int bgX, bgY;
                 switch (HintPosition)
                 {
                     case HintPosition.UpperLeft:
@@ -230,12 +234,18 @@ namespace WindowsHinting.Forms
                         bgY = h.Rect.Top;
                         break;
                 }
-                var bg = new RectangleF(bgX, bgY, bgWidth, bgHeight);
+
+                // Clamp label to screen's working area
+                var workingArea = _screen.WorkingArea;
+                bgX = Math.Max(workingArea.Left, Math.Min(bgX, workingArea.Right - bgWidth));
+                bgY = Math.Max(workingArea.Top, Math.Min(bgY, workingArea.Bottom - bgHeight));
+
+                var bg = new Rectangle(bgX, bgY, bgWidth, bgHeight);
                 g.FillRectangle(labelBg, bg);
 
                 // draw label with highlighted matching prefix
-                float x = bgX + 3;
-                float y = bgY + 1;
+                int x = bgX + padX;
+                int y = bgY + padY;
 
                 string match = "";
                 string suffix = h.Label;
@@ -250,17 +260,12 @@ namespace WindowsHinting.Forms
 
                 if (!string.IsNullOrEmpty(match))
                 {
-                    g.DrawString(match, _font, labelHi, x, y);
+                    TextRenderer.DrawText(g, match, _font, new Point(x, y), labelHiColor, textFlags);
+                    var matchSize = TextRenderer.MeasureText(g, match, _font, Size.Empty, textFlags);
+                    x += matchSize.Width;
                 }
 
-                var matchSize = TextRenderer.MeasureText(
-                match,
-                _font,
-                Size.Empty,
-                TextFormatFlags.NoPadding);
-
-                x += matchSize.Width;
-                g.DrawString(suffix, _font, labelFg, x, y);
+                TextRenderer.DrawText(g, suffix, _font, new Point(x, y), labelFgColor, textFlags);
             }
         }
 
@@ -316,77 +321,10 @@ namespace WindowsHinting.Forms
             base.OnHandleCreated(e);
 
             RefreshHintFont();
-            ReRegisterHotkeys();
-        }
-
-        protected override void OnHandleDestroyed(EventArgs e)
-        {
-            try
-            {
-                UnregisterGlobalHotkey();
-                UnregisterTaskbarHotkey();
-            }
-            catch
-            {
-                // Best effort only
-            }
-
-            base.OnHandleDestroyed(e);
-        }
-
-        public void ReRegisterHotkeys()
-        {
-            TryRegisterGlobalHotkey();
-            TryRegisterTaskbarHotkey();
-        }
-
-        private void TryRegisterGlobalHotkey()
-        {
-            try
-            {
-                if (_hotkeyVirtualKey != 0)
-                {
-                    RegisterHotKey(Handle, HOTKEY_ID, _hotkeyModifiers, _hotkeyVirtualKey);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Warning($"Failed to re-register global hotkey: {ex.Message}");
-            }
-        }
-
-        private void TryRegisterTaskbarHotkey()
-        {
-            try
-            {
-                if (_taskbarHotkeyVirtualKey != 0)
-                {
-                    RegisterHotKey(Handle, TASKBAR_HOTKEY_ID, _taskbarHotkeyModifiers, _taskbarHotkeyVirtualKey);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Warning($"Failed to re-register taskbar hotkey: {ex.Message}");
-            }
         }
 
         protected override void WndProc(ref Message m)
         {
-            const int WM_HOTKEY = 0x0312;
-            if (m.Msg == WM_HOTKEY)
-            {
-                int hotkeyId = m.WParam.ToInt32();
-                if (hotkeyId == HOTKEY_ID)
-                {
-                    ToggleRequested?.Invoke(this, EventArgs.Empty);
-                }
-                else if (hotkeyId == TASKBAR_HOTKEY_ID)
-                {
-                    TaskbarToggleRequested?.Invoke(this, EventArgs.Empty);
-                }
-                return;
-            }
-
             if (m.Msg == WM_SETTINGCHANGE || m.Msg == WM_DPICHANGED)
             {
                 RefreshHintFont();
@@ -404,11 +342,5 @@ namespace WindowsHinting.Forms
 
             base.Dispose(disposing);
         }
-
-        [DllImport("user32.dll")]
-        private static extern bool RegisterHotKey(IntPtr hWnd, int id, int fsModifiers, int vk);
-
-        [DllImport("user32.dll")]
-        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
     }
 }

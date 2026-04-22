@@ -44,8 +44,12 @@ namespace WindowsHinting
             services.AddSingleton<StartupService>();
             services.AddSingleton<UpdateService>();
 
+            // Hotkey handling (dedicated message-only window so hotkeys aren't
+            // tied to any per-screen overlay's lifetime)
+            services.AddSingleton<HotkeyWindow>();
+
             // UI Components
-            services.AddSingleton<OverlayForm>();
+            services.AddSingleton<OverlayManager>();
             services.AddSingleton<TrayIconManager>();
 
             // Application Controller
