@@ -188,7 +188,7 @@ namespace WindowsHinting.Services
                         }
                         catch (COMException ex)
                         {
-                            _logger.Debug($"FindAllBuildCache failed for a root: {ex.Message}");
+                            _logger.Warning($"FindAllBuildCache failed for a root: {ex.Message}");
                         }
 
                         if (found != null)
@@ -246,11 +246,11 @@ namespace WindowsHinting.Services
                             }
                             catch (COMException ex)
                             {
-                                _logger.Debug($"COM exception processing element {i}: {ex.Message}");
+                                _logger.Warning($"COM exception processing element {i}: {ex.Message}");
                             }
                             catch (Exception ex)
                             {
-                                _logger.Debug($"Exception processing element {i}: {ex.Message}");
+                                _logger.Warning($"Exception processing element {i}: {ex.Message}");
                             }
                             finally
                             {
@@ -343,11 +343,11 @@ namespace WindowsHinting.Services
             }
             catch (COMException ex)
             {
-                _logger.Debug($"COM exception in ResolveRootElements: {ex.Message}");
+                _logger.Warning($"COM exception in ResolveRootElements: {ex.Message}");
             }
             catch (Exception ex)
             {
-                _logger.Debug($"Exception in ResolveRootElements: {ex.Message}");
+                _logger.Warning($"Exception in ResolveRootElements: {ex.Message}");
             }
 
             return [root];
@@ -482,7 +482,7 @@ namespace WindowsHinting.Services
                 }
                 catch (COMException ex)
                 {
-                    _logger.Debug($"SearchHostCustomStrategy: FindFirstBuildCache failed: {ex.Message}");
+                    _logger.Warning($"SearchHostCustomStrategy: FindFirstBuildCache failed: {ex.Message}");
                 }
 
                 if (match != null)

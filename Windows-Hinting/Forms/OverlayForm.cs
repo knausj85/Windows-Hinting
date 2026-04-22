@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using WindowsHinting.Logging;
 using WindowsHinting.Models;
 
 namespace WindowsHinting.Forms
@@ -25,6 +25,7 @@ namespace WindowsHinting.Forms
         private const int WM_SETTINGCHANGE = 0x001A;
         private const int WM_DPICHANGED = 0x02E0;
 
+        private readonly ILogger _logger;
         private Font _font;
 
         public event EventHandler? ToggleRequested;
@@ -41,8 +42,10 @@ namespace WindowsHinting.Forms
         private int _taskbarHotkeyModifiers;
         private int _taskbarHotkeyVirtualKey;
 
-        public OverlayForm()
+        public OverlayForm(ILogger logger)
         {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
             // Stable window title consumed by external tools (e.g. Talon Voice)
             // to detect the hints overlay. Not visible to end users because the
             // form has no border, is excluded from the taskbar, and uses
@@ -64,7 +67,7 @@ namespace WindowsHinting.Forms
 
         public void SetEnabled(bool enabled)
         {
-            Debug.WriteLine($"SetEnabled {enabled}");
+            _logger.Debug($"SetEnabled {enabled}");
             _enabled = enabled;
 
             if (!enabled)
@@ -83,7 +86,7 @@ namespace WindowsHinting.Forms
 
         public void SetHints(List<HintItem> hints)
         {
-            Debug.WriteLine($"SetHints {hints.Count}");
+            _logger.Debug($"SetHints {hints.Count}");
             _hints = hints;
 
             Invalidate();
@@ -105,7 +108,7 @@ namespace WindowsHinting.Forms
 
         public void SetFilterPrefix(string prefix)
         {
-            Debug.WriteLine($"SetFilterPrefix '{prefix}'");
+            _logger.Debug($"SetFilterPrefix '{prefix}'");
             if (string.IsNullOrEmpty(prefix))
             {
                 _filterPrefix = string.Empty;
@@ -348,7 +351,7 @@ namespace WindowsHinting.Forms
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to re-register global hotkey: {ex.Message}");
+                _logger.Warning($"Failed to re-register global hotkey: {ex.Message}");
             }
         }
 
@@ -363,7 +366,7 @@ namespace WindowsHinting.Forms
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to re-register taskbar hotkey: {ex.Message}");
+                _logger.Warning($"Failed to re-register taskbar hotkey: {ex.Message}");
             }
         }
 
