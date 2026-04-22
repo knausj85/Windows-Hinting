@@ -750,6 +750,12 @@ jobs:
           cp "appcast-out/${APPCAST_INSTALLER_NAME}.xml"       "artifacts/${APPCAST_INSTALLER_NAME}.xml"
           cp "appcast-out/${APPCAST_PORTABLE_X64_NAME}.xml"    "artifacts/${APPCAST_PORTABLE_X64_NAME}.xml"
           cp "appcast-out/${APPCAST_PORTABLE_X86_NAME}.xml"    "artifacts/${APPCAST_PORTABLE_X86_NAME}.xml"
+
+          # NetSparkle (Strict security mode) refuses the appcast unless the
+          # matching .signature file is present next to the .xml on the server.
+          cp "appcast-out/${APPCAST_INSTALLER_NAME}.xml.signature"     "artifacts/${APPCAST_INSTALLER_NAME}.xml.signature"
+          cp "appcast-out/${APPCAST_PORTABLE_X64_NAME}.xml.signature"  "artifacts/${APPCAST_PORTABLE_X64_NAME}.xml.signature"
+          cp "appcast-out/${APPCAST_PORTABLE_X86_NAME}.xml.signature"  "artifacts/${APPCAST_PORTABLE_X86_NAME}.xml.signature"
         shell: bash
 
       # For rolling beta releases, delete the existing release and tag so a
@@ -797,3 +803,6 @@ jobs:
             artifacts/${{ env.APPCAST_INSTALLER_NAME }}.xml
             artifacts/${{ env.APPCAST_PORTABLE_X64_NAME }}.xml
             artifacts/${{ env.APPCAST_PORTABLE_X86_NAME }}.xml
+            artifacts/${{ env.APPCAST_INSTALLER_NAME }}.xml.signature
+            artifacts/${{ env.APPCAST_PORTABLE_X64_NAME }}.xml.signature
+            artifacts/${{ env.APPCAST_PORTABLE_X86_NAME }}.xml.signature
