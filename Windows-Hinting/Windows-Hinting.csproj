@@ -5,6 +5,16 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <AssemblyName>Windows-Hinting</AssemblyName>
+    <!-- Shown by NetSparkle as the application name in update prompts
+         ("A new version of <Product> is available"). Without this the
+         SDK-generated AssemblyTitle defaults to "Application". -->
+    <Product>Windows-Hinting</Product>
+    <AssemblyTitle>Windows-Hinting</AssemblyTitle>
+    <!-- Shown as "File description" in Explorer's Details tab, in Task
+         Manager's Processes column, and as the metadata description in
+         the generated NetSparkle appcast. -->
+    <Description>Keyboard-driven accessibility overlay for Windows that displays hint labels on clickable UI elements so they can be activated by typing.</Description>
+    <Copyright>Copyright © Jeff Knaus</Copyright>
     <Configurations>Debug;Release;Debug-Beta</Configurations>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
@@ -17,6 +27,11 @@
     <EmbedInteropTypes>false</EmbedInteropTypes>
     <!-- Suppress harmless COM interop warning for CUIAutomation8.SafeArrayToRectNativeArray -->
     <MSBuildWarningsAsMessages>MSB3305</MSBuildWarningsAsMessages>
+    <!-- Don't append "+<gitsha>" to AssemblyInformationalVersion. NetSparkle reads
+         that attribute as the installed version; leaving the SHA suffix makes
+         "0.1.141+abc..." compare unequal to the appcast's "0.1.141" and the
+         updater perpetually reports an update is available. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <!-- Portable (self-contained single-file) builds: build script passes /p:PortableBuild=true.

@@ -757,7 +757,6 @@ jobs:
               --search-binary-subdirectories false \
               --ext "${ext}" \
               --base-url "${download_url}" \
-              --url-prefix-version=false \
               --output-file-name "${out_name}" \
               --signature-file-extension signature
           }
