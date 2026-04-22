@@ -685,13 +685,14 @@ jobs:
       - name: Install NetSparkle AppCastGenerator
         run: dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 2.8.*
 
-      - name: Stage update artifacts and write Ed25519 private key
+      - name: Stage update artifacts
         env:
           NETSPARKLE_ED25519_PRIVATE_KEY: ${{ secrets.NETSPARKLE_ED25519_PRIVATE_KEY }}
+          NETSPARKLE_ED25519_PUBLIC_KEY:  ${{ secrets.NETSPARKLE_ED25519_PUBLIC_KEY }}
         run: |
           set -euo pipefail
-          if [ -z "${NETSPARKLE_ED25519_PRIVATE_KEY:-}" ]; then
-            echo "::warning::NETSPARKLE_ED25519_PRIVATE_KEY secret is not set. Skipping appcast generation."
+          if [ -z "${NETSPARKLE_ED25519_PRIVATE_KEY:-}" ] || [ -z "${NETSPARKLE_ED25519_PUBLIC_KEY:-}" ]; then
+            echo "::warning::NETSPARKLE_ED25519_PRIVATE_KEY and/or NETSPARKLE_ED25519_PUBLIC_KEY secrets are not set. Skipping appcast generation."
             echo "APPCAST_SKIPPED=true" >> "$GITHUB_ENV"
             exit 0
           fi
@@ -704,16 +705,21 @@ jobs:
           cp artifacts/Windows-Hinting-Portable-win-x64.exe      appcast-work/portable-x64/
           cp artifacts/Windows-Hinting-Portable-win-x86.exe      appcast-work/portable-x86/
 
-          # NetSparkle's AppCastGenerator reads the private key from the
-          # SparklePrivateKey env var (base64). Export it for later steps.
-          echo "SparklePrivateKey=${NETSPARKLE_ED25519_PRIVATE_KEY}" >> "$GITHUB_ENV"
         shell: bash
 
       - name: Generate signed appcasts
         if: env.APPCAST_SKIPPED != 'true'
         env:
           BUILD_VERSION: ${{ env.BUILD_VERSION }}
-          SparklePrivateKey: ${{ env.SparklePrivateKey }}
+          # NetSparkle's AppCastGenerator reads BOTH keys (base64) from env
+          # vars: SparklePrivateKey and SparklePublicKey. If either is missing,
+          # it falls back to disk-based key lookup
+          # (~/.local/share/netsparkle/NetSparkle_Ed25519.{priv,pub}) and, on a
+          # clean runner, fails with:
+          #   "File does not exist: .../NetSparkle_Ed25519.pub
+          #    Skipped generating signature. Generate keys with --generate-keys"
+          SparklePrivateKey: ${{ secrets.NETSPARKLE_ED25519_PRIVATE_KEY }}
+          SparklePublicKey:  ${{ secrets.NETSPARKLE_ED25519_PUBLIC_KEY }}
         run: |
           set -euo pipefail
 
@@ -741,11 +747,24 @@ jobs:
 
           mkdir -p appcast-out
 
+          if [ -z "${SparklePrivateKey:-}" ] || [ -z "${SparklePublicKey:-}" ]; then
+            echo "::error::SparklePrivateKey and/or SparklePublicKey env vars are empty; appcast signatures would not be generated. Set the NETSPARKLE_ED25519_PRIVATE_KEY and NETSPARKLE_ED25519_PUBLIC_KEY repo secrets (base64)."
+            exit 1
+          fi
+
           gen appcast-work/installer     msi "${base}" "${APPCAST_INSTALLER_NAME}"
           gen appcast-work/portable-x64  exe "${base}" "${APPCAST_PORTABLE_X64_NAME}"
           gen appcast-work/portable-x86  exe "${base}" "${APPCAST_PORTABLE_X86_NAME}"
 
           ls -la appcast-out
+
+          for name in "${APPCAST_INSTALLER_NAME}" "${APPCAST_PORTABLE_X64_NAME}" "${APPCAST_PORTABLE_X86_NAME}"; do
+            sig="appcast-out/${name}.xml.signature"
+            if [ ! -s "${sig}" ]; then
+              echo "::error::Expected signature file '${sig}' was not generated. Verify NETSPARKLE_ED25519_PRIVATE_KEY is a valid base64 Ed25519 private key."
+              exit 1
+            fi
+          done
 
           cp "appcast-out/${APPCAST_INSTALLER_NAME}.xml"       "artifacts/${APPCAST_INSTALLER_NAME}.xml"
           cp "appcast-out/${APPCAST_PORTABLE_X64_NAME}.xml"    "artifacts/${APPCAST_PORTABLE_X64_NAME}.xml"
