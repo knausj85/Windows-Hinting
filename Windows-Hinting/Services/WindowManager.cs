@@ -1,32 +1,33 @@
 using System;
 using System.Collections.Generic;
-using WindowsHinting.Services.Native;
+using Windows.Win32;
+using Windows.Win32.Foundation;
 
 namespace WindowsHinting.Services
 {
     internal sealed class WindowManager : IWindowManager
     {
-        IntPtr IWindowManager.GetForegroundWindow() => NativeMethods.GetForegroundWindow();
+        IntPtr IWindowManager.GetForegroundWindow() => PInvoke.GetForegroundWindow();
 
-        public IntPtr GetTaskbarWindow() => NativeMethods.FindWindow("Shell_TrayWnd", null);
+        public IntPtr GetTaskbarWindow() => PInvoke.FindWindow("Shell_TrayWnd", null);
 
         public IReadOnlyList<IntPtr> GetTaskbarWindows()
         {
             var taskbars = new List<IntPtr>();
 
             // Primary taskbar
-            var primary = NativeMethods.FindWindow("Shell_TrayWnd", null);
+            var primary = PInvoke.FindWindow("Shell_TrayWnd", null);
             if (primary != IntPtr.Zero)
             {
                 taskbars.Add(primary);
             }
 
             // Secondary taskbars (one per additional monitor)
-            IntPtr current = IntPtr.Zero;
+            HWND current = default;
             while (true)
             {
-                current = NativeMethods.FindWindowEx(IntPtr.Zero, current, "Shell_SecondaryTrayWnd", null);
-                if (current == IntPtr.Zero)
+                current = PInvoke.FindWindowEx(default, current, "Shell_SecondaryTrayWnd", null);
+                if (current == default)
                     break;
                 taskbars.Add(current);
             }
@@ -34,6 +35,6 @@ namespace WindowsHinting.Services
             return taskbars;
         }
 
-        public bool IsWindowValid(IntPtr hwnd) => hwnd != IntPtr.Zero && NativeMethods.IsWindow(hwnd);
+        public bool IsWindowValid(IntPtr hwnd) => hwnd != IntPtr.Zero && PInvoke.IsWindow((HWND)hwnd);
     }
 }

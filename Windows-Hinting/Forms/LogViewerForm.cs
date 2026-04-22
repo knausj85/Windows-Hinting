@@ -1,7 +1,8 @@
 using System;
 using System.Drawing;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Windows.Win32;
+using Windows.Win32.Foundation;
 using WindowsHinting.Logging;
 
 namespace WindowsHinting.Forms
@@ -134,11 +135,6 @@ namespace WindowsHinting.Forms
             }
         }
 
-        private const int WM_SETREDRAW = 0x000B;
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
-
         private void AppendLogLine(LogLevel level, string message)
         {
             // Apply text filter
@@ -156,7 +152,7 @@ namespace WindowsHinting.Forms
             };
 
             // Suppress repainting while we modify the text
-            SendMessage(_logBox.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
+            PInvoke.SendMessage((HWND)_logBox.Handle, PInvoke.WM_SETREDRAW, 0, 0);
             try
             {
                 _logBox.SelectionStart = _logBox.TextLength;
@@ -181,7 +177,7 @@ namespace WindowsHinting.Forms
             }
             finally
             {
-                SendMessage(_logBox.Handle, WM_SETREDRAW, (IntPtr)1, IntPtr.Zero);
+                PInvoke.SendMessage((HWND)_logBox.Handle, PInvoke.WM_SETREDRAW, 1, 0);
                 _logBox.Invalidate();
             }
         }

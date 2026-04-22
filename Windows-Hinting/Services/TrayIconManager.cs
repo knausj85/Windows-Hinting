@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using Windows.Win32;
+using Windows.Win32.UI.WindowsAndMessaging;
 using WindowsHinting.Forms;
 using WindowsHinting.Logging;
 using WindowsHinting.Models;
@@ -281,7 +283,7 @@ namespace WindowsHinting.Services
             _trayIcon?.Dispose();
             if (_currentIcon != null)
             {
-                DestroyIcon(_currentIcon.Handle);
+                PInvoke.DestroyIcon((HICON)_currentIcon.Handle);
                 _currentIcon.Dispose();
             }
         }

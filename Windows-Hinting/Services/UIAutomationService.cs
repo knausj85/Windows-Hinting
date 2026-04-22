@@ -8,9 +8,10 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using UIAutomationClient;
+using Windows.Win32;
+using Windows.Win32.Foundation;
 using WindowsHinting.Configuration;
 using WindowsHinting.Logging;
-using WindowsHinting.Services.Native;
 
 namespace WindowsHinting.Services
 {
@@ -619,7 +620,7 @@ namespace WindowsHinting.Services
 
             try
             {
-                NativeMethods.GetWindowThreadProcessId(windowHandle, out uint processId);
+                PInvoke.GetWindowThreadProcessId((HWND)windowHandle, out uint processId);
                 if (processId == 0)
                     return null;
 
@@ -638,10 +639,17 @@ namespace WindowsHinting.Services
                 return null;
 
             const int maxLength = 256;
-            var title = new System.Text.StringBuilder(maxLength);
-            NativeMethods.GetWindowText(windowHandle, title, maxLength);
-            var text = title.ToString();
-            return string.IsNullOrEmpty(text) ? null : text;
+            unsafe
+            {
+                Span<char> buffer = stackalloc char[maxLength];
+                fixed (char* pBuffer = buffer)
+                {
+                    int len = PInvoke.GetWindowText((HWND)windowHandle, pBuffer, maxLength);
+                    if (len <= 0)
+                        return null;
+                    return new string(pBuffer, 0, len);
+                }
+            }
         }
 
         private bool HasActivatablePattern(IUIAutomationElement element)

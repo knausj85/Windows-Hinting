@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.UI.WindowsAndMessaging;
 using WindowsHinting.Logging;
 using WindowsHinting.Models;
 
@@ -21,7 +23,6 @@ namespace WindowsHinting.Forms
 
         private const int WM_SETTINGCHANGE = 0x001A;
         private const int WM_DPICHANGED = 0x02E0;
-
         private readonly ILogger _logger;
         private readonly Screen _screen;
         private Font _font;
@@ -272,28 +273,16 @@ namespace WindowsHinting.Forms
         private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
         private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
 
-        private const uint SWP_NOSIZE = 0x0001;
-        private const uint SWP_NOMOVE = 0x0002;
-        private const uint SWP_NOACTIVATE = 0x0010;
-        private const uint SWP_SHOWWINDOW = 0x0040;
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool SetWindowPos(
-            IntPtr hWnd,
-            IntPtr hWndInsertAfter,
-            int X,
-            int Y,
-            int cx,
-            int cy,
-            uint uFlags);
-
         public void EnsureTopmost()
         {
-            SetWindowPos(
-                Handle,
-                HWND_TOPMOST,
+            PInvoke.SetWindowPos(
+                (HWND)Handle,
+                (HWND)HWND_TOPMOST,
                 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+                SET_WINDOW_POS_FLAGS.SWP_NOMOVE
+                    | SET_WINDOW_POS_FLAGS.SWP_NOSIZE
+                    | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE
+                    | SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW);
         }
 
         protected override CreateParams CreateParams

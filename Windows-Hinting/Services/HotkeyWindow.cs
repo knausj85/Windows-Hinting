@@ -1,6 +1,8 @@
 using System;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.UI.Input.KeyboardAndMouse;
 using WindowsHinting.Logging;
 
 namespace WindowsHinting.Services
@@ -13,10 +15,6 @@ namespace WindowsHinting.Services
     {
         private const int HOTKEY_ID = 1;
         private const int TASKBAR_HOTKEY_ID = 2;
-        private const int WM_HOTKEY = 0x0312;
-        private const int WM_SETTINGCHANGE = 0x001A;
-        private const int WM_DPICHANGED = 0x02E0;
-        private const int WM_DISPLAYCHANGE = 0x007E;
 
         private static readonly IntPtr HWND_MESSAGE = new IntPtr(-3);
 
@@ -51,7 +49,7 @@ namespace WindowsHinting.Services
             _hotkeyModifiers = modifiers;
             _hotkeyVirtualKey = virtualKey;
 
-            if (!RegisterHotKey(Handle, HOTKEY_ID, modifiers, virtualKey))
+            if (!PInvoke.RegisterHotKey((HWND)Handle, HOTKEY_ID, (HOT_KEY_MODIFIERS)modifiers, (uint)virtualKey))
             {
                 throw new InvalidOperationException($"Failed to register global hotkey: {modifiers}+{virtualKey}");
             }
@@ -63,7 +61,7 @@ namespace WindowsHinting.Services
         {
             if (_hotkeyVirtualKey != 0)
             {
-                UnregisterHotKey(Handle, HOTKEY_ID);
+                PInvoke.UnregisterHotKey((HWND)Handle, HOTKEY_ID);
                 _logger.Debug("Unregistered global hotkey");
             }
         }
@@ -74,7 +72,7 @@ namespace WindowsHinting.Services
             _taskbarHotkeyModifiers = modifiers;
             _taskbarHotkeyVirtualKey = virtualKey;
 
-            if (!RegisterHotKey(Handle, TASKBAR_HOTKEY_ID, modifiers, virtualKey))
+            if (!PInvoke.RegisterHotKey((HWND)Handle, TASKBAR_HOTKEY_ID, (HOT_KEY_MODIFIERS)modifiers, (uint)virtualKey))
             {
                 throw new InvalidOperationException($"Failed to register taskbar hotkey: {modifiers}+{virtualKey}");
             }
@@ -86,7 +84,7 @@ namespace WindowsHinting.Services
         {
             if (_taskbarHotkeyVirtualKey != 0)
             {
-                UnregisterHotKey(Handle, TASKBAR_HOTKEY_ID);
+                PInvoke.UnregisterHotKey((HWND)Handle, TASKBAR_HOTKEY_ID);
                 _logger.Debug("Unregistered taskbar hotkey");
             }
         }
@@ -97,7 +95,7 @@ namespace WindowsHinting.Services
             {
                 if (_hotkeyVirtualKey != 0)
                 {
-                    RegisterHotKey(Handle, HOTKEY_ID, _hotkeyModifiers, _hotkeyVirtualKey);
+                    PInvoke.RegisterHotKey((HWND)Handle, HOTKEY_ID, (HOT_KEY_MODIFIERS)_hotkeyModifiers, (uint)_hotkeyVirtualKey);
                 }
             }
             catch (Exception ex)
@@ -109,7 +107,7 @@ namespace WindowsHinting.Services
             {
                 if (_taskbarHotkeyVirtualKey != 0)
                 {
-                    RegisterHotKey(Handle, TASKBAR_HOTKEY_ID, _taskbarHotkeyModifiers, _taskbarHotkeyVirtualKey);
+                    PInvoke.RegisterHotKey((HWND)Handle, TASKBAR_HOTKEY_ID, (HOT_KEY_MODIFIERS)_taskbarHotkeyModifiers, (uint)_taskbarHotkeyVirtualKey);
                 }
             }
             catch (Exception ex)
@@ -120,9 +118,9 @@ namespace WindowsHinting.Services
 
         protected override void WndProc(ref Message m)
         {
-            switch (m.Msg)
+            switch ((uint)m.Msg)
             {
-                case WM_HOTKEY:
+                case PInvoke.WM_HOTKEY:
                     int hotkeyId = m.WParam.ToInt32();
                     if (hotkeyId == HOTKEY_ID)
                     {
@@ -136,9 +134,9 @@ namespace WindowsHinting.Services
                     }
                     return;
 
-                case WM_DISPLAYCHANGE:
-                case WM_SETTINGCHANGE:
-                case WM_DPICHANGED:
+                case PInvoke.WM_DISPLAYCHANGE:
+                case PInvoke.WM_SETTINGCHANGE:
+                case PInvoke.WM_DPICHANGED:
                     _logger.Info($"Display settings changed (msg=0x{m.Msg:X})");
                     DisplaySettingsChanged?.Invoke(this, EventArgs.Empty);
                     break;
@@ -169,11 +167,5 @@ namespace WindowsHinting.Services
                 DestroyHandle();
             }
         }
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool RegisterHotKey(IntPtr hWnd, int id, int fsModifiers, int vk);
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
     }
 }
