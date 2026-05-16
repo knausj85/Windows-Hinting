@@ -360,6 +360,21 @@ namespace WindowsHinting
                 }
 
 
+                // Drop hints that fall outside the active window (with a 10% margin).
+                // Popup-style elements (combo dropdowns, menus) are exempted by HWND.
+                //elements = PerformanceMetricsExtensions.MeasureExecution(
+                //    "ClampHintsToWindow",
+                //    () => HintBoundsFilter.ClampToWindow(elements, hwnd, _logger),
+                //    _logger,
+                //    LogLevel.Debug);
+
+                if (elements.Count == 0)
+                {
+                    _logger.Info("No clickable elements remain after window-bounds clamp, deactivating");
+                    _stateManager.Deactivate();
+                    return;
+                }
+
                 // Deduplicate overlapping elements
                 //var deduped = PerformanceMetricsExtensions.MeasureExecution(
                 //    "DeduplicateElements",

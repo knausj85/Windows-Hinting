@@ -81,6 +81,7 @@ namespace WindowsHinting.Services
             var cache = _automation.CreateCacheRequest();
             cache.TreeScope = TreeScope.TreeScope_Element;
             cache.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_ClickablePointPropertyId);
             cache.AddProperty(UIA_PropertyIds.UIA_ControlTypePropertyId);
             cache.AddProperty(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
             cache.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
@@ -90,11 +91,15 @@ namespace WindowsHinting.Services
             cache.AddProperty(UIA_PropertyIds.UIA_NamePropertyId);
             cache.AddProperty(UIA_PropertyIds.UIA_ClassNamePropertyId);
             cache.AddProperty(UIA_PropertyIds.UIA_ProcessIdPropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_IsLegacyIAccessiblePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_LegacyIAccessibleStatePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_NativeWindowHandlePropertyId);
             cache.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
             cache.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
             cache.AddPattern(UIA_PatternIds.UIA_SelectionPatternId);
             cache.AddPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
             cache.AddPattern(UIA_PatternIds.UIA_TogglePatternId);
+            cache.AddPattern(UIA_PatternIds.UIA_LegacyIAccessiblePatternId);
 
             return (combined, cache, owned);
         }
@@ -163,14 +168,11 @@ namespace WindowsHinting.Services
 
             try
             {
-                using (PerformanceMetrics.Start("ElementFromHandle", _logger, LogLevel.Debug))
+                root = _automation.ElementFromHandle(windowHandle);
+                if (root == null)
                 {
-                    root = _automation.ElementFromHandle(windowHandle);
-                    if (root == null)
-                    {
-                        _logger.Warning("Failed to get root element from window handle");
-                        return Array.Empty<ClickableElement>();
-                    }
+                    _logger.Warning("Failed to get root element from window handle");
+                    return Array.Empty<ClickableElement>();
                 }
 
                 // Resolve the root element(s) strategy based on window rules
@@ -233,15 +235,32 @@ namespace WindowsHinting.Services
                                         (int)rectArray[3]
                                     );
 
-                                    if (rect.Width > 0 && rect.Height > 0
-                                        && HasActivatablePattern(element))
+                                    if (rect.Width > 0 && rect.Height > 0)
                                     {
-                                        results.Add(new ClickableElement
+                                        // Check for valid clickable point (filter out VT_EMPTY)
+                                        var clickablePointObj = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_ClickablePointPropertyId);
+                                        bool hasValidClickablePoint = clickablePointObj != null;
+                                        bool isLegacyPatternAvailable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsLegacyIAccessiblePatternAvailablePropertyId) is true;
+                                        bool hasActivatablePattern = HasActivatablePattern(element);
+
+                                        if (!hasValidClickablePoint)
                                         {
-                                            Element = element,
-                                            Bounds = rect
-                                        });
-                                        element = null; // Don't release - ownership transferred to ClickableElement
+                                            if (!isLegacyPatternAvailable || IsLegacyElementOffscreenOrInvisible(element))
+                                            {
+                                                _logger.Debug($"Element {element.GetCachedPropertyValue(UIA_PropertyIds.UIA_NamePropertyId)} is offscreen/invisible per MSAA legacy state, skipping");
+                                                continue;
+                                            }
+                                        }
+
+                                        if (hasActivatablePattern)
+                                        {
+                                            results.Add(new ClickableElement
+                                            {
+                                                Element = element,
+                                                Bounds = rect
+                                            });
+                                            element = null; // Don't release - ownership transferred to ClickableElement
+                                        }
                                     }
                                 }
                             }
@@ -659,6 +678,39 @@ namespace WindowsHinting.Services
                 || element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId) is true
                 || element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId) is true
                 || element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId) is true;
+        }
+
+        /// <summary>
+        /// Returns true when the element's MSAA <c>LegacyIAccessiblePattern.CachedState</c> has
+        /// <c>STATE_SYSTEM_OFFSCREEN</c> or <c>STATE_SYSTEM_INVISIBLE</c> set. Fails open
+        /// (returns false) on any error so we never accidentally hide a real clickable element.
+        /// </summary>
+        private bool IsLegacyElementOffscreenOrInvisible(IUIAutomationElement element)
+        {
+            IUIAutomationLegacyIAccessiblePattern? legacy = null;
+            try
+            {
+                bool legacyAvailable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsLegacyIAccessiblePatternAvailablePropertyId);
+                if (!legacyAvailable)
+                    return false;
+
+                var legacyState = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_LegacyIAccessibleStatePropertyId);
+
+                const uint mask = 0x00010000;
+                return (legacyState & mask) != 0;
+            }
+            catch (COMException ex)
+            {
+                _logger.Debug($"IsLegacyElementOffscreenOrInvisible: COM exception reading legacy state: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                if (legacy != null && Marshal.IsComObject(legacy))
+                {
+                    try { Marshal.ReleaseComObject(legacy); } catch { }
+                }
+            }
         }
 
         public void Dispose()
