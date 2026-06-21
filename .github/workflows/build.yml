@@ -828,8 +828,7 @@ jobs:
               --ext "${ext}" \
               --base-url "${download_url}" \
               --output-file-name "${out_name}" \
-              --signature-file-extension signature \
-              --release-notes-extension md
+              --signature-file-extension signature
           }
 
           mkdir -p appcast-out
