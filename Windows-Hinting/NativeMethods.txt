@@ -73,3 +73,13 @@ GetWindowRect
 DwmGetWindowAttribute
 DWMWINDOWATTRIBUTE
 RECT
+
+// --- Wave 6: multi-monitor diagnostics (taskbar discovery logging) ---
+// MonitorFromWindow + GetClassName back the taskbar-window diagnostics in
+// WindowManager. EnumChildWindows is reserved as a contingency for scanning a
+// secondary taskbar's child windows if a Shell_SecondaryTrayWnd ever reports
+// zero UIA elements.
+MonitorFromWindow
+MONITOR_FROM_FLAGS
+GetClassName
+EnumChildWindows

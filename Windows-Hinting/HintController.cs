@@ -455,7 +455,7 @@ namespace WindowsHinting
                         sw.Stop();
                         timedOut = sw.ElapsedMilliseconds >= timeoutMs;
                         if (timedOut) anyTimedOut = true;
-                        _logger.Info($"FindClickableElements(Taskbar {hwnd}) completed in {sw.ElapsedMilliseconds}ms (timeout={timeoutMs}ms)");
+                        _logger.Debug($"FindClickableElements(Taskbar {hwnd}) completed in {sw.ElapsedMilliseconds}ms (timeout={timeoutMs}ms)");
                     }
                     else
                     {
@@ -463,7 +463,19 @@ namespace WindowsHinting
                             $"FindClickableElements(Taskbar {hwnd})",
                             () => _uiaService.FindClickableElements(hwnd),
                             _logger,
-                            LogLevel.Info);
+                            LogLevel.Debug);
+                    }
+
+                    // Diagnostic: per-HWND element count + sample bounds. A secondary
+                    // taskbar returning 0 here points at the UIA-empty root cause;
+                    // returning elements points at a render-time filter/coordinate issue.
+                    _logger.Debug($"Taskbar {hwnd}: FindClickableElements returned {elements.Count} element(s)");
+
+                    int sampleCount = Math.Min(elements.Count, 5);
+                    for (int i = 0; i < sampleCount; i++)
+                    {
+                        var b = elements[i].Bounds;
+                        _logger.Debug($"  Taskbar {hwnd} element[{i}] bounds=({b.Left},{b.Top}) {b.Width}x{b.Height}");
                     }
 
                     allElements.AddRange(elements);

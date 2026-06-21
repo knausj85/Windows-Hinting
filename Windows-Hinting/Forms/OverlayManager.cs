@@ -61,11 +61,11 @@ namespace WindowsHinting.Forms
                     overlay.Show();
                     _overlays.Add(overlay);
 
-                    _logger.Debug($"Created overlay for screen: {screen.Bounds}");
+                    _logger.Debug($"Created overlay for screen '{screen.DeviceName}' primary={screen.Primary} bounds=({screen.Bounds.Left},{screen.Bounds.Top}) {screen.Bounds.Width}x{screen.Bounds.Height} dpi={overlay.DeviceDpi}");
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error($"Failed to create overlay for screen {screen.Bounds}", ex);
+                    _logger.Debug($"Failed to create overlay for screen '{screen.DeviceName}' primary={screen.Primary} bounds=({screen.Bounds.Left},{screen.Bounds.Top}) {screen.Bounds.Width}x{screen.Bounds.Height}, exception = {ex}");
                 }
             }
         }

@@ -88,6 +88,7 @@ namespace WindowsHinting.Forms
             // Filter hints to those intersecting this screen's bounds
             var screenBounds = _screen.Bounds;
             var filtered = new List<HintItem>();
+            var dropped = new List<HintItem>();
 
             foreach (var hint in hints)
             {
@@ -95,9 +96,23 @@ namespace WindowsHinting.Forms
                 {
                     filtered.Add(hint);
                 }
+                else
+                {
+                    dropped.Add(hint);
+                }
             }
 
-            _logger.Debug($"SetHints {hints.Count} total, {filtered.Count} on this screen");
+            // Diagnostic: when hints exist but get dropped here, the intersection
+            // test (WinForms Screen.Bounds vs UIA physical-pixel bounds) is the
+            // suspect under mixed DPI. Log this screen's geometry + sample drops.
+            _logger.Debug($"SetHints screen='{_screen.DeviceName}' primary={_screen.Primary} bounds=({screenBounds.Left},{screenBounds.Top}) {screenBounds.Width}x{screenBounds.Height} dpi={DeviceDpi}: {hints.Count} total, {filtered.Count} kept, {dropped.Count} dropped");
+            int sampleCount = Math.Min(dropped.Count, 5);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                var r = dropped[i].Rect;
+                _logger.Debug($"  dropped hint '{dropped[i].Label}' rect=({r.Left},{r.Top}) {r.Width}x{r.Height}");
+            }
+
             _hints = filtered;
 
             Invalidate();
@@ -178,7 +193,11 @@ namespace WindowsHinting.Forms
                     // Scale pen width by DPI for visibility on 4K monitors
                     float penWidth = Math.Max(2f, DeviceDpi / 96f * 2f);
                     using var pen = new Pen(Color.FromArgb(alpha, 255, 255, 0), penWidth);
-                    g.DrawRectangle(pen, h.Rect);
+                    // Hint bounds are absolute virtual-desktop pixels; convert to this
+                    // form's client coordinates (client 0,0 == _screen.Bounds origin).
+                    var outlineRect = h.Rect;
+                    outlineRect.Offset(-_screen.Bounds.X, -_screen.Bounds.Y);
+                    g.DrawRectangle(pen, outlineRect);
                 }
 
                 // label background size based on full label, positioned per HintPosition
@@ -236,17 +255,26 @@ namespace WindowsHinting.Forms
                         break;
                 }
 
-                // Clamp label to screen's working area
-                var workingArea = _screen.WorkingArea;
-                bgX = Math.Max(workingArea.Left, Math.Min(bgX, workingArea.Right - bgWidth));
-                bgY = Math.Max(workingArea.Top, Math.Min(bgY, workingArea.Bottom - bgHeight));
+                // Clamp label to the full monitor bounds (not the working area).
+                // Taskbar hints live inside the taskbar strip, which is outside the
+                // working area; clamping to WorkingArea would force every taskbar
+                // label to the same spot just above the taskbar and collapse the
+                // selected vertical HintPosition. The overlay is topmost, so labels
+                // render over the taskbar at the chosen position while staying on-screen.
+                var screenBounds = _screen.Bounds;
+                bgX = Math.Max(screenBounds.Left, Math.Min(bgX, screenBounds.Right - bgWidth));
+                bgY = Math.Max(screenBounds.Top, Math.Min(bgY, screenBounds.Bottom - bgHeight));
 
-                var bg = new Rectangle(bgX, bgY, bgWidth, bgHeight);
+                // bgX/bgY were computed and clamped in absolute virtual-desktop
+                // coordinates; convert to this form's client coordinates for drawing
+                // (client 0,0 == _screen.Bounds origin). GDI TextRenderer ignores
+                // Graphics world transforms, so coordinates are offset explicitly.
+                var bg = new Rectangle(bgX - _screen.Bounds.X, bgY - _screen.Bounds.Y, bgWidth, bgHeight);
                 g.FillRectangle(labelBg, bg);
 
                 // draw label with highlighted matching prefix
-                int x = bgX + padX;
-                int y = bgY + padY;
+                int x = bg.X + padX;
+                int y = bg.Y + padY;
 
                 string match = "";
                 string suffix = h.Label;
