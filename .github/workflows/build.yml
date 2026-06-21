@@ -685,6 +685,70 @@ jobs:
       - name: Install NetSparkle AppCastGenerator
         run: dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 2.8.*
 
+      - name: Generate changelog notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Resolve the previous stable release tag (latest non-prerelease).
+          # For beta, this is the baseline for "changes since last stable."
+          # For stable, we try to get the prior stable (or none for first release).
+          PREV_STABLE=""
+          if gh api repos/${{ github.repository }}/releases/latest --jq .tag_name > /dev/null 2>&1; then
+            PREV_STABLE=$(gh api repos/${{ github.repository }}/releases/latest --jq .tag_name)
+            echo "Previous stable release: $PREV_STABLE"
+          else
+            echo "No previous stable release found (first release)"
+          fi
+
+          # For stable releases, fetch the tag before the current one to show
+          # changes between consecutive stable releases.
+          if [ "$IS_BETA" = "false" ] && [ -n "$PREV_STABLE" ]; then
+            # If we're releasing a new stable and PREV_STABLE exists, use it
+            # (this assumes PREV_STABLE is the last stable before RELEASE_TAG).
+            # For the very first stable, PREV_STABLE will be empty.
+            echo "Generating stable changelog (changes since $PREV_STABLE)"
+            NOTES_TAG="$RELEASE_TAG"
+            PREV_TAG_ARG="-f previous_tag_name=$PREV_STABLE"
+          elif [ "$IS_BETA" = "true" ] && [ -n "$PREV_STABLE" ]; then
+            # Beta: show changes since last stable
+            echo "Generating beta changelog (changes since $PREV_STABLE)"
+            NOTES_TAG="beta"
+            PREV_TAG_ARG="-f previous_tag_name=$PREV_STABLE"
+          else
+            # First-ever release or no previous stable
+            echo "Generating changelog without previous baseline"
+            NOTES_TAG="$RELEASE_TAG"
+            PREV_TAG_ARG=""
+          fi
+
+          # Generate release notes via GitHub API
+          NOTES_BODY=$(gh api -X POST repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name="$NOTES_TAG" \
+            -f target_commitish=${{ github.sha }} \
+            $PREV_TAG_ARG \
+            --jq .body || echo "")
+
+          # Fallback to a default message if notes are empty
+          if [ -z "$NOTES_BODY" ]; then
+            NOTES_BODY="## Release $NOTES_TAG
+
+          See the [releases page](${{ github.server_url }}/${{ github.repository }}/releases) for details."
+          fi
+
+          # Write notes to changelog.md
+          echo "$NOTES_BODY" > changelog.md
+          echo "Generated changelog.md ($(wc -l < changelog.md) lines)"
+
+          # Export as multiline env var for optional use in release body
+          {
+            echo "CHANGELOG_MD<<EOF_CHANGELOG_DELIMITER"
+            cat changelog.md
+            echo "EOF_CHANGELOG_DELIMITER"
+          } >> "$GITHUB_ENV"
+        shell: bash
+
       - name: Stage update artifacts
         env:
           NETSPARKLE_ED25519_PRIVATE_KEY: ${{ secrets.NETSPARKLE_ED25519_PRIVATE_KEY }}
@@ -704,6 +768,12 @@ jobs:
           cp artifacts/Windows-Hinting.msi                       appcast-work/installer/
           cp artifacts/Windows-Hinting-Portable-win-x64.exe      appcast-work/portable-x64/
           cp artifacts/Windows-Hinting-Portable-win-x86.exe      appcast-work/portable-x86/
+
+          # Copy changelog.md next to each binary using the same base name
+          # so AppCastGenerator auto-discovers and inlines it into <description>
+          cp changelog.md appcast-work/installer/Windows-Hinting.md
+          cp changelog.md appcast-work/portable-x64/Windows-Hinting-Portable-win-x64.md
+          cp changelog.md appcast-work/portable-x86/Windows-Hinting-Portable-win-x86.md
 
         shell: bash
 
@@ -758,7 +828,8 @@ jobs:
               --ext "${ext}" \
               --base-url "${download_url}" \
               --output-file-name "${out_name}" \
-              --signature-file-extension signature
+              --signature-file-extension signature \
+              --release-notes-extension md
           }
 
           mkdir -p appcast-out
@@ -768,6 +839,23 @@ jobs:
             exit 1
           fi
 
+          # Generate appcasts with embedded release notes.
+          # The generator auto-discovers <binary-basename>.md files next to each
+          # binary and inlines them as HTML into the <description> element.
+          # The "Verify appcast release notes" step below ensures <description>
+          # is non-empty; if that gate fails (filename convention mismatch):
+          #
+          # FALLBACK: Post-process each appcast-out/*.xml to inject <description>
+          # manually, then re-sign:
+          #   1. Convert changelog.md to HTML (e.g., via pandoc or a Markdown lib).
+          #   2. Inject into each .xml:
+          #        <description><![CDATA[ <html content> ]]></description>
+          #   3. Re-run netsparkle-generate-signature for each .xml to regenerate
+          #      the .xml.signature file (or call `sign_update` if available).
+          #   4. Verify the new .xml.signature exists and is non-empty.
+          #
+          # The <description> is covered by the .xml.signature, so any manual
+          # injection MUST be followed by re-signing.
           gen appcast-work/installer     msi "${base}" "${APPCAST_INSTALLER_NAME}"
           gen appcast-work/portable-x64  exe "${base}" "${APPCAST_PORTABLE_X64_NAME}"
           gen appcast-work/portable-x86  exe "${base}" "${APPCAST_PORTABLE_X86_NAME}"
@@ -793,6 +881,44 @@ jobs:
           cp "appcast-out/${APPCAST_PORTABLE_X86_NAME}.xml.signature"  "artifacts/${APPCAST_PORTABLE_X86_NAME}.xml.signature"
         shell: bash
 
+      - name: Verify appcast release notes
+        if: env.APPCAST_SKIPPED != 'true'
+        run: |
+          set -euo pipefail
+          echo "Verifying that all appcasts contain non-empty <description> elements..."
+
+          failed=false
+          for name in "${APPCAST_INSTALLER_NAME}" "${APPCAST_PORTABLE_X64_NAME}" "${APPCAST_PORTABLE_X86_NAME}"; do
+            xml="appcast-out/${name}.xml"
+            if [ ! -f "$xml" ]; then
+              echo "::error::Appcast file not found: $xml"
+              failed=true
+              continue
+            fi
+
+            # Check if <description> exists and has content (not just whitespace)
+            if ! grep -q '<description>' "$xml"; then
+              echo "::error::Appcast $xml is missing <description> element. Release notes may not have been embedded."
+              failed=true
+            elif grep -Pzo '<description>\s*</description>' "$xml" > /dev/null 2>&1; then
+              echo "::error::Appcast $xml has an empty <description> element. Changelog was not embedded."
+              failed=true
+            else
+              # Extract and display a preview of the description content
+              desc_preview=$(grep -oP '(?<=<description>).*?(?=</description>)' "$xml" | head -c 100)
+              echo "✓ $name: <description> present (preview: ${desc_preview}...)"
+            fi
+          done
+
+          if [ "$failed" = true ]; then
+            echo "::error::One or more appcasts failed release notes verification."
+            echo "::error::Check that changelog.md was copied with the correct base names next to each binary."
+            exit 1
+          fi
+
+          echo "All appcasts contain non-empty release notes."
+        shell: bash
+
       # For rolling beta releases, delete the existing release and tag so a
       # fresh release is created on the current commit. Without this, GitHub
       # keeps the original tag target (so Source code zips still reflect the
@@ -816,12 +942,14 @@ jobs:
           tag: ${{ env.RELEASE_TAG }}
           commit: ${{ github.sha }}
           name: ${{ env.IS_BETA == 'true' && format('beta (build {0})', env.BUILD_VERSION) || format('v{0}', env.BUILD_VERSION) }}
-          generateReleaseNotes: true
+          generateReleaseNotes: false
           prerelease: ${{ env.IS_BETA == 'true' || inputs.prerelease || false }}
           makeLatest: ${{ env.IS_BETA != 'true' && !(inputs.prerelease || false) }}
           allowUpdates: false
           removeArtifacts: false
           body: |
+            ${{ env.CHANGELOG_MD }}
+
             ## Downloads
 
               | Asset | Description |
