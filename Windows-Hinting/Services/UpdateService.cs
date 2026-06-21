@@ -21,14 +21,6 @@ namespace WindowsHinting.Services
     /// Supports both the signed MSI path (msiexec + UAC) and the portable
     /// self-replacing-exe path (<see cref="PortableUpdateInstaller"/>).
     /// </summary>
-    /// <remarks>
-    /// Update lifecycle diagnostic logs are always emitted. To capture a failed
-    /// update attempt, enable file logging via the tray "Logging → Log to File"
-    /// before triggering "Check for updates...", then review the log file after
-    /// the update completes (or fails). The log directory can be opened from the
-    /// "Logging → Open Log Folder" menu. MSI updates also produce a verbose
-    /// msiexec log in %TEMP%\Windows-Hinting-msi-update-*.log.
-    /// </remarks>
     internal sealed class UpdateService : IDisposable
     {
 #if UPDATE_CHANNEL_BETA
@@ -46,8 +38,6 @@ namespace WindowsHinting.Services
             "https://github.com/knausj85/Windows-Hinting/releases/latest";
         public const string ChannelName = "Stable";
 #endif
-
-        private const string ProductName = "Windows-Hinting";
 
         private readonly ILogger _logger;
         private readonly IPreferencesService _preferencesService;
@@ -82,8 +72,8 @@ namespace WindowsHinting.Services
                 var options = _preferencesService.Load();
                 if (options.AutoCheckForUpdates)
                 {
-                    _sparkle.StartLoop(doInitialCheck: true, forceInitialCheck: true);
-                    _logger.Info("UpdateService: automatic update checks enabled; forcing initial check on startup.");
+                    _sparkle.StartLoop(doInitialCheck: true, forceInitialCheck: false);
+                    _logger.Info("UpdateService: automatic update checks enabled; initial check scheduled.");
                 }
                 else
                 {
@@ -201,40 +191,19 @@ namespace WindowsHinting.Services
                 _logger.Info(
                     $"UpdateService: update detected (latest={e.LatestVersion?.Version}, current={e.ApplicationConfig?.InstalledVersion}).");
 
-            // Diagnostic event handlers to trace download/install lifecycle
-            sparkle.DownloadStarted += (item, path) =>
-                _logger.Info($"UpdateService: download started (item={item?.Title ?? item?.Version ?? "unknown"}).");
-
-            sparkle.DownloadFinished += (item, path) =>
-            {
-                var size = path != null && File.Exists(path) ? new FileInfo(path).Length / 1024.0 / 1024.0 : 0;
-                _logger.Info($"UpdateService: download finished (path={path}, size={size:F2} MB).");
-            };
-
-            sparkle.CloseApplicationAsync += () =>
-            {
-                _logger.Info($"UpdateService: close application requested for install.");
-                return Task.CompletedTask;
-            };
-
-            // Deployment-specific install strategy.
+            // Portable: intercept the close-to-install phase and do our own
+            // self-replacement via the helper script.
             if (DeploymentMode.Current == DeploymentKind.Portable)
             {
-                // Portable: intercept the close-to-install phase and do our own
-                // self-replacement via the helper script.
                 sparkle.CloseApplicationAsync += OnPortableCloseApplicationAsync;
                 sparkle.DownloadFinished += OnPortableDownloadFinished;
             }
             else
             {
-                // MSI (and Unknown, which defaults to MSI appcast): intercept
-                // download and close-to-install to launch msiexec elevated via
-                // our helper script. NetSparkle's default msiexec path would run
-                // non-elevated from a UIAccess process and silently fail.
-                sparkle.CloseApplicationAsync += OnMsiCloseApplicationAsync;
-                sparkle.DownloadFinished += OnMsiDownloadFinished;
-                // Disable NetSparkle's built-in relaunch; our helper does it.
-                sparkle.RelaunchAfterUpdate = false;
+                // MSI: let Sparkle launch the installer. msiexec with /qb shows a
+                // basic UI so the user can see upgrade progress and UAC fires for
+                // per-machine install.
+                sparkle.CustomInstallerArguments = "/qb /norestart";
             }
 
             return sparkle;
@@ -314,48 +283,6 @@ namespace WindowsHinting.Services
             catch (Exception ex)
             {
                 _logger.Warning($"Portable update install failed: {ex.Message}");
-                MessageBox.Show(
-                    $"Could not install update automatically: {ex.Message}\n\n" +
-                    "Opening the releases page so you can download manually.",
-                    "Update",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                OpenReleasesPage();
-            }
-        }
-
-        private string? _pendingMsiDownloadPath;
-
-        private void OnMsiDownloadFinished(AppCastItem item, string path)
-        {
-            _pendingMsiDownloadPath = path;
-        }
-
-        private async Task OnMsiCloseApplicationAsync()
-        {
-            if (string.IsNullOrEmpty(_pendingMsiDownloadPath))
-                return;
-
-            try
-            {
-                var installer = new MsiUpdateInstaller(_logger);
-                var launched = installer.InstallAndRelaunch(_pendingMsiDownloadPath!);
-                if (!launched)
-                {
-                    // Preflight failed (e.g. user declined UAC). Open the release
-                    // page so the user can download manually, then let the app
-                    // keep running.
-                    OpenReleasesPage();
-                    return;
-                }
-
-                // Give the helper a moment to spawn before we exit the main thread.
-                await Task.Delay(250).ConfigureAwait(false);
-                Application.Exit();
-            }
-            catch (Exception ex)
-            {
-                _logger.Warning($"MSI update install failed: {ex.Message}");
                 MessageBox.Show(
                     $"Could not install update automatically: {ex.Message}\n\n" +
                     "Opening the releases page so you can download manually.",
