@@ -758,7 +758,8 @@ jobs:
               --ext "${ext}" \
               --base-url "${download_url}" \
               --output-file-name "${out_name}" \
-              --signature-file-extension signature
+              --signature-file-extension signature \
+              --product-name "Windows-Hinting"
           }
 
           mkdir -p appcast-out
