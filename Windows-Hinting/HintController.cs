@@ -93,6 +93,14 @@ namespace WindowsHinting
                     () => _preferencesService.Load(),
                     _logger,
                     LogLevel.Debug);
+
+                // Generate preferences.json on first run for discoverability
+                if (!_preferencesService.Exists())
+                {
+                    _logger.Info("Preferences file not found; generating with defaults");
+                    _preferencesService.Save(_options);
+                }
+
                 ApplyOptions();
 
                 // Wire up events

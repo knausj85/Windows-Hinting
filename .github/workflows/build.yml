@@ -750,6 +750,7 @@ jobs:
             local out_name="$4"
 
             netsparkle-generate-appcast \
+              --product-name "Windows-Hinting" \
               --appcast-output-directory appcast-out \
               --binaries "${input_dir}" \
               --file-extract-version=false \
@@ -758,6 +759,7 @@ jobs:
               --ext "${ext}" \
               --base-url "${download_url}" \
               --output-file-name "${out_name}" \
+              --release-notes-url "https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}" \
               --signature-file-extension signature
           }
 

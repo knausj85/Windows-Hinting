@@ -61,6 +61,11 @@ namespace WindowsHinting.Services
                 System.Diagnostics.Debug.WriteLine($"Failed to save preferences: {ex.Message}");
             }
         }
+
+        public bool Exists()
+        {
+            return File.Exists(PrefsPath);
+        }
     }
 
     /// <summary>
