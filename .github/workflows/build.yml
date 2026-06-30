@@ -759,7 +759,6 @@ jobs:
               --ext "${ext}" \
               --base-url "${download_url}" \
               --output-file-name "${out_name}" \
-              --release-notes-url "https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}" \
               --signature-file-extension signature
           }
 

@@ -90,8 +90,8 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="NetSparkleUpdater.SparkleUpdater" Version="3.0.4" />
-    <PackageReference Include="NetSparkleUpdater.UI.WinForms.NetCore" Version="3.0.4" />
+    <PackageReference Include="NetSparkleUpdater.SparkleUpdater" Version="3.1.0" />
+    <PackageReference Include="NetSparkleUpdater.UI.WinForms.NetCore" Version="3.1.0" />
   </ItemGroup>
 
   <ItemGroup>
