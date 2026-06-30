@@ -36,4 +36,12 @@ namespace WindowsHinting.Services
         public KeyModifiers Modifiers { get; init; }
         public bool Handled { get; set; }
     }
+
+    internal interface IForegroundWindowHookService
+    {
+        event EventHandler<WindowsHinting.NativeInterop.ForegroundWindowChangedEventArgs>? ForegroundWindowChanged;
+        void Start();
+        void Stop();
+        bool IsActive { get; }
+    }
 }

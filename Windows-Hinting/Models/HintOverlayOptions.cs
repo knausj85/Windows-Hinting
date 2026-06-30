@@ -27,6 +27,8 @@ namespace WindowsHinting.Models
         /// <summary>
         /// Time in seconds before displayed hints are automatically hidden.
         /// Set to 0 to disable the auto-hide timeout. Default: 15 seconds.
+        /// Note: Hints also auto-hide immediately when you switch to a different
+        /// window (foreground window hints only; taskbar hints are unaffected).
         /// </summary>
         public int AutoHideTimeoutSeconds { get; set; } = 15;
 

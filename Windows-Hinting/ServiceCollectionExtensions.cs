@@ -35,6 +35,7 @@ namespace WindowsHinting
             services.AddSingleton<IPreferencesService, PreferencesService>();
             services.AddSingleton<IUIAutomationService, UIAutomationService>();
             services.AddSingleton<IKeyboardHookService, KeyboardHookService>();
+            services.AddSingleton<IForegroundWindowHookService, ForegroundWindowHookService>();
             services.AddSingleton<IWindowManager, WindowManager>();
             services.AddSingleton<HintStateManager>();
             services.AddSingleton<HintInputHandler>();

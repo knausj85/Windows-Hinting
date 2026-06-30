@@ -83,3 +83,10 @@ MonitorFromWindow
 MONITOR_FROM_FLAGS
 GetClassName
 EnumChildWindows
+
+// --- Wave 7: foreground window change hook ---
+// SetWinEventHook + UnhookWinEvent enable auto-hiding hints when the user
+// switches to a different window (EVENT_SYSTEM_FOREGROUND detection).
+SetWinEventHook
+UnhookWinEvent
+WINEVENTPROC

@@ -20,6 +20,7 @@ namespace WindowsHinting
         private readonly HotkeyWindow _hotkeyWindow;
         private readonly IUIAutomationService _uiaService;
         private readonly IKeyboardHookService _keyboardService;
+        private readonly IForegroundWindowHookService _foregroundWindowHookService;
         private readonly IPreferencesService _preferencesService;
         private readonly IWindowManager _windowManager;
         private readonly ILogger _logger;
@@ -41,6 +42,7 @@ namespace WindowsHinting
         // external tools like Talon Voice can otherwise latch onto instead of
         // the real overlay window.
         private readonly System.Threading.Timer _autoHideTimer;
+        private IntPtr _activeHintWindowHwnd;
         private bool _disposed;
 
         public HintController(
@@ -48,6 +50,7 @@ namespace WindowsHinting
             HotkeyWindow hotkeyWindow,
             IUIAutomationService uiaService,
             IKeyboardHookService keyboardService,
+            IForegroundWindowHookService foregroundWindowHookService,
             IPreferencesService preferencesService,
             IWindowManager windowManager,
             ILogger logger,
@@ -70,6 +73,7 @@ namespace WindowsHinting
                 _hotkeyWindow = hotkeyWindow ?? throw new ArgumentNullException(nameof(hotkeyWindow));
                 _uiaService = uiaService ?? throw new ArgumentNullException(nameof(uiaService));
                 _keyboardService = keyboardService ?? throw new ArgumentNullException(nameof(keyboardService));
+                _foregroundWindowHookService = foregroundWindowHookService ?? throw new ArgumentNullException(nameof(foregroundWindowHookService));
                 _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
                 _windowManager = windowManager ?? throw new ArgumentNullException(nameof(windowManager));
                 _trayIcon = trayIcon ?? throw new ArgumentNullException(nameof(trayIcon));
@@ -123,6 +127,8 @@ namespace WindowsHinting
 
                 _keyboardService.KeyPressed += OnKeyPressed;
                 _keyboardService.KeyReleased += OnKeyReleased;
+
+                _foregroundWindowHookService.ForegroundWindowChanged += OnForegroundWindowChanged;
 
                 //_namedPipeService.CommandReceived += OnNamedPipeCommandReceived;
 
@@ -326,6 +332,9 @@ namespace WindowsHinting
                 }
 
                 _logger.Debug($"Scanning window: {hwnd}");
+
+                // Store the window we're showing hints for (used for auto-hide on focus change)
+                _activeHintWindowHwnd = hwnd;
 
                 // Ensure overlay is topmost before scanning
                 _overlay.EnsureTopmost();
@@ -582,6 +591,13 @@ namespace WindowsHinting
                 _logger.Debug("Starting keyboard service");
                 _keyboardService.Start();
 
+                // Start monitoring foreground window changes (only for foreground window hints)
+                if (_stateManager.CurrentSource == HintSource.ForegroundWindow)
+                {
+                    _foregroundWindowHookService.Start();
+                    _logger.Debug("Started foreground window hook for auto-hide");
+                }
+
                 if (mode == HintMode.Active && _options.AutoHideTimeoutSeconds > 0)
                 {
                     _autoHideTimer.Change(_options.AutoHideTimeoutSeconds * 1000, Timeout.Infinite);
@@ -591,6 +607,8 @@ namespace WindowsHinting
             else
             {
                 _autoHideTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                _foregroundWindowHookService.Stop();
+                _activeHintWindowHwnd = IntPtr.Zero;
                 _logger.Debug("Stopping keyboard service");
                 _keyboardService.Stop();
                 _inputHandler.Reset();
@@ -614,6 +632,24 @@ namespace WindowsHinting
         {
             _logger.Debug($"Click action changed: {action}");
             _trayIcon.SetClickAction(action);
+        }
+
+        private void OnForegroundWindowChanged(object? sender, NativeInterop.ForegroundWindowChangedEventArgs e)
+        {
+            // Only auto-hide if hints are showing for a foreground window
+            if (_stateManager.CurrentMode == HintMode.Inactive)
+                return;
+
+            if (_stateManager.CurrentSource != HintSource.ForegroundWindow)
+                return;
+
+            // Check if the new foreground window is different from the one we're showing hints for
+            IntPtr newHwnd = e.NewForegroundWindow;
+            if (newHwnd != _activeHintWindowHwnd && _activeHintWindowHwnd != IntPtr.Zero)
+            {
+                _logger.Info($"Foreground window changed from 0x{_activeHintWindowHwnd.ToInt64():X} to 0x{newHwnd.ToInt64():X}, auto-hiding hints");
+                _stateManager.Deactivate();
+            }
         }
 
         private void OnKeyPressed(object? sender, KeyboardEventArgs e)
