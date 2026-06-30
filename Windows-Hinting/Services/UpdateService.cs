@@ -43,6 +43,7 @@ namespace WindowsHinting.Services
         private readonly IPreferencesService _preferencesService;
         private SparkleUpdater? _sparkle;
         private bool _disposed;
+        private string? _detectedUpdateVerison = null;
 
         public UpdateService(ILogger logger, IPreferencesService preferencesService)
         {
@@ -188,8 +189,11 @@ namespace WindowsHinting.Services
             sparkle.UpdateCheckFinished += (_, status) =>
                 _logger.Info($"UpdateService: update check finished (status={status}).");
             sparkle.UpdateDetected += (_, e) =>
+            {
+                _detectedUpdateVerison = e.LatestVersion?.Version;
                 _logger.Info(
                     $"UpdateService: update detected (latest={e.LatestVersion?.Version}, current={e.ApplicationConfig?.InstalledVersion}).");
+            };
 
             // Portable: intercept the close-to-install phase and do our own
             // self-replacement via the helper script.
@@ -203,6 +207,7 @@ namespace WindowsHinting.Services
                 // MSI: let Sparkle launch the installer. msiexec with /qb shows a
                 // basic UI so the user can see upgrade progress and UAC fires for
                 // per-machine install.
+                sparkle.TmpDownloadFileNameWithExtension = $"Windows-Hinting-{_detectedUpdateVerison}.msi";
                 sparkle.CustomInstallerArguments = "/qb /norestart";
             }
 
