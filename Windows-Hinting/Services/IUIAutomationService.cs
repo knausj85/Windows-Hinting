@@ -30,12 +30,6 @@ namespace WindowsHinting.Services
         bool IsActive { get; }
     }
 
-    internal interface IPreferencesService
-    {
-        HintOverlayOptions Load();
-        void Save(HintOverlayOptions options);
-    }
-
     internal sealed class KeyboardEventArgs : EventArgs
     {
         public int VirtualKeyCode { get; init; }

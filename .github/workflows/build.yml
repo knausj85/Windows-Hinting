@@ -12,11 +12,11 @@ on:
         type: boolean
         default: true
       publish_release:
-        description: "Publish a GitHub Release (main branch only; ignored elsewhere)"
+        description: "Publish a GitHub Release (main => stable 'v<ver>' tag; other branches => rolling 'beta' tag)"
         type: boolean
         default: false
       prerelease:
-        description: "Mark the published release as prerelease"
+        description: "Mark the published release as prerelease (ignored for beta, which is always a prerelease)"
         type: boolean
         default: true
 
@@ -96,8 +96,10 @@ jobs:
           echo "BRANCH_SLUG=$slug" >> $env:GITHUB_ENV
           if ($refName -eq "main") {
             echo "ARTIFACT_SUFFIX=" >> $env:GITHUB_ENV
+            echo "UPDATE_CHANNEL=Stable" >> $env:GITHUB_ENV
           } else {
             echo "ARTIFACT_SUFFIX=-$slug" >> $env:GITHUB_ENV
+            echo "UPDATE_CHANNEL=Beta" >> $env:GITHUB_ENV
           }
 
       - name: Setup .NET
@@ -121,7 +123,9 @@ jobs:
         run: dotnet restore
 
       - name: Build Debug (exe only)
-        run: build\build-complete.bat Debug --exe-only
+        env:
+          UPDATE_CHANNEL: ${{ env.UPDATE_CHANNEL }}
+        run: .\build\build-complete.ps1 -Configuration Debug -ExeOnly -UpdateChannel $env:UPDATE_CHANNEL
 
       - name: Clean Debug output
         run: |
@@ -160,8 +164,10 @@ jobs:
           echo "BRANCH_SLUG=$slug" >> $env:GITHUB_ENV
           if ($refName -eq "main") {
             echo "ARTIFACT_SUFFIX=" >> $env:GITHUB_ENV
+            echo "UPDATE_CHANNEL=Stable" >> $env:GITHUB_ENV
           } else {
             echo "ARTIFACT_SUFFIX=-$slug" >> $env:GITHUB_ENV
+            echo "UPDATE_CHANNEL=Beta" >> $env:GITHUB_ENV
           }
 
       - name: Setup .NET
@@ -189,7 +195,7 @@ jobs:
         run: dotnet restore
 
       - name: Build Release exe
-        run: .\build\build-complete.ps1 -Configuration Release -ExeOnly
+        run: .\build\build-complete.ps1 -Configuration Release -ExeOnly -UpdateChannel $env:UPDATE_CHANNEL
 
       - name: Stage Release binaries for signing
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
@@ -272,6 +278,7 @@ jobs:
             /p:Configuration=Release `
             /p:SignOutput=false `
             /p:BuildProjectReferences=false `
+            /p:UpdateChannel=$env:UPDATE_CHANNEL `
             /nologo /v:minimal
 
       - name: Verify signatures AFTER MSI build
@@ -349,6 +356,8 @@ jobs:
             /p:RuntimeIdentifier=win-x64 `
             /p:SelfContained=true `
             /p:ApplicationManifest=app.debug.manifest `
+            /p:PortableBuild=true `
+            /p:UpdateChannel=$env:UPDATE_CHANNEL `
             /nologo /v:minimal
 
           if ($LASTEXITCODE -ne 0) { throw "msbuild compile failed for win-x64 with exit code $LASTEXITCODE" }
@@ -367,6 +376,8 @@ jobs:
             /p:PublishReadyToRun=true `
             /p:DebugType=embedded `
             /p:PublishDir=$publishDir\ `
+            /p:PortableBuild=true `
+            /p:UpdateChannel=$env:UPDATE_CHANNEL `
             /p:NoBuild=true `
             /nologo /v:minimal
 
@@ -435,23 +446,23 @@ jobs:
 
           Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
 
-      - name: Create portable x64 zip
+      - name: Stage portable x64 exe for release
         run: |
           $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
-          $zipPath    = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable-win-x64.zip"
+          $exeOut     = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable-win-x64.exe"
 
-          if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+          if (Test-Path -LiteralPath $exeOut) { Remove-Item -LiteralPath $exeOut -Force }
 
           # Only include Windows-Hinting.exe, exclude .pdb
           $exePath = Join-Path $publishDir "Windows-Hinting.exe"
-          Compress-Archive -Path $exePath -DestinationPath $zipPath
-          Write-Host "Portable x64 zip created: $zipPath"
+          Copy-Item -LiteralPath $exePath -Destination $exeOut -Force
+          Write-Host "Portable x64 exe staged: $exeOut"
 
       - name: Upload Portable x64 artifact
         uses: actions/upload-artifact@v7
         with:
           name: Windows-Hinting-Portable-win-x64${{ env.ARTIFACT_SUFFIX }}
-          path: Windows-Hinting-Portable-win-x64.zip
+          path: Windows-Hinting-Portable-win-x64.exe
           if-no-files-found: error
 
       - name: Build portable self-contained exe for win-x86
@@ -476,6 +487,8 @@ jobs:
             /p:RuntimeIdentifier=win-x86 `
             /p:SelfContained=true `
             /p:ApplicationManifest=app.debug.manifest `
+            /p:PortableBuild=true `
+            /p:UpdateChannel=$env:UPDATE_CHANNEL `
             /nologo /v:minimal
 
           if ($LASTEXITCODE -ne 0) { throw "msbuild compile failed for win-x86 with exit code $LASTEXITCODE" }
@@ -494,6 +507,8 @@ jobs:
             /p:PublishReadyToRun=true `
             /p:DebugType=embedded `
             /p:PublishDir=$publishDir\ `
+            /p:PortableBuild=true `
+            /p:UpdateChannel=$env:UPDATE_CHANNEL `
             /p:NoBuild=true `
             /nologo /v:minimal
 
@@ -562,23 +577,23 @@ jobs:
 
           Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
 
-      - name: Create portable x86 zip
+      - name: Stage portable x86 exe for release
         run: |
           $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
-          $zipPath    = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable-win-x86.zip"
+          $exeOut     = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable-win-x86.exe"
 
-          if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+          if (Test-Path -LiteralPath $exeOut) { Remove-Item -LiteralPath $exeOut -Force }
 
           # Only include Windows-Hinting.exe, exclude .pdb
           $exePath = Join-Path $publishDir "Windows-Hinting.exe"
-          Compress-Archive -Path $exePath -DestinationPath $zipPath
-          Write-Host "Portable x86 zip created: $zipPath"
+          Copy-Item -LiteralPath $exePath -Destination $exeOut -Force
+          Write-Host "Portable x86 exe staged: $exeOut"
 
       - name: Upload Portable x86 artifact
         uses: actions/upload-artifact@v7
         with:
           name: Windows-Hinting-Portable-win-x86${{ env.ARTIFACT_SUFFIX }}
-          path: Windows-Hinting-Portable-win-x86.zip
+          path: Windows-Hinting-Portable-win-x86.exe
           if-no-files-found: error
 
       - name: Upload MSI artifact
@@ -592,14 +607,53 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: [build-debug, build-release]
-    # Only publish a release on direct pushes to main or manual workflow_dispatch on main with publish_release=true
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
+    # Publish a release when:
+    #  - Direct pushes to main                                 => stable channel (tag v<ver>)
+    #  - Manual dispatch on main with publish_release=true     => stable channel (tag v<ver>)
+    #  - Manual dispatch on any non-main branch with
+    #    publish_release=true                                  => beta channel (rolling 'beta' tag)
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Compute release metadata
+        run: |
+          refName="${{ github.ref_name }}"
+          if [ "${{ github.head_ref }}" != "" ]; then
+            refName="${{ github.head_ref }}"
+          fi
+          slug=$(echo "$refName" | tr -c 'a-zA-Z0-9' '-' | tr '[:upper:]' '[:lower:]' | cut -c1-20 | sed 's/-*$//')
+          echo "BRANCH_SLUG=$slug" >> "$GITHUB_ENV"
+
+          if [ "$refName" = "main" ]; then
+            echo "UPDATE_CHANNEL=Stable"                                       >> "$GITHUB_ENV"
+            echo "ARTIFACT_SUFFIX="                                            >> "$GITHUB_ENV"
+            echo "RELEASE_TAG=v${BUILD_VERSION}"                               >> "$GITHUB_ENV"
+            echo "APPCAST_INSTALLER_NAME=appcast-installer"                    >> "$GITHUB_ENV"
+            echo "APPCAST_PORTABLE_X64_NAME=appcast-portable-win-x64"          >> "$GITHUB_ENV"
+            echo "APPCAST_PORTABLE_X86_NAME=appcast-portable-win-x86"          >> "$GITHUB_ENV"
+            echo "APPCAST_URL_PREFIX=https://github.com/${{ github.repository }}/releases/download/v${BUILD_VERSION}" >> "$GITHUB_ENV"
+            echo "IS_BETA=false"                                               >> "$GITHUB_ENV"
+          else
+            echo "UPDATE_CHANNEL=Beta"                                         >> "$GITHUB_ENV"
+            echo "ARTIFACT_SUFFIX=-$slug"                                      >> "$GITHUB_ENV"
+            echo "RELEASE_TAG=beta"                                            >> "$GITHUB_ENV"
+            echo "APPCAST_INSTALLER_NAME=appcast-installer-beta"               >> "$GITHUB_ENV"
+            echo "APPCAST_PORTABLE_X64_NAME=appcast-portable-win-x64-beta"     >> "$GITHUB_ENV"
+            echo "APPCAST_PORTABLE_X86_NAME=appcast-portable-win-x86-beta"     >> "$GITHUB_ENV"
+            echo "APPCAST_URL_PREFIX=https://github.com/${{ github.repository }}/releases/download/beta" >> "$GITHUB_ENV"
+            echo "IS_BETA=true"                                                >> "$GITHUB_ENV"
+          fi
+        shell: bash
+
       - name: Download Debug build
         uses: actions/download-artifact@v8
         with:
-          name: Windows-Hinting-Debug
+          name: Windows-Hinting-Debug${{ env.ARTIFACT_SUFFIX }}
           path: artifacts/Windows-Hinting-Debug
 
       - name: Zip Debug build
@@ -608,40 +662,183 @@ jobs:
       - name: Download Portable x64 build
         uses: actions/download-artifact@v8
         with:
-          name: Windows-Hinting-Portable-win-x64
+          name: Windows-Hinting-Portable-win-x64${{ env.ARTIFACT_SUFFIX }}
           path: artifacts
 
       - name: Download Portable x86 build
         uses: actions/download-artifact@v8
         with:
-          name: Windows-Hinting-Portable-win-x86
+          name: Windows-Hinting-Portable-win-x86${{ env.ARTIFACT_SUFFIX }}
           path: artifacts
 
       - name: Download MSI installer
         uses: actions/download-artifact@v8
         with:
-          name: Windows-Hinting-Installer
+          name: Windows-Hinting-Installer${{ env.ARTIFACT_SUFFIX }}
           path: artifacts
+
+      - name: Setup .NET (for NetSparkle CLI)
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Install NetSparkle AppCastGenerator
+        run: dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 2.9.*
+
+      - name: Stage update artifacts
+        env:
+          NETSPARKLE_ED25519_PRIVATE_KEY: ${{ secrets.NETSPARKLE_ED25519_PRIVATE_KEY }}
+          NETSPARKLE_ED25519_PUBLIC_KEY:  ${{ secrets.NETSPARKLE_ED25519_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NETSPARKLE_ED25519_PRIVATE_KEY:-}" ] || [ -z "${NETSPARKLE_ED25519_PUBLIC_KEY:-}" ]; then
+            echo "::warning::NETSPARKLE_ED25519_PRIVATE_KEY and/or NETSPARKLE_ED25519_PUBLIC_KEY secrets are not set. Skipping appcast generation."
+            echo "APPCAST_SKIPPED=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          mkdir -p appcast-work/installer
+          mkdir -p appcast-work/portable-x64
+          mkdir -p appcast-work/portable-x86
+
+          cp artifacts/Windows-Hinting.msi                       appcast-work/installer/
+          cp artifacts/Windows-Hinting-Portable-win-x64.exe      appcast-work/portable-x64/
+          cp artifacts/Windows-Hinting-Portable-win-x86.exe      appcast-work/portable-x86/
+
+        shell: bash
+
+      - name: Generate signed appcasts
+        if: env.APPCAST_SKIPPED != 'true'
+        env:
+          BUILD_VERSION: ${{ env.BUILD_VERSION }}
+          # NetSparkle's AppCastGenerator is documented to read BOTH keys
+          # (base64) from env vars SparklePrivateKey and SparklePublicKey.
+          # In practice, on a clean Linux runner it still falls through to the
+          # disk-based key lookup
+          # (~/.local/share/netsparkle/NetSparkle_Ed25519.{priv,pub}) and fails
+          # with:
+          #   "File does not exist: .../NetSparkle_Ed25519.pub
+          #    Skipped generating signature. Generate keys with --generate-keys"
+          # As a reliable workaround we ALSO materialize the keys to that
+          # disk location below before invoking the generator. Both are kept
+          # so signing works regardless of which path the tool takes.
+          SparklePrivateKey: ${{ secrets.NETSPARKLE_ED25519_PRIVATE_KEY }}
+          SparklePublicKey:  ${{ secrets.NETSPARKLE_ED25519_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+
+          version="${BUILD_VERSION}"
+          base="${APPCAST_URL_PREFIX}"
+
+          # Materialize the Ed25519 keys to the on-disk location NetSparkle
+          # AppCastGenerator falls back to when env vars aren't honored.
+          # The secrets are stored as base64 strings; write them verbatim.
+          if [ -n "${SparklePrivateKey:-}" ] && [ -n "${SparklePublicKey:-}" ]; then
+            key_dir="${HOME}/.local/share/netsparkle"
+            mkdir -p "${key_dir}"
+            # printf avoids trailing newline differences across shells.
+            printf '%s' "${SparklePrivateKey}" > "${key_dir}/NetSparkle_Ed25519.priv"
+            printf '%s' "${SparklePublicKey}"  > "${key_dir}/NetSparkle_Ed25519.pub"
+            chmod 600 "${key_dir}/NetSparkle_Ed25519.priv"
+            chmod 644 "${key_dir}/NetSparkle_Ed25519.pub"
+          fi
+
+          gen() {
+            local input_dir="$1"
+            local ext="$2"
+            local download_url="$3"
+            local out_name="$4"
+
+            netsparkle-generate-appcast \
+              --product-name "Windows-Hinting" \
+              --appcast-output-directory appcast-out \
+              --binaries "${input_dir}" \
+              --file-extract-version=false \
+              --file-version "${version}" \
+              --search-binary-subdirectories false \
+              --ext "${ext}" \
+              --base-url "${download_url}" \
+              --output-file-name "${out_name}" \
+              --signature-file-extension signature
+          }
+
+          mkdir -p appcast-out
+
+          if [ -z "${SparklePrivateKey:-}" ] || [ -z "${SparklePublicKey:-}" ]; then
+            echo "::error::SparklePrivateKey and/or SparklePublicKey env vars are empty; appcast signatures would not be generated. Set the NETSPARKLE_ED25519_PRIVATE_KEY and NETSPARKLE_ED25519_PUBLIC_KEY repo secrets (base64)."
+            exit 1
+          fi
+
+          gen appcast-work/installer     msi "${base}" "${APPCAST_INSTALLER_NAME}"
+          gen appcast-work/portable-x64  exe "${base}" "${APPCAST_PORTABLE_X64_NAME}"
+          gen appcast-work/portable-x86  exe "${base}" "${APPCAST_PORTABLE_X86_NAME}"
+
+          ls -la appcast-out
+
+          for name in "${APPCAST_INSTALLER_NAME}" "${APPCAST_PORTABLE_X64_NAME}" "${APPCAST_PORTABLE_X86_NAME}"; do
+            sig="appcast-out/${name}.xml.signature"
+            if [ ! -s "${sig}" ]; then
+              echo "::error::Expected signature file '${sig}' was not generated. Verify NETSPARKLE_ED25519_PRIVATE_KEY is a valid base64 Ed25519 private key."
+              exit 1
+            fi
+          done
+
+          cp "appcast-out/${APPCAST_INSTALLER_NAME}.xml"       "artifacts/${APPCAST_INSTALLER_NAME}.xml"
+          cp "appcast-out/${APPCAST_PORTABLE_X64_NAME}.xml"    "artifacts/${APPCAST_PORTABLE_X64_NAME}.xml"
+          cp "appcast-out/${APPCAST_PORTABLE_X86_NAME}.xml"    "artifacts/${APPCAST_PORTABLE_X86_NAME}.xml"
+
+          # NetSparkle (Strict security mode) refuses the appcast unless the
+          # matching .signature file is present next to the .xml on the server.
+          cp "appcast-out/${APPCAST_INSTALLER_NAME}.xml.signature"     "artifacts/${APPCAST_INSTALLER_NAME}.xml.signature"
+          cp "appcast-out/${APPCAST_PORTABLE_X64_NAME}.xml.signature"  "artifacts/${APPCAST_PORTABLE_X64_NAME}.xml.signature"
+          cp "appcast-out/${APPCAST_PORTABLE_X86_NAME}.xml.signature"  "artifacts/${APPCAST_PORTABLE_X86_NAME}.xml.signature"
+        shell: bash
+
+      # For rolling beta releases, delete the existing release and tag so a
+      # fresh release is created on the current commit. Without this, GitHub
+      # keeps the original tag target (so Source code zips still reflect the
+      # old commit) and the release's published_at timestamp is never updated.
+      - name: Delete existing beta release and tag
+        if: env.IS_BETA == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ env.RELEASE_TAG }}"
+          # Delete release (ignore if it doesn't exist)
+          gh release delete "$tag" --yes --repo "${{ github.repository }}" || true
+          # Delete tag ref (ignore if it doesn't exist)
+          gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" || true
+        shell: bash
 
       - name: Create GitHub release
         uses: ncipollo/release-action@v1
         with:
-          tag: v${{ env.BUILD_VERSION }}
-          name: v${{ env.BUILD_VERSION }}
+          tag: ${{ env.RELEASE_TAG }}
+          commit: ${{ github.sha }}
+          name: ${{ env.IS_BETA == 'true' && format('beta (build {0})', env.BUILD_VERSION) || format('v{0}', env.BUILD_VERSION) }}
           generateReleaseNotes: true
-          prerelease: ${{ inputs.prerelease || false }}
-          makeLatest: ${{ !(inputs.prerelease || false) }}
+          prerelease: ${{ env.IS_BETA == 'true' || inputs.prerelease || false }}
+          makeLatest: ${{ env.IS_BETA != 'true' && !(inputs.prerelease || false) }}
+          allowUpdates: false
+          removeArtifacts: false
           body: |
             ## Downloads
 
               | Asset | Description |
               |---|---|
-              | **Windows-Hinting-Portable-win-x64.zip** | Self-contained portable x64 build — signed single-file `Windows-Hinting.exe`. No .NET runtime required. No UIAccess (hints won't appear above e.g. the start menu). Extract and run `Windows-Hinting.exe`. |
-              | **Windows-Hinting-Portable-win-x86.zip** | Self-contained portable x86 build — signed single-file `Windows-Hinting.exe`. No .NET runtime required. No UIAccess (hints won't appear above e.g. the start menu). Extract and run `Windows-Hinting.exe`. |
+              | **Windows-Hinting-Portable-win-x64.exe** | Self-contained portable x64 build — signed single-file executable. No .NET runtime required. No UIAccess (hints won't appear above e.g. the start menu). Download and run. |
+              | **Windows-Hinting-Portable-win-x86.exe** | Self-contained portable x86 build — signed single-file executable. No .NET runtime required. No UIAccess (hints won't appear above e.g. the start menu). Download and run. |
               | **Windows-Hinting-Debug.zip** | Debug build — **unsigned**, for diagnostics/testing only. Extract and run `Windows-Hinting.exe`. Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). |
               | **Windows-Hinting.msi** | Installer — fully signed (installer, executable, and managed DLL). Provides UIAccess support so hints appear above e.g. the start menu. Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). |
           artifacts: |
             artifacts/Windows-Hinting-Debug.zip
-            artifacts/Windows-Hinting-Portable-win-x64.zip
-            artifacts/Windows-Hinting-Portable-win-x86.zip
+            artifacts/Windows-Hinting-Portable-win-x64.exe
+            artifacts/Windows-Hinting-Portable-win-x86.exe
             artifacts/Windows-Hinting.msi
+            artifacts/${{ env.APPCAST_INSTALLER_NAME }}.xml
+            artifacts/${{ env.APPCAST_PORTABLE_X64_NAME }}.xml
+            artifacts/${{ env.APPCAST_PORTABLE_X86_NAME }}.xml
+            artifacts/${{ env.APPCAST_INSTALLER_NAME }}.xml.signature
+            artifacts/${{ env.APPCAST_PORTABLE_X64_NAME }}.xml.signature
+            artifacts/${{ env.APPCAST_PORTABLE_X86_NAME }}.xml.signature

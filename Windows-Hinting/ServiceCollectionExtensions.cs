@@ -10,10 +10,22 @@ namespace WindowsHinting
     {
         public static IServiceCollection AddHintOverlayServices(this IServiceCollection services)
         {
-            // Logging
-            services.AddSingleton<ILogger>(sp => new DebugLogger
+            // Logging. Minimum level and file logging can be forced via
+            // preferences.json (see HintOverlayOptions.Logging). Falls back to
+            // Info / file logging off when the preferences file is missing or
+            // the Logging section is unset.
+            services.AddSingleton<ILogger>(sp =>
             {
-                MinimumLevel = LogLevel.Info
+                var prefs = sp.GetRequiredService<IPreferencesService>().Load();
+                var logger = new DebugLogger
+                {
+                    MinimumLevel = prefs.Logging?.MinimumLevel ?? LogLevel.Info,
+                };
+                if (prefs.Logging?.FileLoggingEnabled == true)
+                {
+                    logger.FileLoggingEnabled = true;
+                }
+                return logger;
             });
 
             // Configuration
@@ -30,9 +42,14 @@ namespace WindowsHinting
             //services.AddSingleton<NamedPipeService>();
             services.AddSingleton<MouseClickService>();
             services.AddSingleton<StartupService>();
+            services.AddSingleton<UpdateService>();
+
+            // Hotkey handling (dedicated message-only window so hotkeys aren't
+            // tied to any per-screen overlay's lifetime)
+            services.AddSingleton<HotkeyWindow>();
 
             // UI Components
-            services.AddSingleton<OverlayForm>();
+            services.AddSingleton<OverlayManager>();
             services.AddSingleton<TrayIconManager>();
 
             // Application Controller

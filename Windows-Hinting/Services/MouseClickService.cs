@@ -1,10 +1,11 @@
 using System;
 using System.Drawing;
-using System.Runtime.InteropServices;
 using System.Threading;
+using Windows.Win32;
+using Windows.Win32.UI.Input.KeyboardAndMouse;
+using Windows.Win32.UI.WindowsAndMessaging;
 using WindowsHinting.Logging;
 using WindowsHinting.Models;
-using WindowsHinting.Services.Native;
 
 namespace WindowsHinting.Services
 {
@@ -25,11 +26,11 @@ namespace WindowsHinting.Services
             _logger.Info($"Performing {action} at ({x}, {y})");
 
             // Save and restore cursor position
-            NativeMethods.GetCursorPos(out var originalPos);
+            PInvoke.GetCursorPos(out var originalPos);
 
             try
             {
-                NativeMethods.SetCursorPos(x, y);
+                PInvoke.SetCursorPos(x, y);
 
                 // Small delay to let the cursor settle
                 Thread.Sleep(10);
@@ -38,17 +39,17 @@ namespace WindowsHinting.Services
                 {
                     case ClickAction.Default:
                     case ClickAction.LeftClick:
-                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                        SendClick(x, y, MOUSE_EVENT_FLAGS.MOUSEEVENTF_LEFTDOWN, MOUSE_EVENT_FLAGS.MOUSEEVENTF_LEFTUP);
                         break;
 
                     case ClickAction.RightClick:
-                        SendClick(WindowsConstants.MOUSEEVENTF_RIGHTDOWN, WindowsConstants.MOUSEEVENTF_RIGHTUP);
+                        SendClick(x, y, MOUSE_EVENT_FLAGS.MOUSEEVENTF_RIGHTDOWN, MOUSE_EVENT_FLAGS.MOUSEEVENTF_RIGHTUP);
                         break;
 
                     case ClickAction.DoubleClick:
-                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                        SendClick(x, y, MOUSE_EVENT_FLAGS.MOUSEEVENTF_LEFTDOWN, MOUSE_EVENT_FLAGS.MOUSEEVENTF_LEFTUP);
                         Thread.Sleep(30);
-                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                        SendClick(x, y, MOUSE_EVENT_FLAGS.MOUSEEVENTF_LEFTDOWN, MOUSE_EVENT_FLAGS.MOUSEEVENTF_LEFTUP);
                         break;
 
                     case ClickAction.MouseMove:
@@ -56,19 +57,19 @@ namespace WindowsHinting.Services
                         break;
 
                     case ClickAction.CtrlClick:
-                        SendModifierKeyDown(WindowsConstants.VK_CONTROL);
+                        SendModifierKeyDown(VIRTUAL_KEY.VK_CONTROL);
                         Thread.Sleep(10);
-                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                        SendClick(x, y, MOUSE_EVENT_FLAGS.MOUSEEVENTF_LEFTDOWN, MOUSE_EVENT_FLAGS.MOUSEEVENTF_LEFTUP);
                         Thread.Sleep(10);
-                        SendModifierKeyUp(WindowsConstants.VK_CONTROL);
+                        SendModifierKeyUp(VIRTUAL_KEY.VK_CONTROL);
                         break;
 
                     case ClickAction.ShiftClick:
-                        SendModifierKeyDown(WindowsConstants.VK_SHIFT);
+                        SendModifierKeyDown(VIRTUAL_KEY.VK_SHIFT);
                         Thread.Sleep(10);
-                        SendClick(WindowsConstants.MOUSEEVENTF_LEFTDOWN, WindowsConstants.MOUSEEVENTF_LEFTUP);
+                        SendClick(x, y, MOUSE_EVENT_FLAGS.MOUSEEVENTF_LEFTDOWN, MOUSE_EVENT_FLAGS.MOUSEEVENTF_LEFTUP);
                         Thread.Sleep(10);
-                        SendModifierKeyUp(WindowsConstants.VK_SHIFT);
+                        SendModifierKeyUp(VIRTUAL_KEY.VK_SHIFT);
                         break;
 
                     default:
@@ -86,78 +87,98 @@ namespace WindowsHinting.Services
             }
         }
 
+        /// <summary>
+        /// Converts screen pixel coordinates to normalized virtual-desktop absolute coordinates (0..65535).
+        /// Required for SendInput with MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK to work correctly
+        /// across multiple monitors, including monitors with negative coordinates (left-of-primary).
+        /// </summary>
+        private static (int absX, int absY) ToVirtualDesktopAbsolute(int screenX, int screenY)
+        {
+            int vx = PInvoke.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_XVIRTUALSCREEN);
+            int vy = PInvoke.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_YVIRTUALSCREEN);
+            int vw = PInvoke.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_CXVIRTUALSCREEN);
+            int vh = PInvoke.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_CYVIRTUALSCREEN);
+
+            if (vw < 2) vw = 2;
+            if (vh < 2) vh = 2;
+
+            int absX = (int)(((screenX - vx) * 65535.0) / (vw - 1));
+            int absY = (int)(((screenY - vy) * 65535.0) / (vh - 1));
+
+            // Clamp to valid range
+            absX = Math.Max(0, Math.Min(65535, absX));
+            absY = Math.Max(0, Math.Min(65535, absY));
+
+            return (absX, absY);
+        }
+
+        private static unsafe uint SendInputs(ReadOnlySpan<INPUT> inputs)
+        {
+            return PInvoke.SendInput(inputs, sizeof(INPUT));
+        }
+
         private void SendMove(int screenX, int screenY)
         {
-            // Convert screen coordinates to normalized absolute coordinates (0..65535)
-            int primaryWidth = NativeMethods.GetSystemMetrics(0);  // SM_CXSCREEN
-            int primaryHeight = NativeMethods.GetSystemMetrics(1); // SM_CYSCREEN
-            int absX = (int)((screenX * 65535.0) / (primaryWidth - 1));
-            int absY = (int)((screenY * 65535.0) / (primaryHeight - 1));
+            var (absX, absY) = ToVirtualDesktopAbsolute(screenX, screenY);
 
-            var inputs = new NativeMethods.INPUT[1];
-            inputs[0].Type = WindowsConstants.INPUT_MOUSE;
-            inputs[0].U.Mi.Dx = absX;
-            inputs[0].U.Mi.Dy = absY;
-            inputs[0].U.Mi.DwFlags = WindowsConstants.MOUSEEVENTF_MOVE | WindowsConstants.MOUSEEVENTF_ABSOLUTE;
+            Span<INPUT> inputs = stackalloc INPUT[1];
+            inputs[0].type = INPUT_TYPE.INPUT_MOUSE;
+            inputs[0].Anonymous.mi.dx = absX;
+            inputs[0].Anonymous.mi.dy = absY;
+            inputs[0].Anonymous.mi.dwFlags = MOUSE_EVENT_FLAGS.MOUSEEVENTF_MOVE
+                                           | MOUSE_EVENT_FLAGS.MOUSEEVENTF_ABSOLUTE
+                                           | MOUSE_EVENT_FLAGS.MOUSEEVENTF_VIRTUALDESK;
 
-            uint sent = NativeMethods.SendInput(
-                (uint)inputs.Length,
-                inputs,
-                Marshal.SizeOf<NativeMethods.INPUT>());
-
+            uint sent = SendInputs(inputs);
             if (sent != inputs.Length)
             {
                 _logger.Warning($"SendInput (move) returned {sent}, expected {inputs.Length}");
             }
         }
 
-        private void SendModifierKeyDown(int vkCode)
+        private void SendModifierKeyDown(VIRTUAL_KEY vkCode)
         {
-            var inputs = new NativeMethods.INPUT[1];
-            inputs[0].Type = WindowsConstants.INPUT_KEYBOARD;
-            inputs[0].U.Ki.Vk = (ushort)vkCode;
-            inputs[0].U.Ki.Flags = 0;
+            Span<INPUT> inputs = stackalloc INPUT[1];
+            inputs[0].type = INPUT_TYPE.INPUT_KEYBOARD;
+            inputs[0].Anonymous.ki.wVk = vkCode;
+            inputs[0].Anonymous.ki.dwFlags = 0;
 
-            uint sent = NativeMethods.SendInput(
-                (uint)inputs.Length,
-                inputs,
-                Marshal.SizeOf<NativeMethods.INPUT>());
-
+            uint sent = SendInputs(inputs);
             if (sent != inputs.Length)
-                _logger.Warning($"SendInput (modifier key down VK=0x{vkCode:X2}) returned {sent}, expected {inputs.Length}");
+                _logger.Warning($"SendInput (modifier key down VK=0x{(int)vkCode:X2}) returned {sent}, expected {inputs.Length}");
         }
 
-        private void SendModifierKeyUp(int vkCode)
+        private void SendModifierKeyUp(VIRTUAL_KEY vkCode)
         {
-            var inputs = new NativeMethods.INPUT[1];
-            inputs[0].Type = WindowsConstants.INPUT_KEYBOARD;
-            inputs[0].U.Ki.Vk = (ushort)vkCode;
-            inputs[0].U.Ki.Flags = WindowsConstants.KEYEVENTF_KEYUP;
+            Span<INPUT> inputs = stackalloc INPUT[1];
+            inputs[0].type = INPUT_TYPE.INPUT_KEYBOARD;
+            inputs[0].Anonymous.ki.wVk = vkCode;
+            inputs[0].Anonymous.ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
 
-            uint sent = NativeMethods.SendInput(
-                (uint)inputs.Length,
-                inputs,
-                Marshal.SizeOf<NativeMethods.INPUT>());
-
+            uint sent = SendInputs(inputs);
             if (sent != inputs.Length)
-                _logger.Warning($"SendInput (modifier key up VK=0x{vkCode:X2}) returned {sent}, expected {inputs.Length}");
+                _logger.Warning($"SendInput (modifier key up VK=0x{(int)vkCode:X2}) returned {sent}, expected {inputs.Length}");
         }
 
-        private void SendClick(uint downFlag, uint upFlag)
+        private void SendClick(int screenX, int screenY, MOUSE_EVENT_FLAGS downFlag, MOUSE_EVENT_FLAGS upFlag)
         {
-            var inputs = new NativeMethods.INPUT[2];
+            var (absX, absY) = ToVirtualDesktopAbsolute(screenX, screenY);
 
-            inputs[0].Type = WindowsConstants.INPUT_MOUSE;
-            inputs[0].U.Mi.DwFlags = downFlag;
+            MOUSE_EVENT_FLAGS absoluteFlags = MOUSE_EVENT_FLAGS.MOUSEEVENTF_ABSOLUTE | MOUSE_EVENT_FLAGS.MOUSEEVENTF_VIRTUALDESK;
 
-            inputs[1].Type = WindowsConstants.INPUT_MOUSE;
-            inputs[1].U.Mi.DwFlags = upFlag;
+            Span<INPUT> inputs = stackalloc INPUT[2];
 
-            uint sent = NativeMethods.SendInput(
-                (uint)inputs.Length,
-                inputs,
-                Marshal.SizeOf<NativeMethods.INPUT>());
+            inputs[0].type = INPUT_TYPE.INPUT_MOUSE;
+            inputs[0].Anonymous.mi.dx = absX;
+            inputs[0].Anonymous.mi.dy = absY;
+            inputs[0].Anonymous.mi.dwFlags = downFlag | absoluteFlags;
 
+            inputs[1].type = INPUT_TYPE.INPUT_MOUSE;
+            inputs[1].Anonymous.mi.dx = absX;
+            inputs[1].Anonymous.mi.dy = absY;
+            inputs[1].Anonymous.mi.dwFlags = upFlag | absoluteFlags;
+
+            uint sent = SendInputs(inputs);
             if (sent != inputs.Length)
             {
                 _logger.Warning($"SendInput returned {sent}, expected {inputs.Length}");

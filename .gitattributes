@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# NetSparkle Ed25519 public key: treat as raw binary so no EOL normalization,
+# whitespace trimming, or BOM insertion occurs. Any byte change invalidates
+# signature verification for every already-shipped build.
+Windows-Hinting/Resources/netsparkle_pub.txt binary

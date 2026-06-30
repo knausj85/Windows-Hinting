@@ -109,7 +109,55 @@
         <File Source="$(var.Windows_Hinting.TargetDir)Microsoft.Extensions.FileProviders.Abstractions.dll" />
         <File Source="$(var.Windows_Hinting.TargetDir)Microsoft.Extensions.FileProviders.Physical.dll" />
         <File Source="$(var.Windows_Hinting.TargetDir)Microsoft.Extensions.FileSystemGlobbing.dll" />
+
+        <!-- NetSparkle auto-update runtime -->
+        <File Source="$(var.Windows_Hinting.TargetDir)NetSparkle.dll" />
+        <File Source="$(var.Windows_Hinting.TargetDir)NetSparkleUpdater.UI.WinForms.dll" />
+        <File Source="$(var.Windows_Hinting.TargetDir)Chaos.NaCl.dll" />
       </Component>
+    </DirectoryRef>
+
+    <!-- NetSparkle UI.WinForms satellite resource DLLs, one Component per culture subfolder. -->
+    <ComponentGroup Id="NetSparkleResources">
+      <Component Id="NetSparkleResources_bg"    Directory="INSTALLFOLDER_bg"    Bitness="always64" Guid="33333333-0001-4000-8000-000000000001">
+        <File Source="$(var.Windows_Hinting.TargetDir)bg\NetSparkleUpdater.UI.WinForms.resources.dll" />
+      </Component>
+      <Component Id="NetSparkleResources_de"    Directory="INSTALLFOLDER_de"    Bitness="always64" Guid="33333333-0001-4000-8000-000000000002">
+        <File Source="$(var.Windows_Hinting.TargetDir)de\NetSparkleUpdater.UI.WinForms.resources.dll" />
+      </Component>
+      <Component Id="NetSparkleResources_esMX"  Directory="INSTALLFOLDER_esMX"  Bitness="always64" Guid="33333333-0001-4000-8000-000000000003">
+        <File Source="$(var.Windows_Hinting.TargetDir)es-MX\NetSparkleUpdater.UI.WinForms.resources.dll" />
+      </Component>
+      <Component Id="NetSparkleResources_fr"    Directory="INSTALLFOLDER_fr"    Bitness="always64" Guid="33333333-0001-4000-8000-000000000004">
+        <File Source="$(var.Windows_Hinting.TargetDir)fr\NetSparkleUpdater.UI.WinForms.resources.dll" />
+      </Component>
+      <Component Id="NetSparkleResources_it"    Directory="INSTALLFOLDER_it"    Bitness="always64" Guid="33333333-0001-4000-8000-000000000005">
+        <File Source="$(var.Windows_Hinting.TargetDir)it\NetSparkleUpdater.UI.WinForms.resources.dll" />
+      </Component>
+      <Component Id="NetSparkleResources_ja"    Directory="INSTALLFOLDER_ja"    Bitness="always64" Guid="33333333-0001-4000-8000-000000000006">
+        <File Source="$(var.Windows_Hinting.TargetDir)ja\NetSparkleUpdater.UI.WinForms.resources.dll" />
+      </Component>
+      <Component Id="NetSparkleResources_lt"    Directory="INSTALLFOLDER_lt"    Bitness="always64" Guid="33333333-0001-4000-8000-000000000007">
+        <File Source="$(var.Windows_Hinting.TargetDir)lt\NetSparkleUpdater.UI.WinForms.resources.dll" />
+      </Component>
+      <Component Id="NetSparkleResources_nl"    Directory="INSTALLFOLDER_nl"    Bitness="always64" Guid="33333333-0001-4000-8000-000000000008">
+        <File Source="$(var.Windows_Hinting.TargetDir)nl\NetSparkleUpdater.UI.WinForms.resources.dll" />
+      </Component>
+      <Component Id="NetSparkleResources_ptBR"  Directory="INSTALLFOLDER_ptBR"  Bitness="always64" Guid="33333333-0001-4000-8000-000000000009">
+        <File Source="$(var.Windows_Hinting.TargetDir)pt-BR\NetSparkleUpdater.UI.WinForms.resources.dll" />
+      </Component>
+      <Component Id="NetSparkleResources_ru"    Directory="INSTALLFOLDER_ru"    Bitness="always64" Guid="33333333-0001-4000-8000-00000000000A">
+        <File Source="$(var.Windows_Hinting.TargetDir)ru\NetSparkleUpdater.UI.WinForms.resources.dll" />
+      </Component>
+      <Component Id="NetSparkleResources_zhCN" Directory="INSTALLFOLDER_zhCN" Bitness="always64" Guid="33333333-0001-4000-8000-00000000000B">
+        <File Source="$(var.Windows_Hinting.TargetDir)zh-CN\NetSparkleUpdater.UI.WinForms.resources.dll" />
+      </Component>
+      <Component Id="NetSparkleResources_zhTW" Directory="INSTALLFOLDER_zhTW" Bitness="always64" Guid="33333333-0001-4000-8000-00000000000C">
+        <File Source="$(var.Windows_Hinting.TargetDir)zh-TW\NetSparkleUpdater.UI.WinForms.resources.dll" />
+      </Component>
+    </ComponentGroup>
+
+    <DirectoryRef Id="INSTALLFOLDER">
 
       <!-- Runtime installation marker -->
       <Component Id="RuntimeRegistry" Bitness="always64" Guid="22222222-3333-4444-5555-666666666502">

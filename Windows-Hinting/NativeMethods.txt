@@ -1,0 +1,85 @@
+// CsWin32 API inventory for Windows-Hinting.
+// Each wave of the migration appends to this file.
+
+// --- Wave 1: low-risk local imports ---
+RegisterHotKey
+UnregisterHotKey
+SetWindowPos
+SendMessage
+DestroyIcon
+
+// Window messages consumed across forms
+WM_HOTKEY
+WM_SETTINGCHANGE
+WM_DPICHANGED
+WM_DISPLAYCHANGE
+WM_KEYDOWN
+WM_KEYUP
+WM_SYSKEYDOWN
+WM_SYSKEYUP
+
+// SetWindowPos flags / HWND sentinels used by OverlayForm
+SWP_NOACTIVATE
+SWP_NOMOVE
+SWP_NOSIZE
+SWP_SHOWWINDOW
+HWND_TOPMOST
+
+// Hotkey modifier flags
+MOD_ALT
+MOD_CONTROL
+MOD_SHIFT
+MOD_WIN
+MOD_NOREPEAT
+
+// EM_* messages consumed by LogViewerForm
+EM_LINEINDEX
+EM_LINEFROMCHAR
+EM_GETFIRSTVISIBLELINE
+EM_LINESCROLL
+WM_SETREDRAW
+
+// --- Wave 2: window lookup + process info ---
+GetForegroundWindow
+IsWindow
+GetWindowText
+GetWindowThreadProcessId
+FindWindow
+FindWindowEx
+GetModuleHandle
+
+// --- Wave 3: input APIs ---
+SendInput
+SetCursorPos
+GetCursorPos
+GetSystemMetrics
+INPUT
+INPUT_TYPE
+MOUSE_EVENT_FLAGS
+KEYBD_EVENT_FLAGS
+SYSTEM_METRICS_INDEX
+
+// --- Wave 4: low-level keyboard hook ---
+SetWindowsHookEx
+UnhookWindowsHookEx
+CallNextHookEx
+GetAsyncKeyState
+KBDLLHOOKSTRUCT
+WINDOWS_HOOK_ID
+VIRTUAL_KEY
+
+// --- Wave 5: window rect for hint clamping ---
+GetWindowRect
+DwmGetWindowAttribute
+DWMWINDOWATTRIBUTE
+RECT
+
+// --- Wave 6: multi-monitor diagnostics (taskbar discovery logging) ---
+// MonitorFromWindow + GetClassName back the taskbar-window diagnostics in
+// WindowManager. EnumChildWindows is reserved as a contingency for scanning a
+// secondary taskbar's child windows if a Shell_SecondaryTrayWnd ever reports
+// zero UIA elements.
+MonitorFromWindow
+MONITOR_FROM_FLAGS
+GetClassName
+EnumChildWindows

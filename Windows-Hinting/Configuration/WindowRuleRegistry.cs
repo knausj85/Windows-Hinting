@@ -132,14 +132,14 @@ namespace WindowsHinting.Configuration
                 ClassName = "Windows.UI.Core.CoreWindow",
                 Strategy = RootStrategy.SearchHostCustomStrategy
             },
-            new WindowRule
-            {
-                Name = "File Explorer",
-                ExecutableName = "explorer",
-                ClassName = "CabinetWClass",
-                Strategy = RootStrategy.FileExplorerCustomStrategy,
-                TitleMatchMode = TitleMatchMode.Contains
-            }
+            //new WindowRule
+            //{
+            //    Name = "File Explorer",
+            //    ExecutableName = "explorer",
+            //    ClassName = "CabinetWClass",
+            //    Strategy = RootStrategy.FileExplorerCustomStrategy,
+            //    TitleMatchMode = TitleMatchMode.Contains
+            //}
         ];
 
         private static HashSet<string> GetDefaultRuleNames() =>

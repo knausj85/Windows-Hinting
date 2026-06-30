@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using Windows.Win32;
+using Windows.Win32.UI.WindowsAndMessaging;
 using WindowsHinting.Forms;
 using WindowsHinting.Logging;
 using WindowsHinting.Models;
@@ -38,6 +40,7 @@ namespace WindowsHinting.Services
         public event EventHandler? ToggleRequested;
         public event EventHandler? PreferencesRequested;
         public event EventHandler? ExitRequested;
+        public event EventHandler? CheckForUpdatesRequested;
 
         public TrayIconManager(ILogger logger)
         {
@@ -58,6 +61,7 @@ namespace WindowsHinting.Services
             contextMenu.Items.Add(CreateLoggingMenu(logger));
 
             contextMenu.Items.Add("-");
+            contextMenu.Items.Add("Check for updates...", null, (s, e) => CheckForUpdatesRequested?.Invoke(this, EventArgs.Empty));
             contextMenu.Items.Add("About...", null, (s, e) => ShowAbout());
             contextMenu.Items.Add("-");
             contextMenu.Items.Add("Exit", null, (s, e) => ExitRequested?.Invoke(this, EventArgs.Empty));
@@ -157,9 +161,14 @@ namespace WindowsHinting.Services
             _logViewer.Show();
         }
 
-        private static void ShowAbout()
+        private void ShowAbout()
         {
             using var about = new AboutForm();
+            about.CheckForUpdatesRequested += (_, _) =>
+            {
+                about.Close();
+                CheckForUpdatesRequested?.Invoke(this, EventArgs.Empty);
+            };
             about.ShowDialog();
         }
 
@@ -274,7 +283,7 @@ namespace WindowsHinting.Services
             _trayIcon?.Dispose();
             if (_currentIcon != null)
             {
-                DestroyIcon(_currentIcon.Handle);
+                PInvoke.DestroyIcon((HICON)_currentIcon.Handle);
                 _currentIcon.Dispose();
             }
         }

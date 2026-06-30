@@ -5,6 +5,17 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <AssemblyName>Windows-Hinting</AssemblyName>
+    <!-- Shown by NetSparkle as the application name in update prompts
+         ("A new version of <Product> is available"). Without this the
+         SDK-generated AssemblyTitle defaults to "Application". -->
+    <Product>Windows-Hinting</Product>
+    <AssemblyTitle>Windows-Hinting</AssemblyTitle>
+    <!-- Shown as "File description" in Explorer's Details tab, in Task
+         Manager's Processes column, and as the metadata description in
+         the generated NetSparkle appcast. -->
+    <Description>Keyboard-driven accessibility overlay for Windows that displays hint labels on clickable UI elements so they can be activated by typing.</Description>
+    <Copyright>Copyright © Jeff Knaus</Copyright>
+    <Configurations>Debug;Release;Debug-Beta</Configurations>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -16,7 +27,37 @@
     <EmbedInteropTypes>false</EmbedInteropTypes>
     <!-- Suppress harmless COM interop warning for CUIAutomation8.SafeArrayToRectNativeArray -->
     <MSBuildWarningsAsMessages>MSB3305</MSBuildWarningsAsMessages>
-    </PropertyGroup>
+    <!-- Don't append "+<gitsha>" to AssemblyInformationalVersion. NetSparkle reads
+         that attribute as the installed version; leaving the SHA suffix makes
+         "0.1.141+abc..." compare unequal to the appcast's "0.1.141" and the
+         updater perpetually reports an update is available. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- CsWin32 emits unsafe pointer overloads for Win32 APIs. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!-- Portable (self-contained single-file) builds: build script passes /p:PortableBuild=true.
+       Emits a PORTABLE compile-time constant so UpdateService picks the portable appcast
+       and PortableUpdateInstaller instead of the MSI install path. -->
+  <PropertyGroup Condition="'$(PortableBuild)' == 'true'">
+    <DefineConstants>$(DefineConstants);PORTABLE</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Update channel is baked into each build. CI passes /p:UpdateChannel=Beta for beta
+       releases; omitting the property (or Stable) yields the default stable appcast.
+       The 'Debug-Beta' solution configuration also defines UPDATE_CHANNEL_BETA so
+       F5 from Visual Studio can target the beta appcast without editing anything. -->
+  <PropertyGroup Condition="'$(UpdateChannel)' == 'Beta' Or '$(Configuration)' == 'Debug-Beta'">
+    <DefineConstants>$(DefineConstants);UPDATE_CHANNEL_BETA</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Debug-Beta inherits Debug behavior (non-optimized, full PDBs, DEBUG symbol). -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug-Beta'">
+    <DebugType>full</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>false</Optimize>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Remove=".github\**" />
     <Compile Remove="HintOverlay.Installer\**" />
@@ -45,11 +86,25 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.275">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="NetSparkleUpdater.SparkleUpdater" Version="3.1.0" />
+    <PackageReference Include="NetSparkleUpdater.UI.WinForms.NetCore" Version="3.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\netsparkle_pub.txt" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="xunit.assert" Version="2.9.3" />
     <PackageReference Include="xunit.v3.extensibility.core" Version="3.2.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Services\Native\" />
   </ItemGroup>
 
 </Project>

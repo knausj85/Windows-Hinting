@@ -61,7 +61,7 @@ namespace WindowsHinting.Services
             }
             catch (Exception ex)
             {
-                _logger.Debug($"Failed to read cached patterns: {ex.Message}");
+                _logger.Warning($"Failed to read cached patterns: {ex.Message}");
             }
         }
     }
