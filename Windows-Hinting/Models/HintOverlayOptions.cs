@@ -14,6 +14,12 @@ namespace WindowsHinting.Models
             Modifiers = 0x0003, // MOD_CONTROL | MOD_ALT
             VirtualKey = 0x54   // T key
         };
+        public HotkeyConfiguration ScrollModeHotkey { get; set; } = new()
+        {
+            Enabled = true,
+            Modifiers = 0x0003, // MOD_CONTROL | MOD_ALT
+            VirtualKey = 0x53   // S key
+        };
         public ClickActionShortcutOptions ClickActionShortcuts { get; set; } = new();
         public HintPosition HintPosition { get; set; } = HintPosition.UpperLeft;
         public AnimationOptions Animation { get; set; } = new();

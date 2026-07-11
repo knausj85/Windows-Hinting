@@ -13,6 +13,10 @@ namespace WindowsHinting.Services
         IReadOnlyList<ClickableElement> FindClickableElements(IntPtr windowHandle);
         Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle);
         Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle, int timeoutMs);
+
+        IReadOnlyList<WindowsHinting.Models.ScrollableElement> FindScrollableElements(IntPtr windowHandle);
+        Task<IReadOnlyList<WindowsHinting.Models.ScrollableElement>> FindScrollableElementsAsync(IntPtr windowHandle);
+        Task<IReadOnlyList<WindowsHinting.Models.ScrollableElement>> FindScrollableElementsAsync(IntPtr windowHandle, int timeoutMs);
     }
 
     public class ClickableElement

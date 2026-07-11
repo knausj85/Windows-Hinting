@@ -38,8 +38,10 @@ namespace WindowsHinting
             services.AddSingleton<IForegroundWindowHookService, ForegroundWindowHookService>();
             services.AddSingleton<IWindowManager, WindowManager>();
             services.AddSingleton<HintStateManager>();
+            services.AddSingleton<ScrollModeStateManager>();
             services.AddSingleton<HintInputHandler>();
             services.AddSingleton<ElementActivatorChain>();
+            services.AddSingleton<ScrollController>();
             //services.AddSingleton<NamedPipeService>();
             services.AddSingleton<MouseClickService>();
             services.AddSingleton<StartupService>();

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows.Forms;
 using WindowsHinting.Logging;
 using WindowsHinting.Models;
+using WindowsHinting.Services;
 
 namespace WindowsHinting.Forms
 {
@@ -83,6 +84,22 @@ namespace WindowsHinting.Forms
             foreach (var overlay in _overlays)
             {
                 overlay.SetActiveState(active);
+            }
+        }
+
+        public void SetFeatureMode(WindowsHinting.Services.FeatureMode featureMode)
+        {
+            foreach (var overlay in _overlays)
+            {
+                overlay.SetFeatureMode(featureMode);
+            }
+        }
+
+        public void SetScrollControlState(bool isControlling, string? targetName)
+        {
+            foreach (var overlay in _overlays)
+            {
+                overlay.SetScrollControlState(isControlling, targetName);
             }
         }
 

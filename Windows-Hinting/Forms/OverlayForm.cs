@@ -8,6 +8,7 @@ using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
 using WindowsHinting.Logging;
 using WindowsHinting.Models;
+using WindowsHinting.Services;
 
 namespace WindowsHinting.Forms
 {
@@ -17,9 +18,14 @@ namespace WindowsHinting.Forms
         private List<HintItem> _hints = new();
         private bool _enabled;
         private string _filterPrefix = "";
+        private WindowsHinting.Services.FeatureMode _featureMode = WindowsHinting.Services.FeatureMode.RegularHinting;
+        private bool _isScrollControlling;
+        private string _scrollTargetName = string.Empty;
 
         private const string BaseTitle = "Windows Hinting Overlay";
         private const string ActiveTitle = BaseTitle + " [Active]";
+        private const string ScrollBaseTitle = "Windows Scrolling Overlay";
+        private const string ScrollActiveTitle = ScrollBaseTitle + " [Active]";
 
         private const int WM_SETTINGCHANGE = 0x001A;
         private const int WM_DPICHANGED = 0x02E0;
@@ -80,7 +86,21 @@ namespace WindowsHinting.Forms
 
         public void SetActiveState(bool active)
         {
-            Text = active ? ActiveTitle : BaseTitle;
+            UpdateWindowTitle(active);
+        }
+
+        public void SetFeatureMode(WindowsHinting.Services.FeatureMode featureMode)
+        {
+            _featureMode = featureMode;
+            UpdateWindowTitle(_enabled);
+        }
+
+        public void SetScrollControlState(bool isControlling, string? targetName)
+        {
+            _isScrollControlling = isControlling;
+            _scrollTargetName = targetName ?? string.Empty;
+            UpdateWindowTitle(_enabled);
+            Invalidate();
         }
 
         public void SetHints(List<HintItem> hints)
@@ -175,24 +195,34 @@ namespace WindowsHinting.Forms
             int matches = 0;
             foreach (var h in _hints)
             {
-                if (h.TargetOpacity == 0f)
+                if (h.TargetOpacity <= 0f)
                 {
                     continue;
                 }
                 matches++;
 
                 int alpha = (int)(255 * Math.Clamp(h.CurrentOpacity, 0f, 1f));
+                bool isScrollMode = _featureMode == WindowsHinting.Services.FeatureMode.Scrolling;
+                bool isSelected = isScrollMode && h.IsSelected;
 
-                using var labelBg = new SolidBrush(Color.FromArgb((int)(170 * Math.Clamp(h.CurrentOpacity, 0f, 1f)), 0, 0, 0));
-                var labelFgColor = Color.FromArgb(alpha, 255, 255, 0);
-                var labelHiColor = Color.FromArgb(alpha, 0, 255, 255); // highlight
+                using var labelBg = new SolidBrush(isSelected
+                    ? Color.FromArgb((int)(220 * Math.Clamp(h.CurrentOpacity, 0f, 1f)), 25, 55, 120)
+                    : Color.FromArgb((int)(170 * Math.Clamp(h.CurrentOpacity, 0f, 1f)), 0, 0, 0));
+                var labelFgColor = isSelected
+                    ? Color.FromArgb(alpha, 255, 255, 255)
+                    : Color.FromArgb(alpha, 255, 255, 0);
+                var labelHiColor = isSelected
+                    ? Color.FromArgb(alpha, 255, 255, 255)
+                    : Color.FromArgb(alpha, 0, 255, 255); // highlight
 
                 // rectangle outline (optional based on preference)
                 if (ShowRectangles)
                 {
                     // Scale pen width by DPI for visibility on 4K monitors
                     float penWidth = Math.Max(2f, DeviceDpi / 96f * 2f);
-                    using var pen = new Pen(Color.FromArgb(alpha, 255, 255, 0), penWidth);
+                    using var pen = new Pen(isSelected
+                        ? Color.FromArgb(alpha, 0, 191, 255)
+                        : Color.FromArgb(alpha, 255, 255, 0), penWidth + (isSelected ? 1f : 0f));
                     // Hint bounds are absolute virtual-desktop pixels; convert to this
                     // form's client coordinates (client 0,0 == _screen.Bounds origin).
                     var outlineRect = h.Rect;
@@ -358,6 +388,26 @@ namespace WindowsHinting.Forms
             }
 
             base.Dispose(disposing);
+        }
+
+        private void UpdateWindowTitle(bool active)
+        {
+            if (_featureMode == WindowsHinting.Services.FeatureMode.Scrolling)
+            {
+                if (_isScrollControlling)
+                {
+                    var targetName = string.IsNullOrWhiteSpace(_scrollTargetName) ? "Unnamed Target" : _scrollTargetName;
+                    Text = $"{ScrollBaseTitle} [Controlling: {targetName}]";
+                }
+                else
+                {
+                    Text = active ? ScrollActiveTitle : ScrollBaseTitle;
+                }
+
+                return;
+            }
+
+            Text = active ? ActiveTitle : BaseTitle;
         }
     }
 }

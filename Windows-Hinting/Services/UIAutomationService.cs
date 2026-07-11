@@ -12,6 +12,7 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using WindowsHinting.Configuration;
 using WindowsHinting.Logging;
+using WindowsHinting.Models;
 
 namespace WindowsHinting.Services
 {
@@ -712,6 +713,261 @@ namespace WindowsHinting.Services
                 }
             }
         }
+
+        #region Scroll Discovery
+
+        public IReadOnlyList<WindowsHinting.Models.ScrollableElement> FindScrollableElements(IntPtr windowHandle)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            using (PerformanceMetrics.Start("UIAutomationService.FindScrollableElements", _logger, LogLevel.Info))
+            {
+                try
+                {
+                    return FindScrollableElementsCore(windowHandle);
+                }
+                catch (COMException ex)
+                {
+                    _logger.Error($"UIA COM exception: {ex.Message}");
+                    return Array.Empty<WindowsHinting.Models.ScrollableElement>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("Unexpected error in FindScrollableElements", ex);
+                    return Array.Empty<WindowsHinting.Models.ScrollableElement>();
+                }
+            }
+        }
+
+        public async Task<IReadOnlyList<WindowsHinting.Models.ScrollableElement>> FindScrollableElementsAsync(IntPtr windowHandle)
+        {
+            return await FindScrollableElementsAsync(windowHandle, 0);
+        }
+
+        public async Task<IReadOnlyList<WindowsHinting.Models.ScrollableElement>> FindScrollableElementsAsync(IntPtr windowHandle, int timeoutMs)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            if (timeoutMs <= 0)
+            {
+                return await Task.Run(() => FindScrollableElements(windowHandle));
+            }
+
+            var cts = new CancellationTokenSource(timeoutMs);
+            try
+            {
+                return await Task.Run(() => FindScrollableElements(windowHandle), cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.Warning($"FindScrollableElementsAsync timed out after {timeoutMs}ms");
+                return Array.Empty<WindowsHinting.Models.ScrollableElement>();
+            }
+        }
+
+        private IReadOnlyList<WindowsHinting.Models.ScrollableElement> FindScrollableElementsCore(IntPtr windowHandle)
+        {
+            var (scrollCondition, scrollCache, ownedConditions) = BuildScrollSearchConditionsAndCache();
+            var roots = new List<IUIAutomationElement>();
+            var elementArraysToRelease = new List<IUIAutomationElementArray>();
+            var results = new List<WindowsHinting.Models.ScrollableElement>();
+
+            try
+            {
+                IUIAutomationElement? root = _automation.ElementFromHandle((HWND)windowHandle);
+                if (root == null)
+                {
+                    _logger.Warning($"Unable to get automation element for window handle {windowHandle}");
+                    return Array.Empty<WindowsHinting.Models.ScrollableElement>();
+                }
+
+                roots = ResolveRootElements(windowHandle, root);
+                _logger.Debug($"Resolved {roots.Count} root element(s) for scrollable scan");
+
+                using (PerformanceMetrics.Start($"FindAllBuildCache(Scroll, {roots.Count} roots)", _logger, LogLevel.Debug))
+                {
+                    foreach (var r in roots)
+                    {
+                        if (r == null) continue;
+
+                        IUIAutomationElementArray? found = r.FindAllBuildCache(
+                            TreeScope.TreeScope_Descendants,
+                            scrollCondition,
+                            scrollCache);
+
+                        if (found != null && found.Length > 0)
+                        {
+                            elementArraysToRelease.Add(found);
+                        }
+                        else if (found != null && Marshal.IsComObject(found))
+                        {
+                            Marshal.ReleaseComObject(found);
+                        }
+                    }
+
+                    if (elementArraysToRelease.Count == 0)
+                    {
+                        _logger.Debug("FindAllBuildCache returned no scrollable results");
+                        return Array.Empty<WindowsHinting.Models.ScrollableElement>();
+                    }
+                }
+
+                int totalElements = elementArraysToRelease.Sum(a => a.Length);
+                _logger.Debug($"Processing {totalElements} scrollable elements across {elementArraysToRelease.Count} root(s)");
+
+                using (PerformanceMetrics.Start($"ProcessScrollElements({totalElements})", _logger, LogLevel.Debug))
+                {
+                    foreach (var elemArray in elementArraysToRelease)
+                    {
+                        int elementCount = elemArray.Length;
+                        for (int i = 0; i < elementCount; i++)
+                        {
+                            IUIAutomationElement? element = null;
+                            try
+                            {
+                                element = elemArray.GetElement(i);
+                                if (element == null)
+                                    continue;
+
+                                var rectObj = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+                                if (rectObj == null)
+                                    continue;
+
+                                if (rectObj is double[] rectArray && rectArray.Length == 4)
+                                {
+                                    var rect = new Rectangle(
+                                        (int)rectArray[0],
+                                        (int)rectArray[1],
+                                        (int)rectArray[2],
+                                        (int)rectArray[3]
+                                    );
+
+                                    if (rect.Width > 0 && rect.Height > 0)
+                                    {
+                                        var controlType = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_ControlTypePropertyId) as int? ?? 0;
+                                        var name = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_NamePropertyId) as string ?? "";
+                                        var hasScrollPattern = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsScrollPatternAvailablePropertyId) is true;
+                                        var hasRangeValuePattern = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsRangeValuePatternAvailablePropertyId) is true;
+                                        var isHorizontallyScrollable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_ScrollHorizontallyScrollablePropertyId) is true;
+                                        var isVerticallyScrollable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_ScrollVerticallyScrollablePropertyId) is true;
+
+                                        // Keep ScrollPattern elements even when scrollability flags are false
+                                        // (Chromium-based apps may report false but still support scrolling via UIA or input)
+
+                                        results.Add(new WindowsHinting.Models.ScrollableElement
+                                        {
+                                            Element = element,
+                                            Bounds = rect,
+                                            ControlType = controlType,
+                                            Name = name,
+                                            HasScrollPattern = hasScrollPattern,
+                                            HasRangeValuePattern = hasRangeValuePattern,
+                                            IsHorizontallyScrollable = isHorizontallyScrollable,
+                                            IsVerticallyScrollable = isVerticallyScrollable
+                                        });
+                                        element = null; // Don't release - ownership transferred
+                                    }
+                                }
+                            }
+                            catch (COMException ex)
+                            {
+                                _logger.Warning($"COM exception processing scroll element {i}: {ex.Message}");
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Warning($"Exception processing scroll element {i}: {ex.Message}");
+                            }
+                            finally
+                            {
+                                if (element != null && Marshal.IsComObject(element))
+                                {
+                                    Marshal.ReleaseComObject(element);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                _logger.Info($"Found {results.Count} valid scrollable elements");
+                return results;
+            }
+            finally
+            {
+                foreach (var elemArray in elementArraysToRelease)
+                {
+                    if (elemArray != null && Marshal.IsComObject(elemArray))
+                        Marshal.ReleaseComObject(elemArray);
+                }
+
+                foreach (var r in roots)
+                {
+                    if (r != null && Marshal.IsComObject(r))
+                    {
+                        try { Marshal.ReleaseComObject(r); } catch { }
+                    }
+                }
+
+                foreach (var condition in ownedConditions)
+                {
+                    if (condition != null && Marshal.IsComObject(condition))
+                        Marshal.ReleaseComObject(condition);
+                }
+
+                if (scrollCache != null && Marshal.IsComObject(scrollCache))
+                    Marshal.ReleaseComObject(scrollCache);
+            }
+        }
+
+        private (IUIAutomationCondition combined, IUIAutomationCacheRequest cache, List<IUIAutomationCondition> owned) BuildScrollSearchConditionsAndCache()
+        {
+            var owned = new List<IUIAutomationCondition>();
+
+            // Condition 1: Elements with ScrollPattern available
+            var scrollPatternCondition = _automation.CreatePropertyCondition(
+                UIA_PropertyIds.UIA_IsScrollPatternAvailablePropertyId, true);
+            owned.Add(scrollPatternCondition);
+
+            // Condition 2: ScrollBar control type
+            var scrollBarCondition = _automation.CreatePropertyCondition(
+                UIA_PropertyIds.UIA_ControlTypePropertyId, UIA_ControlTypeIds.UIA_ScrollBarControlTypeId);
+            owned.Add(scrollBarCondition);
+
+            // OR condition: has ScrollPattern OR is ScrollBar
+            var orCondition = _automation.CreateOrCondition(scrollPatternCondition, scrollBarCondition);
+            owned.Add(orCondition);
+
+            // Status filter: enabled and on-screen
+            var enabledCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsEnabledPropertyId, true);
+            var onscreenCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false);
+            owned.Add(enabledCondition);
+            owned.Add(onscreenCondition);
+
+            var statusAndCondition = _automation.CreateAndCondition(enabledCondition, onscreenCondition);
+            owned.Add(statusAndCondition);
+
+            // Combined: (hasScrollPattern OR isScrollBar) AND enabled AND on-screen
+            var combined = _automation.CreateAndCondition(statusAndCondition, orCondition);
+            owned.Add(combined);
+
+            // Build cache request with PRD-required properties
+            var cache = _automation.CreateCacheRequest();
+            cache.TreeScope = TreeScope.TreeScope_Element;
+            cache.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_NamePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_ControlTypePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_IsScrollPatternAvailablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_IsRangeValuePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_ScrollHorizontalScrollPercentPropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_ScrollVerticalScrollPercentPropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_ScrollHorizontallyScrollablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_ScrollVerticallyScrollablePropertyId);
+            cache.AddPattern(UIA_PatternIds.UIA_ScrollPatternId);
+            cache.AddPattern(UIA_PatternIds.UIA_RangeValuePatternId);
+
+            return (combined, cache, owned);
+        }
+
+        #endregion
 
         public void Dispose()
         {

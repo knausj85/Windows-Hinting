@@ -24,6 +24,8 @@ namespace Preferences
         private HotkeyRecorderControl _hotkeyRecorder = null!;
         private CheckBox _chkTaskbarHotkeyEnabled = null!;
         private HotkeyRecorderControl _taskbarHotkeyRecorder = null!;
+        private CheckBox _chkScrollHotkeyEnabled = null!;
+        private HotkeyRecorderControl _scrollHotkeyRecorder = null!;
         private CheckBox _chkClickActionShortcutsEnabled = null!;
         private HotkeyRecorderControl _leftClickKeyRecorder = null!;
         private HotkeyRecorderControl _rightClickKeyRecorder = null!;
@@ -329,9 +331,10 @@ namespace Preferences
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 ColumnCount = 1,
-                RowCount = 4,
+                RowCount = 5,
                 Padding = new Padding(10)
             };
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -401,6 +404,38 @@ namespace Preferences
             taskbarHotkeyGroup.Controls.Add(_chkTaskbarHotkeyEnabled);
             layout.Controls.Add(taskbarHotkeyGroup, 0, 1);
 
+            // Scroll mode hotkey configuration
+            var scrollHotkeyGroup = new GroupBox
+            {
+                Text = "Scroll Mode Hotkey",
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10)
+            };
+
+            _chkScrollHotkeyEnabled = new CheckBox
+            {
+                Text = "Enable scroll mode hotkey",
+                AutoSize = true,
+                Dock = DockStyle.Top
+            };
+            _chkScrollHotkeyEnabled.CheckedChanged += (_, _) =>
+            {
+                _scrollHotkeyRecorder.Enabled = _chkScrollHotkeyEnabled.Checked;
+            };
+
+            _scrollHotkeyRecorder = new HotkeyRecorderControl
+            {
+                Dock = DockStyle.Top,
+                Height = 32
+            };
+            _scrollHotkeyRecorder.RecordingStarted += (s, e) => HotkeyRecordingStarted?.Invoke(this, EventArgs.Empty);
+            _scrollHotkeyRecorder.RecordingStopped += (s, e) => HotkeyRecordingStopped?.Invoke(this, EventArgs.Empty);
+
+            scrollHotkeyGroup.Controls.Add(_scrollHotkeyRecorder);
+            scrollHotkeyGroup.Controls.Add(_chkScrollHotkeyEnabled);
+            layout.Controls.Add(scrollHotkeyGroup, 0, 2);
+
             // Click action shortcuts configuration
             var clickActionGroup = new GroupBox
             {
@@ -463,7 +498,7 @@ namespace Preferences
             AddShortcutRow(clickActionLayout, 6, "Shift+Click:", _shiftClickKeyRecorder, defaults.ShiftClickKey);
 
             clickActionGroup.Controls.Add(clickActionLayout);
-            layout.Controls.Add(clickActionGroup, 0, 2);
+            layout.Controls.Add(clickActionGroup, 0, 3);
 
             scrollPanel.Controls.Add(layout);
             tab.Controls.Add(scrollPanel);
@@ -658,6 +693,10 @@ namespace Preferences
             _taskbarHotkeyRecorder.Enabled = _options.TaskbarHotkey.Enabled;
             _taskbarHotkeyRecorder.SetHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
 
+            _chkScrollHotkeyEnabled.Checked = _options.ScrollModeHotkey.Enabled;
+            _scrollHotkeyRecorder.Enabled = _options.ScrollModeHotkey.Enabled;
+            _scrollHotkeyRecorder.SetHotkey(_options.ScrollModeHotkey.Modifiers, _options.ScrollModeHotkey.VirtualKey);
+
             _chkClickActionShortcutsEnabled.Checked = _options.ClickActionShortcuts.Enabled;
             var shortcutsEnabled = _options.ClickActionShortcuts.Enabled;
             _leftClickKeyRecorder.Enabled = shortcutsEnabled;
@@ -699,6 +738,10 @@ namespace Preferences
             _options.TaskbarHotkey.Enabled = _chkTaskbarHotkeyEnabled.Checked;
             _options.TaskbarHotkey.Modifiers = _taskbarHotkeyRecorder.HotkeyModifiers;
             _options.TaskbarHotkey.VirtualKey = _taskbarHotkeyRecorder.HotkeyVirtualKey;
+
+            _options.ScrollModeHotkey.Enabled = _chkScrollHotkeyEnabled.Checked;
+            _options.ScrollModeHotkey.Modifiers = _scrollHotkeyRecorder.HotkeyModifiers;
+            _options.ScrollModeHotkey.VirtualKey = _scrollHotkeyRecorder.HotkeyVirtualKey;
 
             _options.ClickActionShortcuts.Enabled = _chkClickActionShortcutsEnabled.Checked;
             _options.ClickActionShortcuts.LeftClickKey = _leftClickKeyRecorder.VirtualKey;

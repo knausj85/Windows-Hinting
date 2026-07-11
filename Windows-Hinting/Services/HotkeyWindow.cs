@@ -15,6 +15,7 @@ namespace WindowsHinting.Services
     {
         private const int HOTKEY_ID = 1;
         private const int TASKBAR_HOTKEY_ID = 2;
+        private const int SCROLL_HOTKEY_ID = 3;
 
         private static readonly IntPtr HWND_MESSAGE = new IntPtr(-3);
 
@@ -23,10 +24,13 @@ namespace WindowsHinting.Services
         private int _hotkeyVirtualKey;
         private int _taskbarHotkeyModifiers;
         private int _taskbarHotkeyVirtualKey;
+        private int _scrollHotkeyModifiers;
+        private int _scrollHotkeyVirtualKey;
         private bool _disposed;
 
         public event EventHandler? ToggleRequested;
         public event EventHandler? TaskbarToggleRequested;
+        public event EventHandler? ScrollToggleRequested;
         public event EventHandler? DisplaySettingsChanged;
 
         public HotkeyWindow(ILogger logger)
@@ -89,6 +93,29 @@ namespace WindowsHinting.Services
             }
         }
 
+        public void RegisterScrollHotkey(int modifiers, int virtualKey)
+        {
+            UnregisterScrollHotkey();
+            _scrollHotkeyModifiers = modifiers;
+            _scrollHotkeyVirtualKey = virtualKey;
+
+            if (!PInvoke.RegisterHotKey((HWND)Handle, SCROLL_HOTKEY_ID, (HOT_KEY_MODIFIERS)modifiers, (uint)virtualKey))
+            {
+                throw new InvalidOperationException($"Failed to register scroll hotkey: {modifiers}+{virtualKey}");
+            }
+
+            _logger.Debug($"Registered scroll hotkey: {modifiers}+{virtualKey}");
+        }
+
+        public void UnregisterScrollHotkey()
+        {
+            if (_scrollHotkeyVirtualKey != 0)
+            {
+                PInvoke.UnregisterHotKey((HWND)Handle, SCROLL_HOTKEY_ID);
+                _logger.Debug("Unregistered scroll hotkey");
+            }
+        }
+
         public void ReRegisterHotkeys()
         {
             try
@@ -114,6 +141,18 @@ namespace WindowsHinting.Services
             {
                 _logger.Warning($"Failed to re-register taskbar hotkey: {ex.Message}");
             }
+
+            try
+            {
+                if (_scrollHotkeyVirtualKey != 0)
+                {
+                    PInvoke.RegisterHotKey((HWND)Handle, SCROLL_HOTKEY_ID, (HOT_KEY_MODIFIERS)_scrollHotkeyModifiers, (uint)_scrollHotkeyVirtualKey);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning($"Failed to re-register scroll hotkey: {ex.Message}");
+            }
         }
 
         protected override void WndProc(ref Message m)
@@ -131,6 +170,11 @@ namespace WindowsHinting.Services
                     {
                         _logger.Debug("Taskbar hotkey triggered");
                         TaskbarToggleRequested?.Invoke(this, EventArgs.Empty);
+                    }
+                    else if (hotkeyId == SCROLL_HOTKEY_ID)
+                    {
+                        _logger.Debug("Scroll hotkey triggered");
+                        ScrollToggleRequested?.Invoke(this, EventArgs.Empty);
                     }
                     return;
 
@@ -156,6 +200,7 @@ namespace WindowsHinting.Services
             {
                 UnregisterGlobalHotkey();
                 UnregisterTaskbarHotkey();
+                UnregisterScrollHotkey();
             }
             catch (Exception ex)
             {

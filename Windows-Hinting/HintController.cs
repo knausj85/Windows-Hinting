@@ -25,6 +25,8 @@ namespace WindowsHinting
         private readonly IWindowManager _windowManager;
         private readonly ILogger _logger;
         private readonly HintStateManager _stateManager;
+        private readonly ScrollModeStateManager _scrollModeStateManager;
+        private readonly ScrollController _scrollController;
         private readonly HintInputHandler _inputHandler;
         private readonly TrayIconManager _trayIcon;
         private readonly ElementActivatorChain _activatorChain;
@@ -57,6 +59,8 @@ namespace WindowsHinting
             TrayIconManager trayIcon,
             WindowRuleRegistry ruleRegistry,
             HintStateManager stateManager,
+            ScrollModeStateManager scrollModeStateManager,
+            ScrollController scrollController,
             HintInputHandler inputHandler,
             ElementActivatorChain activatorChain,
             //NamedPipeService namedPipeService,
@@ -80,6 +84,8 @@ namespace WindowsHinting
                 _ruleRegistry = ruleRegistry ?? throw new ArgumentNullException(nameof(ruleRegistry));
 
                 _stateManager = stateManager ?? throw new ArgumentNullException(nameof(stateManager));
+                _scrollModeStateManager = scrollModeStateManager ?? throw new ArgumentNullException(nameof(scrollModeStateManager));
+                _scrollController = scrollController ?? throw new ArgumentNullException(nameof(scrollController));
                 _inputHandler = inputHandler ?? throw new ArgumentNullException(nameof(inputHandler));
                 _activatorChain = activatorChain ?? throw new ArgumentNullException(nameof(activatorChain));
                 //_namedPipeService = namedPipeService ?? throw new ArgumentNullException(nameof(namedPipeService));
@@ -111,6 +117,7 @@ namespace WindowsHinting
                 _logger.Debug("Wiring up event handlers");
                 _hotkeyWindow.ToggleRequested += (s, e) => Toggle();
                 _hotkeyWindow.TaskbarToggleRequested += (s, e) => ToggleTaskbar();
+                _hotkeyWindow.ScrollToggleRequested += (s, e) => ToggleScrollMode();
                 _hotkeyWindow.DisplaySettingsChanged += OnDisplaySettingsChanged;
                 _trayIcon.ToggleRequested += (s, e) => Toggle();
                 _trayIcon.PreferencesRequested += OnPreferencesRequested;
@@ -119,9 +126,11 @@ namespace WindowsHinting
                     await _updateService.CheckForUpdatesManuallyAsync().ConfigureAwait(true);
 
                 _stateManager.ModeChanged += OnModeChanged;
+                _stateManager.FeatureModeChanged += OnFeatureModeChanged;
                 _stateManager.HintsChanged += OnHintsChanged;
                 _stateManager.FilterChanged += OnFilterChanged;
                 _stateManager.ClickActionChanged += OnClickActionChanged;
+                _scrollModeStateManager.SelectedTargetChanged += OnScrollSelectedTargetChanged;
 
                 _inputHandler.SelectionCommitted += OnSelectionCommitted;
 
@@ -158,6 +167,11 @@ namespace WindowsHinting
                 _hotkeyWindow.RegisterTaskbarHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
             else
                 _hotkeyWindow.UnregisterTaskbarHotkey();
+
+            if (_options.ScrollModeHotkey.Enabled)
+                _hotkeyWindow.RegisterScrollHotkey(_options.ScrollModeHotkey.Modifiers, _options.ScrollModeHotkey.VirtualKey);
+            else
+                _hotkeyWindow.UnregisterScrollHotkey();
 
             _inputHandler.ApplyOptions(_options.ClickActionShortcuts);
 
@@ -242,39 +256,25 @@ namespace WindowsHinting
         {
             using (PerformanceMetrics.Start("Toggle", _logger, LogLevel.Debug))
             {
-                long now = Stopwatch.GetTimestamp();
-                long elapsedMs = (now - _lastToggleTicks) * 1000 / Stopwatch.Frequency;
+                if (IsToggleDebounced("Toggle"))
+                    return;
 
-                if (elapsedMs < ToggleDebounceMs)
+                if (_stateManager.CurrentMode != HintMode.Inactive && _stateManager.CurrentFeatureMode == FeatureMode.RegularHinting)
                 {
-                    _logger.Debug($"Toggle debounced - only {elapsedMs}ms since last toggle");
+                    _logger.Info("Deactivating hint mode");
+                    DeactivateCurrentMode();
                     return;
                 }
 
-                _lastToggleTicks = now;
-
                 if (_stateManager.CurrentMode != HintMode.Inactive)
                 {
-                    if (_stateManager.CurrentSource == HintSource.Taskbar)
-                    {
-                        // Taskbar hints showing — dismiss them and show foreground window hints instead
-                        _logger.Info("Switching from taskbar hints to foreground window hints");
-                        _stateManager.Deactivate();
-                        _stateManager.Activate(HintSource.ForegroundWindow);
-                        ScanForHints();
-                    }
-                    else
-                    {
-                        _logger.Info("Deactivating hint mode");
-                        _stateManager.Deactivate();
-                    }
+                    _logger.Info($"Switching from {_stateManager.CurrentFeatureMode} to foreground window hints");
+                    DeactivateCurrentMode();
                 }
-                else
-                {
-                    _logger.Info("Activating hint mode (foreground window)");
-                    _stateManager.Activate(HintSource.ForegroundWindow);
-                    ScanForHints();
-                }
+
+                _logger.Info("Activating hint mode (foreground window)");
+                _stateManager.Activate(HintSource.ForegroundWindow, FeatureMode.RegularHinting);
+                ScanForHints();
             }
         }
 
@@ -282,40 +282,52 @@ namespace WindowsHinting
         {
             using (PerformanceMetrics.Start("ToggleTaskbar", _logger, LogLevel.Debug))
             {
-                long now = Stopwatch.GetTimestamp();
-                long elapsedMs = (now - _lastToggleTicks) * 1000 / Stopwatch.Frequency;
+                if (IsToggleDebounced("ToggleTaskbar"))
+                    return;
 
-                if (elapsedMs < ToggleDebounceMs)
+                if (_stateManager.CurrentMode != HintMode.Inactive && _stateManager.CurrentFeatureMode == FeatureMode.TaskbarHinting)
                 {
-                    _logger.Debug($"ToggleTaskbar debounced - only {elapsedMs}ms since last toggle");
+                    _logger.Info("Deactivating taskbar hints");
+                    DeactivateCurrentMode();
                     return;
                 }
 
-                _lastToggleTicks = now;
+                if (_stateManager.CurrentMode != HintMode.Inactive)
+                {
+                    _logger.Info($"Switching from {_stateManager.CurrentFeatureMode} to taskbar hints");
+                    DeactivateCurrentMode();
+                }
+
+                _logger.Info("Activating taskbar hint mode");
+                _stateManager.Activate(HintSource.Taskbar, FeatureMode.TaskbarHinting);
+                ScanTaskbarForHints();
+            }
+        }
+
+        public void ToggleScrollMode()
+        {
+            using (PerformanceMetrics.Start("ToggleScrollMode", _logger, LogLevel.Debug))
+            {
+                if (IsToggleDebounced("ToggleScrollMode"))
+                    return;
+
+                if (_stateManager.CurrentMode != HintMode.Inactive && _stateManager.CurrentFeatureMode == FeatureMode.Scrolling)
+                {
+                    _logger.Info("Deactivating scroll mode");
+                    DeactivateCurrentMode();
+                    return;
+                }
 
                 if (_stateManager.CurrentMode != HintMode.Inactive)
                 {
-                    if (_stateManager.CurrentSource == HintSource.Taskbar)
-                    {
-                        // Taskbar hints already showing — toggle off
-                        _logger.Info("Deactivating taskbar hints");
-                        _stateManager.Deactivate();
-                    }
-                    else
-                    {
-                        // Global hints showing — dismiss and show taskbar hints instead
-                        _logger.Info("Switching from foreground window hints to taskbar hints");
-                        _stateManager.Deactivate();
-                        _stateManager.Activate(HintSource.Taskbar);
-                        ScanTaskbarForHints();
-                    }
+                    _logger.Info($"Switching from {_stateManager.CurrentFeatureMode} to scroll mode");
+                    DeactivateCurrentMode();
                 }
-                else
-                {
-                    _logger.Info("Activating taskbar hint mode");
-                    _stateManager.Activate(HintSource.Taskbar);
-                    ScanTaskbarForHints();
-                }
+
+                _logger.Info("Activating scroll mode");
+                _scrollModeStateManager.Reset();
+                _stateManager.Activate(HintSource.ForegroundWindow, FeatureMode.Scrolling);
+                ScanForScrollableElements();
             }
         }
 
@@ -421,6 +433,7 @@ namespace WindowsHinting
                         Rect = e.Bounds,
                         Element = e.Element,
                         Label = labels[i],
+                        DisplayName = GetDisplayName(e.Element),
                         CurrentOpacity = 1.0f,
                         TargetOpacity = 1.0f
                     }).ToList(),
@@ -428,6 +441,84 @@ namespace WindowsHinting
                     LogLevel.Debug);
 
                 _logger.Debug($"Created {hints.Count} hint items");
+                _stateManager.SetHints(hints);
+            }
+        }
+
+        private async void ScanForScrollableElements()
+        {
+            using (PerformanceMetrics.Start("ScanForScrollableElements", _logger, LogLevel.Info))
+            {
+                var hwnd = _windowManager.GetForegroundWindow();
+                if (!_windowManager.IsWindowValid(hwnd))
+                {
+                    _logger.Warning("No valid foreground window found for scroll mode");
+                    DeactivateCurrentMode();
+                    return;
+                }
+
+                _logger.Debug($"Scanning window for scrollable elements: {hwnd}");
+                _activeHintWindowHwnd = hwnd;
+                _overlay.EnsureTopmost();
+
+                IReadOnlyList<ScrollableElement> elements;
+                var timeoutMs = _options.ScanTimeoutMs;
+                var timedOut = false;
+                if (timeoutMs > 0)
+                {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    elements = await _uiaService.FindScrollableElementsAsync(hwnd, timeoutMs);
+                    sw.Stop();
+                    timedOut = sw.ElapsedMilliseconds >= timeoutMs;
+                    _logger.Info($"FindScrollableElements completed in {sw.ElapsedMilliseconds}ms (timeout={timeoutMs}ms)");
+                }
+                else
+                {
+                    elements = PerformanceMetricsExtensions.MeasureExecution(
+                        "FindScrollableElements",
+                        () => _uiaService.FindScrollableElements(hwnd),
+                        _logger,
+                        LogLevel.Info);
+                }
+
+                _logger.Info($"Found {elements.Count} scrollable elements");
+
+                if (timedOut)
+                {
+                    _logger.Warning($"Scroll target discovery timed out after {timeoutMs}ms");
+                    DeactivateCurrentMode();
+                    _trayIcon.ShowNotification("Scroll Timeout", $"Scroll target discovery timed out after {timeoutMs}ms. Try increasing the timeout in preferences.");
+                    return;
+                }
+
+                if (elements.Count == 0)
+                {
+                    _logger.Info("No scrollable elements found, deactivating scroll mode");
+                    DeactivateCurrentMode();
+                    return;
+                }
+
+                var labels = PerformanceMetricsExtensions.MeasureExecution(
+                    "GenerateLabels(Scroll)",
+                    () => LabelGenerator.Generate(elements.Count),
+                    _logger,
+                    LogLevel.Debug);
+
+                var hints = PerformanceMetricsExtensions.MeasureExecution(
+                    "CreateHintItems(Scroll)",
+                    () => elements.Select((e, i) => new HintItem
+                    {
+                        Rect = e.Bounds,
+                        Element = e.Element,
+                        Label = labels[i],
+                        DisplayName = e.Name,
+                        CurrentOpacity = 1.0f,
+                        TargetOpacity = 1.0f
+                    }).ToList(),
+                    _logger,
+                    LogLevel.Debug);
+
+                _logger.Debug($"Created {hints.Count} scroll target hint items");
                 _stateManager.SetHints(hints);
             }
         }
@@ -542,6 +633,7 @@ namespace WindowsHinting
                         Rect = e.Bounds,
                         Element = e.Element,
                         Label = labels[i],
+                        DisplayName = GetDisplayName(e.Element),
                         CurrentOpacity = 1.0f,
                         TargetOpacity = 1.0f
                     }).ToList(),
@@ -564,7 +656,7 @@ namespace WindowsHinting
                     if (_disposed) return;
                     if (_stateManager.CurrentMode == HintMode.Inactive) return;
                     _logger.Info("Auto-hide timeout reached, deactivating hints");
-                    _stateManager.Deactivate();
+                    DeactivateCurrentMode();
                 });
             }
             catch (ObjectDisposedException)
@@ -584,6 +676,7 @@ namespace WindowsHinting
             bool enabled = mode != HintMode.Inactive;
             _overlay.SetEnabled(enabled);
             _overlay.SetActiveState(enabled);
+            _overlay.SetFeatureMode(_stateManager.CurrentFeatureMode);
             _trayIcon.SetStatus(mode);
 
             if (enabled)
@@ -598,7 +691,7 @@ namespace WindowsHinting
                     _logger.Debug("Started foreground window hook for auto-hide");
                 }
 
-                if (mode == HintMode.Active && _options.AutoHideTimeoutSeconds > 0)
+                if (mode == HintMode.Active && _stateManager.CurrentFeatureMode != FeatureMode.Scrolling && _options.AutoHideTimeoutSeconds > 0)
                 {
                     _autoHideTimer.Change(_options.AutoHideTimeoutSeconds * 1000, Timeout.Infinite);
                     _logger.Debug($"Auto-hide timer started ({_options.AutoHideTimeoutSeconds}s)");
@@ -609,11 +702,19 @@ namespace WindowsHinting
                 _autoHideTimer.Change(Timeout.Infinite, Timeout.Infinite);
                 _foregroundWindowHookService.Stop();
                 _activeHintWindowHwnd = IntPtr.Zero;
+                _scrollModeStateManager.Reset();
                 _logger.Debug("Stopping keyboard service");
                 _keyboardService.Stop();
                 _inputHandler.Reset();
+                _overlay.SetScrollControlState(false, null);
                 _trayIcon.ResetIcon();
             }
+        }
+
+        private void OnFeatureModeChanged(object? sender, FeatureMode featureMode)
+        {
+            _logger.Debug($"Feature mode changed: {featureMode}");
+            _overlay.SetFeatureMode(featureMode);
         }
 
         private void OnHintsChanged(object? sender, System.Collections.Generic.IReadOnlyList<HintItem> hints)
@@ -634,6 +735,27 @@ namespace WindowsHinting
             _trayIcon.SetClickAction(action);
         }
 
+        private void OnScrollSelectedTargetChanged(object? sender, HintItem? selectedTarget)
+        {
+            bool isControlling = selectedTarget != null;
+            string? targetName = selectedTarget?.DisplayName;
+            _overlay.SetScrollControlState(isControlling, targetName);
+
+            foreach (var hint in _stateManager.CurrentHints)
+            {
+                hint.IsSelected = selectedTarget != null && ReferenceEquals(hint, selectedTarget);
+
+                if (_stateManager.CurrentFeatureMode == FeatureMode.Scrolling)
+                {
+                    hint.TargetOpacity = selectedTarget == null
+                        ? 1.0f
+                        : hint.IsSelected ? 1.0f : 0.3f;
+                }
+            }
+
+            _overlay.SetHints(_stateManager.CurrentHints.ToList());
+        }
+
         private void OnForegroundWindowChanged(object? sender, NativeInterop.ForegroundWindowChangedEventArgs e)
         {
             // Only auto-hide if hints are showing for a foreground window
@@ -643,12 +765,15 @@ namespace WindowsHinting
             if (_stateManager.CurrentSource != HintSource.ForegroundWindow)
                 return;
 
+            if (_stateManager.CurrentFeatureMode == FeatureMode.Scrolling)
+                return;
+
             // Check if the new foreground window is different from the one we're showing hints for
             IntPtr newHwnd = e.NewForegroundWindow;
             if (newHwnd != _activeHintWindowHwnd && _activeHintWindowHwnd != IntPtr.Zero)
             {
                 _logger.Info($"Foreground window changed from 0x{_activeHintWindowHwnd.ToInt64():X} to 0x{newHwnd.ToInt64():X}, auto-hiding hints");
-                _stateManager.Deactivate();
+                DeactivateCurrentMode();
             }
         }
 
@@ -680,8 +805,26 @@ namespace WindowsHinting
                 return;
             }
 
-            // Let the input handler process it
-            bool handled = _inputHandler.ProcessKeyDown(e.VirtualKeyCode, e.Modifiers);
+            bool scrollHotkeyMatches = _options.ScrollModeHotkey.Enabled &&
+                                       e.VirtualKeyCode == _options.ScrollModeHotkey.VirtualKey &&
+                                       CheckModifiersMatch(_options.ScrollModeHotkey.Modifiers, actualMods);
+
+            if (scrollHotkeyMatches)
+            {
+                _logger.Debug("Scroll hotkey pressed, not consuming");
+                return;
+            }
+
+            bool handled;
+            if (_stateManager.CurrentFeatureMode == FeatureMode.Scrolling)
+            {
+                handled = ProcessScrollModeKeyDown(e.VirtualKeyCode, e.Modifiers);
+            }
+            else
+            {
+                handled = _inputHandler.ProcessKeyDown(e.VirtualKeyCode, e.Modifiers);
+            }
+
             _logger.Debug($"Key pressed: VK={e.VirtualKeyCode}, Mods={e.Modifiers}, Handled={handled}");
             e.Handled = handled;
         }
@@ -769,6 +912,7 @@ namespace WindowsHinting
                     _logger.Debug("Hotkey recording started, unregistering global hotkeys");
                     _hotkeyWindow.UnregisterGlobalHotkey();
                     _hotkeyWindow.UnregisterTaskbarHotkey();
+                    _hotkeyWindow.UnregisterScrollHotkey();
                 };
                 dialog.HotkeyRecordingStopped += (_, _) =>
                 {
@@ -777,6 +921,8 @@ namespace WindowsHinting
                         _hotkeyWindow.RegisterGlobalHotkey(_options.Hotkey.Modifiers, _options.Hotkey.VirtualKey);
                     if (_options.TaskbarHotkey.Enabled)
                         _hotkeyWindow.RegisterTaskbarHotkey(_options.TaskbarHotkey.Modifiers, _options.TaskbarHotkey.VirtualKey);
+                    if (_options.ScrollModeHotkey.Enabled)
+                        _hotkeyWindow.RegisterScrollHotkey(_options.ScrollModeHotkey.Modifiers, _options.ScrollModeHotkey.VirtualKey);
                 };
                 var previousPosition = _overlay.HintPosition;
                 dialog.HintPositionChanged += (_, newPos) =>
@@ -816,6 +962,286 @@ namespace WindowsHinting
             _logger.Info("HintController disposed");
 
             _disposed = true;
+        }
+
+        private bool IsToggleDebounced(string operationName)
+        {
+            long now = Stopwatch.GetTimestamp();
+            long elapsedMs = (now - _lastToggleTicks) * 1000 / Stopwatch.Frequency;
+
+            if (elapsedMs < ToggleDebounceMs)
+            {
+                _logger.Debug($"{operationName} debounced - only {elapsedMs}ms since last toggle");
+                return true;
+            }
+
+            _lastToggleTicks = now;
+            return false;
+        }
+
+        private void DeactivateCurrentMode()
+        {
+            if (_stateManager.CurrentFeatureMode == FeatureMode.Scrolling)
+            {
+                _scrollModeStateManager.Reset();
+            }
+
+            _stateManager.Deactivate();
+        }
+
+        private bool ProcessScrollModeKeyDown(int vkCode, KeyModifiers modifiers)
+        {
+            bool shiftHeld = (modifiers & KeyModifiers.Shift) != 0;
+            bool ctrlHeld = (modifiers & KeyModifiers.Control) != 0;
+            bool altHeld = (modifiers & KeyModifiers.Alt) != 0;
+
+            if (shiftHeld || ctrlHeld || altHeld)
+                return false;
+
+            if (_scrollModeStateManager.CurrentPhase == ScrollPhase.Selecting)
+            {
+                return ProcessScrollSelectionKeyDown(vkCode);
+            }
+
+            return ProcessScrollControlKeyDown(vkCode);
+        }
+
+        private bool ProcessScrollSelectionKeyDown(int vkCode)
+        {
+            if (vkCode >= 0x41 && vkCode <= 0x5A)
+            {
+                char c = (char)vkCode;
+                var candidate = _stateManager.FilterText + c;
+
+                if (!_stateManager.HasMatchingHint(candidate))
+                {
+                    System.Media.SystemSounds.Beep.Play();
+                    return true;
+                }
+
+                _stateManager.AppendToFilter(c);
+                return true;
+            }
+
+            if (vkCode == 0x08)
+            {
+                _stateManager.RemoveLastFilterChar();
+                return true;
+            }
+
+            if (vkCode == 0x1B)
+            {
+                if (!string.IsNullOrEmpty(_stateManager.FilterText))
+                {
+                    _stateManager.ClearFilter();
+                }
+                else
+                {
+                    DeactivateCurrentMode();
+                }
+
+                return true;
+            }
+
+            if (vkCode == 0x20 || vkCode == 0x0D)
+            {
+                var match = _stateManager.GetExactMatch();
+                if (match == null)
+                {
+                    System.Media.SystemSounds.Beep.Play();
+                    return true;
+                }
+
+                _scrollModeStateManager.SelectTarget(match);
+                _scrollModeStateManager.ClearPercentBuffer();
+                _stateManager.ClearFilter();
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool ProcessScrollControlKeyDown(int vkCode)
+        {
+            switch (vkCode)
+            {
+                case 0x1B: // Escape
+                    _scrollModeStateManager.DeselectTarget();
+                    _stateManager.ClearFilter();
+                    return true;
+
+                case 0x08: // Backspace
+                    _scrollModeStateManager.RemoveLastPercentChar();
+                    return true;
+
+                case 0x26: // Up
+                    QueueScrollCommand(ScrollCommand.LineUp);
+                    return true;
+
+                case 0x28: // Down
+                    QueueScrollCommand(ScrollCommand.LineDown);
+                    return true;
+
+                case 0x25: // Left
+                    QueueScrollCommand(ScrollCommand.LineLeft);
+                    return true;
+
+                case 0x27: // Right
+                    QueueScrollCommand(ScrollCommand.LineRight);
+                    return true;
+
+                case 0x21: // Page Up
+                    QueueScrollCommand(ScrollCommand.PageUp);
+                    return true;
+
+                case 0x22: // Page Down
+                    QueueScrollCommand(ScrollCommand.PageDown);
+                    return true;
+
+                case 0x24: // Home
+                    QueueAbsoluteScroll(isStart: true);
+                    return true;
+
+                case 0x23: // End
+                    QueueAbsoluteScroll(isStart: false);
+                    return true;
+
+                case 0x4D: // M
+                    QueueScrollCommand(ScrollCommand.Middle);
+                    return true;
+
+                case 0x20: // Space
+                case 0x0D: // Enter
+                    return ExecuteBufferedPercentScroll();
+            }
+
+            if (vkCode >= 0x30 && vkCode <= 0x39)
+            {
+                _scrollModeStateManager.AppendToPercentBuffer((char)vkCode);
+                return true;
+            }
+
+            if (vkCode >= 0x60 && vkCode <= 0x69)
+            {
+                _scrollModeStateManager.AppendToPercentBuffer((char)('0' + (vkCode - 0x60)));
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool ExecuteBufferedPercentScroll()
+        {
+            var percent = _scrollModeStateManager.GetPercentValue();
+            if (!percent.HasValue)
+            {
+                if (!string.IsNullOrEmpty(_scrollModeStateManager.PercentBuffer))
+                {
+                    System.Media.SystemSounds.Beep.Play();
+                }
+
+                return !string.IsNullOrEmpty(_scrollModeStateManager.PercentBuffer);
+            }
+
+            var command = GetPercentScrollCommand();
+            _scrollModeStateManager.ClearPercentBuffer();
+            QueueScrollCommand(command, percent.Value);
+            return true;
+        }
+
+        private void QueueAbsoluteScroll(bool isStart)
+        {
+            var target = TryBuildSelectedScrollableElement();
+            if (target != null && !target.IsVerticallyScrollable && target.IsHorizontallyScrollable)
+            {
+                QueueScrollCommand(ScrollCommand.PercentHorizontal, isStart ? 0 : 100);
+                return;
+            }
+
+            QueueScrollCommand(isStart ? ScrollCommand.Top : ScrollCommand.Bottom);
+        }
+
+        private ScrollCommand GetPercentScrollCommand()
+        {
+            var target = TryBuildSelectedScrollableElement();
+            if (target != null && !target.IsVerticallyScrollable && target.IsHorizontallyScrollable)
+            {
+                return ScrollCommand.PercentHorizontal;
+            }
+
+            return ScrollCommand.PercentVertical;
+        }
+
+        private void QueueScrollCommand(ScrollCommand command, int? percentValue = null)
+        {
+            var target = TryBuildSelectedScrollableElement();
+            if (target == null)
+            {
+                _logger.Warning("No selected scroll target available for scroll command");
+                System.Media.SystemSounds.Beep.Play();
+                _scrollModeStateManager.DeselectTarget();
+                return;
+            }
+
+            _overlay.BeginInvoke(() =>
+            {
+                bool success = _scrollController.ExecuteScrollCommand(target, command, percentValue);
+                if (!success)
+                {
+                    _logger.Warning($"Scroll command {command} failed; returning to target selection");
+                    System.Media.SystemSounds.Beep.Play();
+                    _scrollModeStateManager.DeselectTarget();
+                }
+            });
+        }
+
+        private ScrollableElement? TryBuildSelectedScrollableElement()
+        {
+            var selected = _scrollModeStateManager.SelectedTarget;
+            if (selected?.Element == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                return new ScrollableElement
+                {
+                    Element = selected.Element,
+                    Bounds = selected.Rect,
+                    Name = GetCachedStringProperty(selected.Element, UIA_PropertyIds.UIA_NamePropertyId),
+                    ControlType = GetCachedIntProperty(selected.Element, UIA_PropertyIds.UIA_ControlTypePropertyId),
+                    HasScrollPattern = GetCachedBoolProperty(selected.Element, UIA_PropertyIds.UIA_IsScrollPatternAvailablePropertyId),
+                    HasRangeValuePattern = GetCachedBoolProperty(selected.Element, UIA_PropertyIds.UIA_IsRangeValuePatternAvailablePropertyId),
+                    IsHorizontallyScrollable = GetCachedBoolProperty(selected.Element, UIA_PropertyIds.UIA_ScrollHorizontallyScrollablePropertyId),
+                    IsVerticallyScrollable = GetCachedBoolProperty(selected.Element, UIA_PropertyIds.UIA_ScrollVerticallyScrollablePropertyId)
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning($"Failed to rebuild selected scroll target: {ex.Message}");
+                return null;
+            }
+        }
+
+        private static bool GetCachedBoolProperty(IUIAutomationElement element, int propertyId)
+        {
+            return element.GetCachedPropertyValue(propertyId) is bool value && value;
+        }
+
+        private static int GetCachedIntProperty(IUIAutomationElement element, int propertyId)
+        {
+            return element.GetCachedPropertyValue(propertyId) is int value ? value : 0;
+        }
+
+        private static string GetCachedStringProperty(IUIAutomationElement element, int propertyId)
+        {
+            return element.GetCachedPropertyValue(propertyId) as string ?? string.Empty;
+        }
+
+        private static string GetDisplayName(IUIAutomationElement element)
+        {
+            return GetCachedStringProperty(element, UIA_PropertyIds.UIA_NamePropertyId);
         }
     }
 }

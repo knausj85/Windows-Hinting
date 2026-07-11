@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UIAutomationClient;
 using WindowsHinting.Models;
 
 namespace WindowsHinting.Services
@@ -20,6 +21,19 @@ namespace WindowsHinting.Services
         Taskbar
     }
 
+    internal enum FeatureMode
+    {
+        RegularHinting,
+        TaskbarHinting,
+        Scrolling
+    }
+
+    internal enum ScrollPhase
+    {
+        Selecting,
+        Controlling
+    }
+
     internal sealed class HintStateManager
     {
         private HintMode _mode = HintMode.Inactive;
@@ -28,11 +42,13 @@ namespace WindowsHinting.Services
 
         public HintMode CurrentMode => _mode;
         public HintSource CurrentSource { get; private set; } = HintSource.None;
+        public FeatureMode CurrentFeatureMode { get; private set; } = FeatureMode.RegularHinting;
         public IReadOnlyList<HintItem> CurrentHints => _currentHints;
         public string FilterText => _filterText;
         public ClickAction PendingAction { get; private set; } = ClickAction.Default;
 
         public event EventHandler<HintMode>? ModeChanged;
+        public event EventHandler<FeatureMode>? FeatureModeChanged;
         public event EventHandler<IReadOnlyList<HintItem>>? HintsChanged;
         public event EventHandler<string>? FilterChanged;
         public event EventHandler<ClickAction>? ClickActionChanged;
@@ -46,11 +62,12 @@ namespace WindowsHinting.Services
             }
         }
 
-        public void Activate(HintSource source = HintSource.ForegroundWindow)
+        public void Activate(HintSource source = HintSource.ForegroundWindow, FeatureMode featureMode = FeatureMode.RegularHinting)
         {
             if (_mode == HintMode.Inactive)
             {
                 CurrentSource = source;
+                SetFeatureMode(featureMode);
                 SetMode(HintMode.Scanning);
             }
         }
@@ -127,7 +144,15 @@ namespace WindowsHinting.Services
             {
                 bool matches = string.IsNullOrEmpty(_filterText) ||
                               hint.Label.StartsWith(_filterText, StringComparison.OrdinalIgnoreCase);
-                hint.TargetOpacity = matches ? 1.0f : 0.0f;
+
+                if (CurrentFeatureMode == FeatureMode.Scrolling)
+                {
+                    hint.TargetOpacity = matches ? 1.0f : 0.3f;
+                }
+                else
+                {
+                    hint.TargetOpacity = matches ? 1.0f : 0.0f;
+                }
             }
             HintsChanged?.Invoke(this, _currentHints);
         }
@@ -138,6 +163,15 @@ namespace WindowsHinting.Services
             {
                 _mode = mode;
                 ModeChanged?.Invoke(this, _mode);
+            }
+        }
+
+        private void SetFeatureMode(FeatureMode featureMode)
+        {
+            if (CurrentFeatureMode != featureMode)
+            {
+                CurrentFeatureMode = featureMode;
+                FeatureModeChanged?.Invoke(this, featureMode);
             }
         }
     }

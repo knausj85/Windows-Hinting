@@ -160,6 +160,69 @@ namespace WindowsHinting.Services
                 _logger.Warning($"SendInput (modifier key up VK=0x{(int)vkCode:X2}) returned {sent}, expected {inputs.Length}");
         }
 
+        /// <summary>
+        /// Sends vertical mouse wheel input to scroll at the specified screen location.
+        /// Positive delta scrolls up, negative scrolls down. Standard wheel delta is 120 per notch.
+        /// </summary>
+        public bool PerformWheelScroll(Rectangle elementBounds, int wheelDelta, bool isHorizontal = false)
+        {
+            int x = elementBounds.Left + elementBounds.Width / 2;
+            int y = elementBounds.Top + elementBounds.Height / 2;
+
+            _logger.Info($"Performing wheel scroll ({(isHorizontal ? "horizontal" : "vertical")}, delta={wheelDelta}) at ({x}, {y})");
+
+            PInvoke.GetCursorPos(out var originalPos);
+
+            try
+            {
+                PInvoke.SetCursorPos(x, y);
+                Thread.Sleep(10);
+
+                SendWheel(x, y, wheelDelta, isHorizontal);
+
+                _logger.Info($"Wheel scroll performed successfully at ({x}, {y})");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"Failed to perform wheel scroll", ex);
+                return false;
+            }
+            finally
+            {
+                // Restore cursor position after a small delay to ensure wheel event is processed
+                Thread.Sleep(10);
+                try
+                {
+                    PInvoke.SetCursorPos(originalPos.X, originalPos.Y);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning($"Failed to restore cursor position: {ex.Message}");
+                }
+            }
+        }
+
+        private void SendWheel(int screenX, int screenY, int wheelDelta, bool isHorizontal)
+        {
+            var (absX, absY) = ToVirtualDesktopAbsolute(screenX, screenY);
+
+            Span<INPUT> inputs = stackalloc INPUT[1];
+            inputs[0].type = INPUT_TYPE.INPUT_MOUSE;
+            inputs[0].Anonymous.mi.dx = absX;
+            inputs[0].Anonymous.mi.dy = absY;
+            inputs[0].Anonymous.mi.mouseData = (uint)wheelDelta;
+            inputs[0].Anonymous.mi.dwFlags = (isHorizontal ? MOUSE_EVENT_FLAGS.MOUSEEVENTF_HWHEEL : MOUSE_EVENT_FLAGS.MOUSEEVENTF_WHEEL)
+                                           | MOUSE_EVENT_FLAGS.MOUSEEVENTF_ABSOLUTE
+                                           | MOUSE_EVENT_FLAGS.MOUSEEVENTF_VIRTUALDESK;
+
+            uint sent = SendInputs(inputs);
+            if (sent != inputs.Length)
+            {
+                _logger.Warning($"SendInput (wheel) returned {sent}, expected {inputs.Length}");
+            }
+        }
+
         private void SendClick(int screenX, int screenY, MOUSE_EVENT_FLAGS downFlag, MOUSE_EVENT_FLAGS upFlag)
         {
             var (absX, absY) = ToVirtualDesktopAbsolute(screenX, screenY);
