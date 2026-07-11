@@ -1,6 +1,6 @@
 # Windows-Hinting
 
-A prototype keyboard-driven accessibility overlay for Windows 11.
+A prototype keyboard-driven accessibility overlay for Windows 11. 
 
 Displays hint labels on clickable UI elements so you can activate them by typing, without reaching for the mouse. Works well with [Talon Voice](https://talonvoice.com/), Stream Deck, and other automation tools.
 
@@ -61,3 +61,8 @@ The system tray icon reflects the current state:
 | **S** | Shift+Click mode |
 
 Right-click the tray icon for Preferences, Logging, and Exit.
+
+## Example Talon Integration
+
+For an example of using this with Talon Voice, please see 
+https://github.com/talonhub/community/tree/knausj-personal-experiments_rust/apps/windows_hinting
