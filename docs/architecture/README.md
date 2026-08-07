@@ -19,16 +19,29 @@ phase explicitly says otherwise.
 - [`phases/`](phases/) — the migration phases, one file each, sized for a single coding-agent
   session. Each is independently buildable and manually verifiable with explicit done-criteria.
 
+## Development branch
+
+The effort is developed on the long-lived **`modernize`** branch, which also carries this spec.
+Each phase is its own PR **targeting `modernize`**, not `main` — the PR gate set (lint + Core
+tests + Debug build/smoke suite) runs on every branch, so gating is identical. `main` stays
+shippable throughout; the Release + MSI job auto-runs only on `main`, and testable mid-effort
+builds publish to the rolling **beta** channel via `workflow_dispatch` on `modernize`.
+
+Merge `modernize` → `main` at stability points rather than big-bang at the end — natural
+candidates are after phase 03 (cutover, full smoke test passed) and after phase 05 (smoke suite
+gating). When a phase file says a check "gates merge", the merge target is `modernize` until the
+effort lands on `main`.
+
 ## How to execute a phase
 
 1. Read this README, `target-architecture.md`, and the phase file. Read the decision tickets the
    phase links only if you need the rationale behind a rule.
 2. Check the phase's **Depends on** line — all listed phases must be merged first. If the phase has
    a **Gate**, verify the gate condition before starting; if it hasn't lifted, stop.
-3. Do the work on a branch; keep the phase's **Out of scope** list out of the diff.
+3. Do the work on a branch off `modernize`; keep the phase's **Out of scope** list out of the diff.
 4. Satisfy every item in **Definition of done**, including the named smoke-test sections, before
-   opening a PR. A phase that changes user-visible behavior says so explicitly; otherwise
-   "no behavior change" is part of done.
+   opening a PR against `modernize`. A phase that changes user-visible behavior says so explicitly;
+   otherwise "no behavior change" is part of done.
 
 ## Phase order
 
