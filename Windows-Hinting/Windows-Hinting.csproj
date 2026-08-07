@@ -99,11 +99,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="xunit.assert" Version="2.9.3" />
-    <PackageReference Include="xunit.v3.extensibility.core" Version="3.2.2" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Folder Include="Services\Native\" />
   </ItemGroup>
 
