@@ -1,0 +1,23 @@
+<!--
+  PROTOTYPE — throwaway. Answers wayfinder ticket #45 (auto-hint detection spike).
+  Not part of Windows-Hinting.sln; not referenced by the main app; do NOT merge.
+  Standalone console probe: run with `dotnet run` and drive it by hand on Win11.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>AutoHintDetectionProbe</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- UseWindowsForms: gives us Application.Run(), the message pump that
+         WinEvent OUTOFCONTEXT callbacks are delivered on.
+         UseWPF: pulls in System.Windows.Automation (managed UIA) for the
+         MenuOpened / MenuClosed reliability test. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+</Project>
