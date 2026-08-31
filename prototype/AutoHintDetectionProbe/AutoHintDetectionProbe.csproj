@@ -1,7 +1,12 @@
 <!--
   PROTOTYPE — throwaway. Answers wayfinder ticket #45 (auto-hint detection spike).
   Not part of Windows-Hinting.sln; not referenced by the main app; do NOT merge.
-  Standalone console probe: run with `dotnet run` and drive it by hand on Win11.
+  Standalone console probe, driven by hand on Win11.
+
+  BUILD NOTE: the COMReference (tlbimp) below requires FULL-FRAMEWORK MSBuild —
+  `dotnet build`/`dotnet run` fail with MSB4803. Build with VS's MSBuild, e.g.:
+    & (vswhere -latest -find 'MSBuild\**\Bin\MSBuild.exe') -restore prototype\AutoHintDetectionProbe
+  then run bin\Debug\net10.0-windows\AutoHintDetectionProbe.exe. See README.
 -->
 <Project Sdk="Microsoft.NET.Sdk">
 
@@ -12,6 +17,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Harmless COM SafeArray marshaling notice from the UIAutomationClient TLB. -->
+    <MSBuildWarningsAsMessages>MSB3305</MSBuildWarningsAsMessages>
     <!-- UseWindowsForms: gives us Application.Run(), the message pump that
          WinEvent OUTOFCONTEXT callbacks are delivered on.
          UseWPF: pulls in System.Windows.Automation (managed UIA) for the
@@ -19,5 +26,20 @@
     <UseWindowsForms>true</UseWindowsForms>
     <UseWPF>true</UseWPF>
   </PropertyGroup>
+
+  <!-- Native COM UIA client (same TLB the main app uses). Needed for the event
+       IDs the managed System.Windows.Automation client does NOT expose:
+       MenuModeStart/End and Window_WindowOpened/Closed. -->
+  <ItemGroup>
+    <COMReference Include="UIAutomationClient">
+      <WrapperTool>tlbimp</WrapperTool>
+      <VersionMinor>0</VersionMinor>
+      <VersionMajor>1</VersionMajor>
+      <Guid>944de083-8fb8-45cf-bcb7-c477acb2f897</Guid>
+      <Lcid>0</Lcid>
+      <Isolated>false</Isolated>
+      <EmbedInteropTypes>true</EmbedInteropTypes>
+    </COMReference>
+  </ItemGroup>
 
 </Project>

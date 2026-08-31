@@ -1,0 +1,272 @@
+[+      0ms] AutoHintDetectionProbe — wayfinder #45 detection spike (THROWAWAY)
+[+      2ms] Logging to: C:\Users\knausj\git\Windows-Hinting\auto-hint-detection-probe.log
+[+      2ms] 
+[+      2ms] Manual test checklist — open each, watch which events fire + the classify line:
+[+      2ms]   v1 catalog:  Start menu · Search · Notification Center · Control Center ·
+[+      2ms]                System-tray overflow · taskbar jump list (right-click a pinned app) ·
+[+      2ms]                Task View · Snap Assist (Win+Z / drag-snap) ·
+[+      2ms]                shell context menu (right-click desktop) · a Win11 XAML flyout
+[+      2ms]   MenuOpened matrix — open a menu bar / context menu in EACH and note if UIA fires:
+[+      2ms]                VS Code · GitHub Desktop · Visual Studio · File Explorer
+[+      2ms]   Round 2 (COM): also watch UIA-COM Win.WindowOpened/Closed + MenuModeStart/End
+[+      2ms]                — focus the problem apps (VS Code, GitHub Desktop).
+[+      2ms]   Tip: type a label + Enter (e.g. 'START MENU') right before opening it to mark the log.
+[+      3ms]   Ctrl+C to quit.
+[+      3ms] 
+[+      3ms] WinEvent hooks installed: system=True object=True
+[+    247ms] UIA (managed) MenuOpened/MenuClosed handlers registered: True
+[+    292ms] UIA (COM) WindowOpened/Closed + MenuModeStart/End handlers registered: True
+[+    292ms] ──────────────────────────────────────────────────────────────────────
+[+    292ms] READY. Open a surface, or type a label + Enter to drop a MARK divider.
+[+    292ms] ──────────────────────────────────────────────────────────────────────
+[+   1822ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+   5252ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+   8078ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  18893ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26607ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  31034ms] WINEVENT OBJECT_SHOW            lat=   0ms hwnd=0x005A0524 class='XamlExplorerHostIslandWindow' title='' proc=explorer(5768)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: XamlExplorerHostIsland (Task View / Snap Assist — disambiguate by title)
+[+  31082ms] UIA-COM  Win.WindowOpened       ctl=Window name='' class='XamlExplorerHostIslandWindow' proc=explorer(5768)
+[+  31131ms] WINEVENT OBJECT_HIDE            lat=   0ms hwnd=0x005A0524 class='XamlExplorerHostIslandWindow' title='' proc=explorer(5768)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: XamlExplorerHostIsland (Task View / Snap Assist — disambiguate by title)
+[+  31158ms] UIA-COM  Win.WindowClosed       ctl=Window name='' class='XamlExplorerHostIslandWindow' proc=explorer(5768)
+[+  31202ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x0043072C class='Chrome_WidgetWin_1' title='scratch.py - user - 11 problems in this …' proc=Code(11624)
+            focus: ctl=Document name='scratch.py - user - 11 problem…' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  37466ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  37466ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  37478ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Edit name='scratch.py' | parent: ctl=Text name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  37483ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=  16ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Edit name='scratch.py' | parent: ctl=Text name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  37488ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  37490ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  37491ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  37491ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  39864ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  39868ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  39871ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  39874ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Document name='scratch.py - user - 11 problem…' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  41163ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  41208ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  51241ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  61083ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 102863ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000100DA class='Shell_TrayWnd' title='' proc=explorer(5768)
+            focus: ctl=Pane name='' | parent: ctl=Pane name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+ 102932ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x002207F6 class='Chrome_WidgetWin_1' title='GitHub Desktop' proc=GitHubDesktop(16288)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 103076ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 103076ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 103076ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 108051ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 109265ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 112263ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 112270ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 112273ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 112273ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=MenuItem name='Edit' | parent: ctl=MenuBar name='Application menu'
+            → classify: MENU (strategy: element-override=parent)
+[+ 112694ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 112699ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 112701ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 112701ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=MenuItem name='File' | parent: ctl=MenuBar name='Application menu'
+            → classify: MENU (strategy: element-override=parent)
+[+ 113011ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 113161ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 113165ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 113166ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 113168ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=Document name='GitHub Desktop' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115776ms] WINEVENT SYSTEM_MENUPOPUPSTART  lat=   0ms hwnd=0x01E006A6 class='Chrome_WidgetWin_1' title='' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='prototype/AutoHintDetectionPro…' | parent: ctl=List name='2 changed files'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115785ms] WINEVENT SYSTEM_MENUSTART       lat=   0ms hwnd=0x01E006A6 class='Chrome_WidgetWin_1' title='' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='prototype/AutoHintDetectionPro…' | parent: ctl=List name='2 changed files'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115861ms] UIA      MenuOpened             ctl=ControlType.Pane name='' class='Chrome_WidgetWin_1' proc=GitHubDesktop(16288)
+[+ 116522ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 116538ms] UIA-COM  MenuModeEnd            ctl=? name='?' class='?' proc=?
+[+ 116538ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 116538ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 116541ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x01E006A6 class='Chrome_WidgetWin_1' title='' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='prototype/AutoHintDetectionPro…' | parent: ctl=List name='2 changed files'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 116542ms] UIA-COM  MenuModeEnd            ctl=? name='?' class='?' proc=?
+[+ 116542ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 116544ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 116544ms] WINEVENT SYSTEM_MENUEND         lat=   0ms hwnd=0x01E006A6 class='Chrome_WidgetWin_1' title='' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='prototype/AutoHintDetectionPro…' | parent: ctl=List name='2 changed files'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 117613ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 127641ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 163884ms] WINEVENT OBJECT_SHOW            lat=   0ms hwnd=0x005A0524 class='XamlExplorerHostIslandWindow' title='' proc=explorer(5768)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: XamlExplorerHostIsland (Task View / Snap Assist — disambiguate by title)
+[+ 163910ms] UIA-COM  Win.WindowOpened       ctl=Window name='' class='XamlExplorerHostIslandWindow' proc=explorer(5768)
+[+ 164817ms] WINEVENT OBJECT_HIDE            lat=   0ms hwnd=0x005A0524 class='XamlExplorerHostIslandWindow' title='' proc=explorer(5768)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: XamlExplorerHostIsland (Task View / Snap Assist — disambiguate by title)
+[+ 164819ms] WINEVENT SYSTEM_FOREGROUND      lat=  16ms hwnd=0x000F077E class='HwndWrapper[DefaultDomain;;898e7359-7ee2-4a59-aa63-d8feb232d717]' title='Windows-Hinting - HintOverlaySettings.cs…' proc=devenv(15012)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 164823ms] UIA-COM  Win.WindowClosed       ctl=Window name='' class='XamlExplorerHostIslandWindow' proc=explorer(5768)
+[+ 165617ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 165618ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 166418ms] WINEVENT SYSTEM_MENUPOPUPSTART  lat=   0ms hwnd=0x000F077E class='HwndWrapper[DefaultDomain;;898e7359-7ee2-4a59-aa63-d8feb232d717]' title='Windows-Hinting - HintOverlaySettings.cs…' proc=devenv(15012)
+            focus: ctl=MenuItem name='File' | parent: ctl=MenuBar name='MenuBar'
+            → classify: MENU (strategy: element-override=parent)
+[+ 166419ms] UIA      MenuOpened             ctl=ControlType.MenuBar name='MenuBar' class='Menu' proc=devenv(15012)
+[+ 167093ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 167100ms] UIA      MenuClosed             ctl=ControlType.MenuBar name='MenuBar' class='Menu' proc=devenv(15012)
+[+ 167101ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x000F077E class='HwndWrapper[DefaultDomain;;898e7359-7ee2-4a59-aa63-d8feb232d717]' title='Windows-Hinting - HintOverlaySettings.cs…' proc=devenv(15012)
+            focus: ctl=Edit name='Text Editor' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 169291ms] WINEVENT SYSTEM_MENUPOPUPSTART  lat=   0ms hwnd=0x0079081A class='HwndWrapper[DefaultDomain;;79013678-6f46-480f-b867-95cd2684a93d]' title='' proc=devenv(15012)
+            focus: ctl=Menu name='Code Window' | parent: ctl=Window name=''
+            → classify: MENU (strategy: focused-element)
+[+ 169295ms] UIA      MenuOpened             ctl=ControlType.Menu name='Code Window' class='ContextMenu' proc=devenv(15012)
+[+ 169812ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 169817ms] UIA      MenuClosed             ctl=ControlType.Menu name='Code Window' class='ContextMenu' proc=devenv(15012)
+[+ 169817ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+ 169818ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=  15ms hwnd=0x0079081A class='HwndWrapper[DefaultDomain;;79013678-6f46-480f-b867-95cd2684a93d]' title='' proc=devenv(15012)
+            focus: ctl=Edit name='Text Editor' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 170711ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 180731ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 193898ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 240207ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000100DA class='Shell_TrayWnd' title='' proc=explorer(5768)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+ 240431ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000101B6 class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(6408)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 241229ms] UIA-COM  Win.WindowOpened       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(6312)
+[+ 241236ms] UIA-COM  Win.WindowOpened       ctl=Window name='Search' class='Windows.UI.Core.CoreWindow' proc=SearchHost(6408)
+[+ 241242ms] UIA-COM  Win.WindowClosed       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(6312)
+[+ 241845ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 242728ms] UIA-COM  Win.WindowOpened       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(6312)
+[+ 243989ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 244040ms] UIA-COM  Win.WindowClosed       ctl=Window name='Search' class='Windows.UI.Core.CoreWindow' proc=SearchHost(6408)
+[+ 244092ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 244093ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 244093ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 244154ms] UIA-COM  Win.WindowClosed       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(6312)
+[+ 246702ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 248441ms] WINEVENT OBJECT_CREATE          lat=   0ms hwnd=0x019C0840 class='Xaml_WindowedPopupClass' title='PopupHost' proc=explorer(5768)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: GENERIC_CONTEXT_MENU / XAML popup (strategy: element-override=window)
+[+ 248451ms] WINEVENT OBJECT_SHOW            lat=  16ms hwnd=0x019C0840 class='Xaml_WindowedPopupClass' title='PopupHost' proc=explorer(5768)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: GENERIC_CONTEXT_MENU / XAML popup (strategy: element-override=window)
+[+ 249651ms] WINEVENT OBJECT_HIDE            lat=   0ms hwnd=0x019C0840 class='Xaml_WindowedPopupClass' title='PopupHost' proc=explorer(5768)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: GENERIC_CONTEXT_MENU / XAML popup (strategy: element-override=window)
+[+ 249651ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 254001ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 254016ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 254047ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 255774ms] WINEVENT SYSTEM_FOREGROUND      lat=  16ms hwnd=0x002D0956 class='ControlCenterWindow' title='Quick Settings' proc=ShellHost(6824)
+            focus: ctl=Pane name='Quick settings' | parent: ctl=Pane name=''
+            → classify: CONTROL_CENTER
+[+ 255986ms] WINEVENT OBJECT_SHOW            lat=   0ms hwnd=0x002D0956 class='ControlCenterWindow' title='Quick Settings' proc=ShellHost(6824)
+            focus: ctl=Pane name='' | parent: ctl=Pane name='Quick settings'
+            → classify: CONTROL_CENTER
+[+ 256090ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 256090ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 256090ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 257858ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000100DA class='Shell_TrayWnd' title='' proc=explorer(5768)
+            focus: ctl=Button name='Accessibility' | parent: ctl=Group name='Quick settings'
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+ 258218ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 258220ms] WINEVENT OBJECT_HIDE            lat=   0ms hwnd=0x002D0956 class='ControlCenterWindow' title='Quick settings' proc=ShellHost(6824)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: CONTROL_CENTER
+[+ 260703ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 260817ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 263481ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000F077E class='HwndWrapper[DefaultDomain;;898e7359-7ee2-4a59-aa63-d8feb232d717]' title='Windows-Hinting - HintOverlaySettings.cs…' proc=devenv(15012)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 263702ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 266488ms] WINEVENT OBJECT_CREATE          lat=   0ms hwnd=0x00CF0712 class='Xaml_WindowedPopupClass' title='PopupHost' proc=explorer(5768)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: GENERIC_CONTEXT_MENU / XAML popup (strategy: element-override=window)
+[+ 266492ms] WINEVENT OBJECT_SHOW            lat=  15ms hwnd=0x00CF0712 class='Xaml_WindowedPopupClass' title='PopupHost' proc=explorer(5768)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: GENERIC_CONTEXT_MENU / XAML popup (strategy: element-override=window)
+[+ 267061ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 267138ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 267148ms] WINEVENT OBJECT_HIDE            lat=   0ms hwnd=0x00CF0712 class='Xaml_WindowedPopupClass' title='' proc=Idle(0)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: GENERIC_CONTEXT_MENU / XAML popup (strategy: element-override=window)
+[+ 267276ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x0001010A class='Progman' title='Program Manager' proc=explorer(5768)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 268198ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000105D2 class='XamlExplorerHostIslandWindow_WASDK' title='' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 268232ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 268232ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 268233ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 268340ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 268340ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 268340ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 268340ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 268341ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 268341ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 268341ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 269288ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 269322ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x0001010A class='Progman' title='Program Manager' proc=explorer(5768)
+            focus: ctl=Pane name='Program Manager' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 269364ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 269364ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 269371ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 269371ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 271383ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 271918ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 271934ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 274363ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 274370ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 274440ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 274632ms] WINEVENT OBJECT_SHOW            lat=   0ms hwnd=0x005A0524 class='XamlExplorerHostIslandWindow' title='' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: XamlExplorerHostIsland (Task View / Snap Assist — disambiguate by title)
+[+ 274639ms] UIA-COM  Win.WindowOpened       ctl=Window name='' class='XamlExplorerHostIslandWindow' proc=explorer(5768)
+[+ 276233ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 276555ms] WINEVENT OBJECT_HIDE            lat=   0ms hwnd=0x005A0524 class='XamlExplorerHostIslandWindow' title='' proc=explorer(5768)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: XamlExplorerHostIsland (Task View / Snap Assist — disambiguate by title)
+[+ 276557ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 276576ms] UIA-COM  Win.WindowClosed       ctl=Window name='' class='XamlExplorerHostIslandWindow' proc=explorer(5768)
+[+ 276680ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 276680ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 276681ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 286572ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 298226ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 304623ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?

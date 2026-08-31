@@ -74,7 +74,10 @@ told apart by class, title, or process. Options for the spec:
 3. Disambiguate by **which trigger fired** (hotkey/taskbar button) — not available
    from WinEvent alone.
 
-Recommendation: **(1)** for v1.
+Recommendation: ~~**(1)** for v1.~~ **Superseded by Round 2 (below): `UIA_Window_WindowOpenedEventId`
+disambiguates them** — Start raises a WindowOpened for `name='Start'` /
+`StartMenuExperienceHost.exe`, Search for `name='Search'` / `SearchHost.exe`.
+Prefer disambiguating over merging.
 
 ## MenuOpened / MenuClosed reliability matrix
 
@@ -129,3 +132,58 @@ the live data forced:
   and PopupHost-precursor churn with per-hwnd idempotency.
 - UIA menu events (`MenuOpened`) are worth subscribing to **only** as an
   augmentation for native + XAML-ApplicationBar menus; do not depend on them.
+- **Add one COM `UIA_Window_WindowOpenedEventId` subscription** (subtree at root)
+  **solely to disambiguate the Start/Search launcher** — see Round 2. Do not use
+  it as the primary trigger (it lags the WinEvent by ~800 ms and is silent for
+  Control Center / popup-hosted menus), and do not use `WindowClosed` for close
+  detection (firehose of null-source events).
+
+---
+
+## Round 2 — native COM UIA events (revisit, per follow-up)
+
+Tested whether four events the managed client can't express are viable in the
+**problem apps** (VS Code, GitHub Desktop): `UIA_Window_WindowOpenedEventId`,
+`UIA_Window_WindowClosedEventId`, `UIA_MenuModeStartEventId`,
+`UIA_MenuModeEndEventId`. Subscribed via the native `CUIAutomation` COM client
+(the managed `System.Windows.Automation` exposes none of these). Raw evidence:
+[`captured-sweep-round2-2026-08-31.log`](captured-sweep-round2-2026-08-31.log).
+
+**Build note:** the COM `<COMReference>` (tlbimp) forces a **full-framework MSBuild**
+build — `dotnet build`/`dotnet run` fail with MSB4803. See README / csproj.
+
+### Tallies (whole round-2 session)
+| Event | Count | Verdict |
+|---|---|---|
+| `MenuModeStart` | **0** | **Dead** — never fired for *any* app, incl. native Visual Studio. Not viable. |
+| `MenuModeEnd` | 2 | GitHub Desktop only, **null source, no matching Start**. Useless. |
+| `Win.WindowOpened` | 4 | Fires with **clean data** for real top-level windows. **The one win.** |
+| `Win.WindowClosed` | 25 | Mostly null-source background noise; unusable as a close signal. |
+
+### The problem apps — not rescued
+- **VS Code (Electron, in-DOM menus):** `MenuModeStart/End` never fired;
+  `Window_*` never fired for its menus. The in-DOM menu creates **no OS window and
+  enters no menu mode** — there is genuinely no OS-level signal. Conclusive.
+- **GitHub Desktop (Electron, native context popup):** `MenuModeStart` never fired
+  (`MenuModeEnd` did, null, no start). The only usable *open* signal stays the
+  WinEvent `SYSTEM_MENUSTART`/`MENUPOPUPSTART` (native popup) from Round 1.
+
+### The genuine win — `Win.WindowOpened` resolves Start vs Search
+Round 1 concluded Start and Search were indistinguishable (both
+`CoreWindow`/"Search"/SearchHost via `SYSTEM_FOREGROUND`). **`Win.WindowOpened`
+tells them apart:**
+- Start (Win key) → `WindowOpened ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost.exe`
+- Search (Win+S) → `WindowOpened ctl=Window name='Search' class='Windows.UI.Core.CoreWindow' proc=SearchHost.exe`
+
+So the launcher can be split by **window name + host process** after all. Caveats:
+it arrives **~800 ms after** the `SYSTEM_FOREGROUND` (slower), and it is **silent
+for Control Center (`ControlCenterWindow`) and the PopupHost desktop context menu**
+— so it is a targeted supplement, not a replacement. `WindowOpened` also fires for
+`XamlExplorerHostIslandWindow` but with an empty name (title still comes from the
+WinEvent path).
+
+### Net
+- **Drop `MenuModeStart`/`MenuModeEnd`** from consideration — dead on modern Win11.
+- **Adopt `UIA_Window_WindowOpenedEventId`** narrowly, to disambiguate Start/Search
+  (updates the Round-1 "merge them" call to "disambiguate them").
+- The problem apps (Electron) remain a known v1 gap; nothing here changes that.

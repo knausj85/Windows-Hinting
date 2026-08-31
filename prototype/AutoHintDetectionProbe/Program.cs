@@ -18,6 +18,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Automation;
+using UIA = UIAutomationClient; // native COM UIA client (aliased to avoid TreeScope/name clashes)
 
 namespace AutoHintDetectionProbe;
 
@@ -100,7 +101,36 @@ internal static class Program
         {
             Log($"!! UIA MenuOpened/MenuClosed registration FAILED: {ex.GetType().Name}: {ex.Message}");
         }
-        Log($"UIA Menu event handlers registered: {uiaOk}");
+        Log($"UIA (managed) MenuOpened/MenuClosed handlers registered: {uiaOk}");
+
+        // ---- native COM UIA events (round 2) --------------------------------
+        // The managed client can't express these; the COM client can. Testing
+        // whether they give a usable signal where MenuOpened failed (VS Code /
+        // GitHub Desktop), and a cleaner open/close for the shell CoreWindows.
+        bool comOk = false;
+        try
+        {
+            _com = new UIA.CUIAutomation();
+            var root = _com.GetRootElement();
+            _comHandler = new ComEventHandler();
+            foreach (int evId in new[]
+            {
+                UIA_Window_WindowOpenedEventId,
+                UIA_Window_WindowClosedEventId,
+                UIA_MenuModeStartEventId,
+                UIA_MenuModeEndEventId,
+            })
+            {
+                _com.AddAutomationEventHandler(
+                    evId, root, UIA.TreeScope.TreeScope_Subtree, null, _comHandler);
+            }
+            comOk = true;
+        }
+        catch (Exception ex)
+        {
+            Log($"!! COM UIA event registration FAILED: {ex.GetType().Name}: {ex.Message}");
+        }
+        Log($"UIA (COM) WindowOpened/Closed + MenuModeStart/End handlers registered: {comOk}");
         Log("──────────────────────────────────────────────────────────────────────");
         Log("READY. Open a surface, or type a label + Enter to drop a MARK divider.");
         Log("──────────────────────────────────────────────────────────────────────");
@@ -116,6 +146,7 @@ internal static class Program
             try { if (hSystem != IntPtr.Zero) UnhookWinEvent(hSystem); } catch { }
             try { if (hObject != IntPtr.Zero) UnhookWinEvent(hObject); } catch { }
             try { Automation.RemoveAllEventHandlers(); } catch { }
+            try { _com?.RemoveAllEventHandlers(); } catch { }
             Log("Shutting down.");
         };
 
@@ -176,6 +207,56 @@ internal static class Program
             Log($"!! OnWinEvent threw: {ex.GetType().Name}: {ex.Message}");
         }
     }
+
+    // ---- native COM UIA events (round 2) ----------------------------------
+    private static UIA.IUIAutomation? _com;
+    private static ComEventHandler? _comHandler;
+
+    // UIA event IDs (UIAutomationClient.h). Managed System.Windows.Automation
+    // exposes none of these four.
+    private const int UIA_Window_WindowOpenedEventId = 20016;
+    private const int UIA_Window_WindowClosedEventId = 20017;
+    private const int UIA_MenuModeStartEventId = 20018;
+    private const int UIA_MenuModeEndEventId = 20019;
+
+    private sealed class ComEventHandler : UIA.IUIAutomationEventHandler
+    {
+        public void HandleAutomationEvent(UIA.IUIAutomationElement sender, int eventId)
+        {
+            string which = eventId switch
+            {
+                UIA_Window_WindowOpenedEventId => "Win.WindowOpened",
+                UIA_Window_WindowClosedEventId => "Win.WindowClosed",
+                UIA_MenuModeStartEventId => "MenuModeStart",
+                UIA_MenuModeEndEventId => "MenuModeEnd",
+                _ => $"evt{eventId}",
+            };
+            // sender is frequently null for MenuMode* and WindowClosed, and any
+            // property read on a torn-down element can throw — guard everything.
+            string ctl = "<null>", nm = "", cls = "", proc = "";
+            if (sender is not null)
+            {
+                ctl = "?"; nm = "?"; cls = "?"; proc = "?";
+                try { ctl = ControlTypeName(sender.CurrentControlType); } catch { }
+                try { nm = sender.CurrentName ?? ""; } catch { }
+                try { cls = sender.CurrentClassName ?? ""; } catch { }
+                try { proc = SafeProcName(sender.CurrentProcessId); } catch { }
+            }
+            Log($"UIA-COM  {which,-22} ctl={ctl} name='{Trunc(nm, 30)}' class='{cls}' proc={proc}");
+        }
+    }
+
+    private static readonly Dictionary<int, string> ControlTypeIds = new()
+    {
+        [50000] = "Button", [50002] = "CheckBox", [50003] = "ComboBox", [50004] = "Edit",
+        [50007] = "ListItem", [50008] = "List", [50009] = "Menu", [50010] = "MenuBar",
+        [50011] = "MenuItem", [50018] = "Tab", [50019] = "TabItem", [50020] = "Text",
+        [50021] = "ToolBar", [50022] = "ToolTip", [50023] = "Tree", [50024] = "TreeItem",
+        [50025] = "Custom", [50026] = "Group", [50030] = "Document", [50031] = "SplitButton",
+        [50032] = "Window", [50033] = "Pane", [50037] = "TitleBar", [50038] = "Separator",
+    };
+    private static string ControlTypeName(int id) =>
+        ControlTypeIds.TryGetValue(id, out var n) ? n : id.ToString();
 
     // ---- managed UIA menu callbacks ---------------------------------------
     private static void OnMenuOpened(object? sender, AutomationEventArgs e) => LogMenu("MenuOpened", sender);
@@ -341,6 +422,8 @@ internal static class Program
         Log("               shell context menu (right-click desktop) · a Win11 XAML flyout");
         Log("  MenuOpened matrix — open a menu bar / context menu in EACH and note if UIA fires:");
         Log("               VS Code · GitHub Desktop · Visual Studio · File Explorer");
+        Log("  Round 2 (COM): also watch UIA-COM Win.WindowOpened/Closed + MenuModeStart/End");
+        Log("               — focus the problem apps (VS Code, GitHub Desktop).");
         Log("  Tip: type a label + Enter (e.g. 'START MENU') right before opening it to mark the log.");
         Log("  Ctrl+C to quit.");
         Log("");

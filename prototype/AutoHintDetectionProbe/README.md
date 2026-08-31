@@ -12,10 +12,17 @@ per-surface classification rules follow from the data those events expose?
 Detection + classification are entangled, so this resolves both at once, by hand,
 on a real Win11 machine.
 
-## Run
+## Build & run
+
+The probe now references the native UIA COM TLB (`<COMReference>`), which requires
+**full-framework MSBuild** — `dotnet build`/`dotnet run` fail with MSB4803. Build
+with Visual Studio's MSBuild, then run the exe:
 
 ```powershell
-dotnet run --project prototype/AutoHintDetectionProbe
+$msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+  -latest -prerelease -find 'MSBuild\**\Bin\MSBuild.exe'
+& $msbuild -restore prototype\AutoHintDetectionProbe\AutoHintDetectionProbe.csproj
+& .\prototype\AutoHintDetectionProbe\bin\Debug\net10.0-windows\AutoHintDetectionProbe.exe
 ```
 
 It installs:
@@ -27,6 +34,8 @@ It installs:
   see `ObjectEventClassAllowList` in `Program.cs`.
 - **Managed UIA** `MenuOpenedEvent` / `MenuClosedEvent`, subtree at the desktop
   root — the reliability test.
+- **Native COM UIA** (round 2) `Window_WindowOpened`/`WindowClosed` +
+  `MenuModeStart`/`MenuModeEnd`, subtree at root — logged with an `UIA-COM` prefix.
 
 Every event logs: event name, **delivery latency**, hwnd, window class, title,
 process, the **focused-element control type + name + parent** (the fields the
