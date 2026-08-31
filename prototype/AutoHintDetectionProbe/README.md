@@ -36,6 +36,9 @@ It installs:
   root — the reliability test.
 - **Native COM UIA** (round 2) `Window_WindowOpened`/`WindowClosed` +
   `MenuModeStart`/`MenuModeEnd`, subtree at root — logged with an `UIA-COM` prefix.
+- **Focus** (round 3) `EVENT_OBJECT_FOCUS` WinEvent + managed UIA `FocusChanged`
+  — the element-level signal (rich for Electron in-DOM menus). High-volume; the
+  probe suppresses consecutive duplicates.
 
 Every event logs: event name, **delivery latency**, hwnd, window class, title,
 process, the **focused-element control type + name + parent** (the fields the

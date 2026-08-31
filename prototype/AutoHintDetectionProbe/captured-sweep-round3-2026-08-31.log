@@ -1,0 +1,849 @@
+[+      0ms] AutoHintDetectionProbe — wayfinder #45 detection spike (THROWAWAY)
+[+      1ms] Logging to: C:\Users\knausj\git\Windows-Hinting\auto-hint-detection-probe.log
+[+      1ms] 
+[+      2ms] Manual test checklist — open each, watch which events fire + the classify line:
+[+      2ms]   v1 catalog:  Start menu · Search · Notification Center · Control Center ·
+[+      2ms]                System-tray overflow · taskbar jump list (right-click a pinned app) ·
+[+      2ms]                Task View · Snap Assist (Win+Z / drag-snap) ·
+[+      2ms]                shell context menu (right-click desktop) · a Win11 XAML flyout
+[+      2ms]   MenuOpened matrix — open a menu bar / context menu in EACH and note if UIA fires:
+[+      2ms]                VS Code · GitHub Desktop · Visual Studio · File Explorer
+[+      2ms]   Round 2 (COM): also watch UIA-COM Win.WindowOpened/Closed + MenuModeStart/End
+[+      2ms]                — focus the problem apps (VS Code, GitHub Desktop).
+[+      2ms]   Round 3: WINEVENT OBJECT_FOCUS + UIA FocusChanged — does focus-changed give a
+[+      2ms]                clean focused-element signal, incl. into VS Code's in-DOM menu?
+[+      2ms]   Tip: type a label + Enter (e.g. 'START MENU') right before opening it to mark the log.
+[+      2ms]   Ctrl+C to quit.
+[+      2ms] 
+[+      3ms] WinEvent hooks installed: system=True object=True focus=True
+[+    293ms] UIA (managed) MenuOpened/MenuClosed handlers registered: True
+[+    334ms] UIA (COM) WindowOpened/Closed + MenuModeStart/End handlers registered: True
+[+    348ms] UIA (managed) FocusChanged handler registered: True
+[+    348ms] ──────────────────────────────────────────────────────────────────────
+[+    348ms] READY. Open a surface, or type a label + Enter to drop a MARK divider.
+[+    348ms] ──────────────────────────────────────────────────────────────────────
+[+   5286ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  15692ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  44570ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46600ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x000100DA class='Shell_TrayWnd' title='' proc=explorer(5768)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+  46609ms] WINEVENT OBJECT_FOCUS           lat=  47ms hwnd=0x00010288 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=explorer(5768)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  46615ms] WINEVENT OBJECT_FOCUS           lat=  62ms hwnd=0x0001028A class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5768)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  46626ms] UIA      FocusChanged            ctl=Button name='Start' class='ToggleButton' proc=explorer(5768)
+[+  46626ms] WINEVENT OBJECT_FOCUS           lat=  62ms hwnd=0x0001028A class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5768)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  46635ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000100DA class='Shell_TrayWnd' title='' proc=explorer(5768)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+  46636ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46643ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46659ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46674ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46727ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x0043072C class='Chrome_WidgetWin_1' title='scratch.py - user - 11 problems in this …' proc=Code(11624)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  46832ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x0043072C class='Chrome_WidgetWin_1' title='scratch.py - user - 11 problems in this …' proc=Code(11624)
+            focus: ctl=Document name='scratch.py - user - 11 problem…' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  46854ms] WINEVENT OBJECT_FOCUS           lat=  62ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Document name='scratch.py - user - 11 problem…' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  46884ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46885ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46886ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46913ms] UIA      FocusChanged            ctl=Document name='scratch.py - user - 11 problem…' class='' proc=Code(11624)
+[+  46921ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46938ms] UIA      FocusChanged            ctl=Document name='scratch.py - user - 11 problem…' class='Chrome_RenderWidgetHostHWND' proc=Code(11624)
+[+  48324ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Menu name='More' | parent: ctl=MenuItem name='More'
+            → classify: MENU (strategy: focused-element)
+[+  48334ms] UIA      FocusChanged            ctl=Menu name='More' class='actions-container' proc=Code(11624)
+[+  48383ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48426ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48462ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48524ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48563ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48606ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48653ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48728ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48750ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48772ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='File' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  48775ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48808ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48826ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48836ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48850ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48869ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48874ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48887ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48901ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48907ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48913ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48914ms] UIA      FocusChanged            ctl=Menu name='More' class='' proc=Code(11624)
+[+  48914ms] UIA      FocusChanged            ctl=MenuItem name='File' class='action-menu-item monaco-submenu-item' proc=Code(11624)
+[+  48926ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48932ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48939ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48946ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48951ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48955ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48959ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48962ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48966ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48969ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48972ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48975ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48979ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48983ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48987ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48991ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48996ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49000ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49005ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49010ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49015ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49022ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49023ms] UIA      FocusChanged            ctl=MenuItem name='File' class='' proc=Code(11624)
+[+  49035ms] WINEVENT OBJECT_FOCUS           lat=  15ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Menu name='More' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: focused-element)
+[+  49037ms] UIA      FocusChanged            ctl=Menu name='More' class='actions-container' proc=Code(11624)
+[+  49042ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49047ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49051ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49055ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49059ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49063ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49067ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49070ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49073ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49075ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49078ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49081ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49085ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49089ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49093ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49097ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49103ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49107ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49111ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49116ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49121ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49129ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49135ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50013ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='New Text File Ctrl+N' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  50014ms] UIA      FocusChanged            ctl=MenuItem name='New Text File Ctrl+N' class='action-menu-item' proc=Code(11624)
+[+  50021ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50027ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50031ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50035ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50039ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50042ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50046ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50049ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50052ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50055ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50057ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50060ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50063ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50066ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50070ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50074ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50077ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50082ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50086ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50090ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50095ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50100ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50106ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50111ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50124ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50125ms] UIA      FocusChanged            ctl=MenuItem name='New Text File Ctrl+N' class='' proc=Code(11624)
+[+  50371ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='New File... Ctrl+Alt+Windows+N' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  50372ms] UIA      FocusChanged            ctl=MenuItem name='New File... Ctrl+Alt+Windows+N' class='action-menu-item' proc=Code(11624)
+[+  50378ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50385ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50390ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50394ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50399ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50403ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50406ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50410ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50412ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50415ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50417ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50419ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50422ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50426ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50429ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50433ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50438ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50442ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50446ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50449ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50455ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50464ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50475ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50483ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50500ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50511ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50513ms] UIA      FocusChanged            ctl=MenuItem name='New File... Ctrl+Alt+Windows+N' class='' proc=Code(11624)
+[+  50612ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='New Window Ctrl+Shift+N' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  50612ms] UIA      FocusChanged            ctl=MenuItem name='New Window Ctrl+Shift+N' class='action-menu-item' proc=Code(11624)
+[+  50619ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50623ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50627ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50631ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50635ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50638ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50642ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50645ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50648ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50651ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50653ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50655ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50658ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50662ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50666ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50670ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50674ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50680ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50684ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50689ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50694ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50699ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50706ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50712ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50721ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50729ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50735ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50736ms] UIA      FocusChanged            ctl=MenuItem name='New Window Ctrl+Shift+N' class='' proc=Code(11624)
+[+  50936ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='New Window with Profile' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  50945ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50950ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50954ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50959ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50963ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50967ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50971ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50974ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50976ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50979ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50981ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50984ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50987ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50990ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50994ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50997ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51002ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51007ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51011ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51015ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51019ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51024ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51030ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51035ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51043ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51048ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51054ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51064ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  51065ms] UIA      FocusChanged            ctl=MenuItem name='New Window with Profile' class='' proc=Code(11624)
+[+  51066ms] UIA      FocusChanged            ctl=MenuItem name='New Window with Profile' class='action-menu-item monaco-submenu-item' proc=Code(11624)
+[+  51801ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53093ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  53098ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='File' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  53100ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  53102ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='File' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  53102ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  53102ms] UIA      FocusChanged            ctl=MenuItem name='File' class='action-menu-item monaco-submenu-item' proc=Code(11624)
+[+  53110ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53117ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53123ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53128ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53132ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53136ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53139ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53142ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53144ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53147ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53150ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53153ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53157ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53160ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53164ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53169ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53174ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53178ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53182ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53187ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53191ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53199ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53952ms] UIA      FocusChanged            ctl=MenuItem name='Edit' class='action-menu-item monaco-submenu-item' proc=Code(11624)
+[+  53954ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='Edit' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  53966ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53978ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53991ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53997ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='Selection' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  54002ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54011ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54023ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54029ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='View' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  54034ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54045ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54046ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='Go' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  54051ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54057ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54065ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54069ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54072ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54076ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54080ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54084ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54089ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54093ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54098ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54103ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54108ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54114ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54119ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54120ms] UIA      FocusChanged            ctl=MenuItem name='Edit' class='' proc=Code(11624)
+[+  54121ms] UIA      FocusChanged            ctl=MenuItem name='Selection' class='action-menu-item monaco-submenu-item' proc=Code(11624)
+[+  54121ms] UIA      FocusChanged            ctl=MenuItem name='View' class='action-menu-item monaco-submenu-item' proc=Code(11624)
+[+  54122ms] UIA      FocusChanged            ctl=MenuItem name='Go' class='action-menu-item monaco-submenu-item' proc=Code(11624)
+[+  54135ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54140ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54144ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54148ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54152ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54156ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54159ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54163ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54165ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54167ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54170ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54173ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54178ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54181ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54186ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54190ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54195ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54199ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54204ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54210ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54215ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54221ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54227ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54232ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54241ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54243ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='Run' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  54248ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54253ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54258ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54263ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54268ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54272ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='Terminal' | parent: ctl=Menu name='More'
+            → classify: MENU (strategy: element-override=parent)
+[+  54275ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54279ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54283ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54286ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54288ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54291ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54294ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54298ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54302ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54306ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54313ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54315ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Menu name='More' | parent: ctl=MenuItem name='More'
+            → classify: MENU (strategy: focused-element)
+[+  54317ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54322ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54328ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54332ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54338ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54343ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54349ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54355ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54361ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54366ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54372ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54379ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54383ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54389ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54393ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54397ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54401ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54405ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54407ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54410ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54413ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54415ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54418ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54423ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54426ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54431ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54436ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54441ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54445ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54449ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54454ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54458ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54465ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54470ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54474ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54479ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54484ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54484ms] UIA      FocusChanged            ctl=MenuItem name='Go' class='' proc=Code(11624)
+[+  54485ms] UIA      FocusChanged            ctl=MenuItem name='Run' class='action-menu-item monaco-submenu-item' proc=Code(11624)
+[+  54485ms] UIA      FocusChanged            ctl=MenuItem name='Terminal' class='action-menu-item monaco-submenu-item' proc=Code(11624)
+[+  54486ms] UIA      FocusChanged            ctl=Menu name='More' class='actions-container' proc=Code(11624)
+[+  54500ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54504ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54508ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54511ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54515ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54518ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54521ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54523ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54526ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54528ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54532ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54535ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54539ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54543ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54547ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54552ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54556ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54561ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54568ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54577ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54584ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54594ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54602ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54613ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54622ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54629ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54636ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54642ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54649ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54655ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54663ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54673ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54683ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54695ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54706ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54714ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54718ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54723ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54729ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54735ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54740ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54745ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54749ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54754ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54758ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54766ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54772ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54779ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54784ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54789ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54797ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54803ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54812ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54820ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54829ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54839ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54847ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54855ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54864ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54874ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  54875ms] UIA      FocusChanged            ctl=Menu name='More' class='' proc=Code(11624)
+[+  55344ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  55353ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Document name='scratch.py - user - 11 problem…' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  55360ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Document name='scratch.py - user - 11 problem…' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  55360ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  55360ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  55361ms] UIA      FocusChanged            ctl=Document name='scratch.py - user - 11 problem…' class='' proc=Code(11624)
+[+  55361ms] UIA      FocusChanged            ctl=Document name='scratch.py - user - 11 problem…' class='Chrome_RenderWidgetHostHWND' proc=Code(11624)
+[+  55568ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Menu name='' | parent: ctl=Pane name=''
+            → classify: MENU (strategy: focused-element)
+[+  55570ms] UIA      FocusChanged            ctl=Menu name='' class='actions-container' proc=Code(11624)
+[+  55603ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  55619ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  55638ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  55707ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  55713ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  55717ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  55723ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  55726ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  55730ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  55736ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  55740ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56427ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=MenuItem name='Go to Definition F12' | parent: ctl=Menu name=''
+            → classify: MENU (strategy: element-override=parent)
+[+  56427ms] UIA      FocusChanged            ctl=MenuItem name='Go to Definition F12' class='action-menu-item' proc=Code(11624)
+[+  56432ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56437ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56440ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56444ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56446ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56452ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56459ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56465ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56469ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56474ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56481ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56485ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56512ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  56514ms] UIA      FocusChanged            ctl=MenuItem name='Go to Definition F12' class='' proc=Code(11624)
+[+  56765ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57314ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  57323ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Edit name='scratch.py' | parent: ctl=Text name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  57323ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  57325ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  57326ms] UIA      FocusChanged            ctl=Edit name='scratch.py' class='native-edit-context' proc=Code(11624)
+[+  57326ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Edit name='scratch.py' | parent: ctl=Text name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  57342ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57357ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57367ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57377ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57388ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57396ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57404ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57411ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57419ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57426ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57433ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57440ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57446ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57450ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57455ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57458ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57462ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57466ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57468ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57471ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57473ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57477ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57480ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57486ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57490ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57494ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57498ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57502ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57506ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57511ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57517ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57521ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57526ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57532ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57538ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57544ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57550ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57556ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57563ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57570ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57579ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57587ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57596ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57605ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57614ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  57615ms] UIA      FocusChanged            ctl=Edit name='scratch.py' class='' proc=Code(11624)
+[+  58327ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  58360ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  58365ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00160432 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  58368ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00D105DE class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  58371ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00D105DE class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  58376ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='TermControl' proc=WindowsTerminal(4428)
+[+  58379ms] UIA      FocusChanged            ctl=Window name='✳ Run the live sweep' class='CASCADIA_HOSTING_WINDOW_CLASS' proc=WindowsTerminal(4428)
+[+  58416ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  58429ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  58453ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  58455ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  58459ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  58460ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='' proc=WindowsTerminal(4428)
+[+  68414ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 114895ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x0043072C class='Chrome_WidgetWin_1' title='scratch.py - user - 11 problems in this …' proc=Code(11624)
+            focus: ctl=Edit name='scratch.py' | parent: ctl=Text name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 114899ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x0043072C class='Chrome_WidgetWin_1' title='scratch.py - user - 11 problems in this …' proc=Code(11624)
+            focus: ctl=Edit name='scratch.py' | parent: ctl=Text name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 114908ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x002A088A class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=Code(11624)
+            focus: ctl=Edit name='scratch.py' | parent: ctl=Text name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 114917ms] UIA      FocusChanged            ctl=Edit name='scratch.py' class='native-edit-context' proc=Code(11624)
+[+ 114940ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 114946ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 114956ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 114964ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 114972ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 114980ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 114987ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 114994ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115000ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115007ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115014ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115022ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115028ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115033ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115038ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115042ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115047ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00000000 class='<null-hwnd>' title='' proc=?
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115055ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115085ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115090ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Window name='✳ Run the live sweep' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115096ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115097ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00160432 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115100ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00D105DE class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115102ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115105ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00D105DE class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115106ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115109ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115112ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115116ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115123ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115128ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115133ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115138ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115142ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115147ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115153ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115160ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115166ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115172ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115179ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115185ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115191ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115198ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115206ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115213ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115221ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115229ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115237ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115246ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115255ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115264ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115265ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='TermControl' proc=WindowsTerminal(4428)
+[+ 115280ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115283ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115287ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115289ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115292ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115294ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='' proc=WindowsTerminal(4428)
+[+ 115880ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x0001010A class='Progman' title='Program Manager' proc=explorer(5768)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115941ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x0001010E class='SHELLDLL_DefView' title='' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115942ms] UIA      FocusChanged            ctl=Pane name='Program Manager' class='Progman' proc=explorer(5768)
+[+ 115943ms] UIA      FocusChanged            ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' class='' proc=explorer(5768)
+[+ 115947ms] WINEVENT OBJECT_FOCUS           lat=  63ms hwnd=0x00010110 class='SysListView32' title='FolderView' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115955ms] WINEVENT OBJECT_FOCUS           lat=  63ms hwnd=0x00010110 class='SysListView32' title='FolderView' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115961ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x0001010A class='Progman' title='Program Manager' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 116292ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000105D2 class='XamlExplorerHostIslandWindow_WASDK' title='' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 116469ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 116470ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 116470ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 116475ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x000105D2 class='XamlExplorerHostIslandWindow_WASDK' title='' proc=explorer(5768)
+            focus: ctl=Window name='Popup' | parent: ctl=Pane name=''
+            → classify: MENU (strategy: element-override=focused)
+[+ 116550ms] WINEVENT OBJECT_FOCUS           lat= 219ms hwnd=0x000105D6 class='InputSiteWindowClass' title='' proc=explorer(5768)
+            focus: ctl=MenuItem name='View' | parent: ctl=Window name='Popup'
+            → classify: MENU (strategy: element-override=parent)
+[+ 116559ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 116560ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 116560ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 116561ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 116561ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 116561ms] WINEVENT OBJECT_FOCUS           lat= 297ms hwnd=0x000105D6 class='InputSiteWindowClass' title='' proc=explorer(5768)
+            focus: ctl=MenuItem name='View' | parent: ctl=Window name='Popup'
+            → classify: MENU (strategy: element-override=parent)
+[+ 116561ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 116562ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 116573ms] WINEVENT OBJECT_FOCUS           lat=  94ms hwnd=0x000105D6 class='InputSiteWindowClass' title='' proc=explorer(5768)
+            focus: ctl=MenuItem name='View' | parent: ctl=Window name='Popup'
+            → classify: MENU (strategy: element-override=parent)
+[+ 116582ms] WINEVENT OBJECT_FOCUS           lat= 297ms hwnd=0x000105D6 class='InputSiteWindowClass' title='' proc=explorer(5768)
+            focus: ctl=MenuItem name='View' | parent: ctl=Window name='Popup'
+            → classify: MENU (strategy: element-override=parent)
+[+ 116631ms] UIA      FocusChanged            ctl=Window name='Popup' class='Popup' proc=explorer(5768)
+[+ 116632ms] UIA      FocusChanged            ctl=MenuItem name='View' class='AppBarButton' proc=explorer(5768)
+[+ 117522ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 118672ms] UIA      FocusChanged            ctl=MenuItem name='Sort by' class='AppBarButton' proc=explorer(5768)
+[+ 118673ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000105D6 class='InputSiteWindowClass' title='' proc=explorer(5768)
+            focus: ctl=MenuItem name='Sort by' | parent: ctl=Window name='Popup'
+            → classify: MENU (strategy: element-override=parent)
+[+ 119282ms] UIA      FocusChanged            ctl=Window name='Popup' class='Popup' proc=explorer(5768)
+[+ 119287ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000105D6 class='InputSiteWindowClass' title='' proc=explorer(5768)
+            focus: ctl=Window name='Popup' | parent: ctl=Pane name=''
+            → classify: MENU (strategy: element-override=focused)
+[+ 119295ms] WINEVENT SYSTEM_FOREGROUND      lat=  31ms hwnd=0x0001010A class='Progman' title='Program Manager' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 119303ms] WINEVENT OBJECT_FOCUS           lat=  15ms hwnd=0x0001010A class='Progman' title='Program Manager' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 119310ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 119310ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 119314ms] UIA      FocusChanged            ctl=Pane name='Program Manager' class='Progman' proc=explorer(5768)
+[+ 119314ms] UIA      FocusChanged            ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' class='' proc=explorer(5768)
+[+ 119315ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x0001010E class='SHELLDLL_DefView' title='' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 119321ms] WINEVENT OBJECT_FOCUS           lat=  47ms hwnd=0x00010110 class='SysListView32' title='FolderView' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 119328ms] WINEVENT OBJECT_FOCUS           lat=  47ms hwnd=0x00010110 class='SysListView32' title='FolderView' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 119330ms] WINEVENT OBJECT_FOCUS           lat=  47ms hwnd=0x00010110 class='SysListView32' title='FolderView' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 119334ms] WINEVENT OBJECT_FOCUS           lat=  62ms hwnd=0x00010110 class='SysListView32' title='FolderView' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 122826ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000101B6 class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(6408)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 122842ms] WINEVENT OBJECT_FOCUS           lat=  63ms hwnd=0x000101B6 class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(6408)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 122845ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000101B6 class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(6408)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 122859ms] UIA      FocusChanged            ctl=Edit name='Search box' class='' proc=SearchHost(6408)
+[+ 123015ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 123015ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 123030ms] UIA-COM  Win.WindowOpened       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(6312)
+[+ 123178ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 123821ms] UIA-COM  Win.WindowClosed       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(6312)
+[+ 124290ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 124301ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 124431ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 124859ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x0001010A class='Progman' title='Program Manager' proc=explorer(5768)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 124888ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x0001010A class='Progman' title='Program Manager' proc=explorer(5768)
+            focus: ctl=Pane name='Program Manager' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 124895ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x0001010E class='SHELLDLL_DefView' title='' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 124896ms] UIA      FocusChanged            ctl=Pane name='Program Manager' class='Progman' proc=explorer(5768)
+[+ 124897ms] UIA      FocusChanged            ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' class='' proc=explorer(5768)
+[+ 124909ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x00010110 class='SysListView32' title='FolderView' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 124914ms] WINEVENT OBJECT_FOCUS           lat=  47ms hwnd=0x00010110 class='SysListView32' title='FolderView' proc=explorer(5768)
+            focus: ctl=ListItem name='Screenshot 2025-11-16 at 7.35.…' | parent: ctl=List name='Desktop'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 124918ms] UIA-COM  Win.WindowClosed       ctl=Window name='Search' class='Windows.UI.Core.CoreWindow' proc=SearchHost(6408)
+[+ 126332ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 126365ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Window name='✳ Run the live sweep' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 126369ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00160432 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 126373ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='TermControl' proc=WindowsTerminal(4428)
+[+ 126373ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00D105DE class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 126374ms] UIA      FocusChanged            ctl=Window name='✳ Run the live sweep' class='CASCADIA_HOSTING_WINDOW_CLASS' proc=WindowsTerminal(4428)
+[+ 126376ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00D105DE class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 126376ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 126380ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 126383ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 126385ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 126389ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 126390ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='' proc=WindowsTerminal(4428)
+[+ 126444ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 126444ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 126445ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 129583ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 133558ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 133561ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 136359ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 146471ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 146474ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 154287ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 154972ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 155004ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?

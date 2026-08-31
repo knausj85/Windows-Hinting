@@ -94,8 +94,9 @@ Prefer disambiguating over merging.
   focused element (`MenuItem` + parent `Menu`). UIA `MenuOpened` also works.
 - Electron native popups (GitHub Desktop) → **WinEvent `MENUSTART`/`MENUPOPUPSTART`**;
   ignore UIA source (it's the Chromium pane).
-- Electron in-DOM menus (VS Code) → **no reliable OS signal.** Out of scope for v1;
-  would need app-specific handling. Flag as a known gap.
+- Electron in-DOM menus (VS Code) → ~~**no reliable OS signal.**~~ **Superseded by
+  Round 3: UIA `FocusChanged` exposes the `MenuItem` elements by name** (the only
+  channel that does). Not a single "opened" event, but a usable signal.
 
 ## Classification-rule refinements (vs the Talon `update_state` seed)
 
@@ -186,4 +187,60 @@ WinEvent path).
 - **Drop `MenuModeStart`/`MenuModeEnd`** from consideration — dead on modern Win11.
 - **Adopt `UIA_Window_WindowOpenedEventId`** narrowly, to disambiguate Start/Search
   (updates the Round-1 "merge them" call to "disambiguate them").
-- The problem apps (Electron) remain a known v1 gap; nothing here changes that.
+- ~~The problem apps (Electron) remain a known v1 gap.~~ **See Round 3 — UIA
+  `FocusChanged` closes most of the Electron gap.**
+
+---
+
+## Round 3 — `EVENT_OBJECT_FOCUS` + UIA `FocusChanged` (revisit, per follow-up)
+
+Question: do focus-changed events (a) fix the **stale synchronous focus snapshot**
+that dogged Rounds 1–2, and (b) give a signal in **VS Code's in-DOM Electron menu**
+where every window/menu event failed? Added `EVENT_OBJECT_FOCUS` (0x8005) WinEvent
++ managed UIA `FocusChanged`. Raw evidence:
+[`captured-sweep-round3-2026-08-31.log`](captured-sweep-round3-2026-08-31.log).
+
+### Result — both, yes. This is the round that closes the Electron gap.
+
+**UIA `FocusChanged` rescues the VS Code in-DOM menu** — it is the *only* channel
+that exposes the menu items. As focus moves through the menu (arrow keys), it fires
+with full data:
+- Menu bar → `MenuItem name='File' / 'Edit' / 'View' / 'Go' / 'Run' / 'Terminal'`
+  (class `action-menu-item monaco-submenu-item`).
+- File dropdown → `MenuItem name='New Text File Ctrl+N' / 'New Window Ctrl+Shift+N' …`
+  (class `action-menu-item`); container `Menu name='More' class='actions-container'`.
+- Context menu → `MenuItem name='Go to Definition F12'`.
+
+It also **fixes the stale-focus problem**: `FocusChanged` delivers the *correct*
+focused element at event time — `Edit "Search box"` for Start, `MenuItem "View" /
+"Sort by"` (class `AppBarButton`) for the Win11 desktop context menu (which in
+Round 1 gave *only* a `PopupHost` object-show with no item detail). No polling,
+no 50 ms delay needed for the element itself.
+
+### `WINEVENT OBJECT_FOCUS` is the coarser cousin
+It fires (64× in the session) but its hwnd is always the **host window**
+(`Chrome_RenderWidgetHostHWND` for Electron; `InputSiteWindowClass` / `CoreWindow`
+for shell). It says "focus moved inside this window" but does **not** surface the
+specific `MenuItem` without decoding `idObject`/`idChild` via `AccessibleObjectFromEvent`.
+**Prefer UIA `FocusChanged` for the element; treat `OBJECT_FOCUS` as a cheap
+"something focus-changed here" backstop.**
+
+### Caveats
+- **High volume.** Desktop focus alone bounces through `Progman` →
+  `SHELLDLL_DefView` → `SysListView32` and back; every keystroke can fire. A
+  consumer **must filter** — by control type (`Menu`/`MenuItem`) and/or target
+  process — and dedupe (the probe suppresses consecutive duplicates and still
+  logged 54 `FocusChanged` / 64 `OBJECT_FOCUS` in a short run).
+- **Not an "opened" event.** `FocusChanged` reports items *as focus lands on them*,
+  one at a time — it does not announce "a menu opened." For auto-hint, use it two
+  ways: (1) focus landing on a `Menu`/`MenuItem` control type inside the target =
+  "a menu is active" trigger; (2) then enumerate the menu's children via the UIA
+  tree rather than waiting for focus to step through each. This is exactly the
+  Talon seed's `on_element_focus` model — Round 3 validates it.
+
+### Net
+- **Adopt UIA `FocusChanged`** as the element-level signal: it fixes stale focus
+  everywhere and is the **only** viable hook for Electron in-DOM menus (VS Code).
+- Keep `EVENT_OBJECT_FOCUS` only as a coarse backstop; UIA is richer.
+- Revises Round 1/2: the Electron in-DOM menu is **no longer a hard gap** — items
+  are reachable via `FocusChanged` (open-detection still weaker than native).

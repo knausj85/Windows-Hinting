@@ -80,7 +80,15 @@ internal static class Program
             IntPtr.Zero, _winEventProc, 0, 0,
             WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
 
-        Log($"WinEvent hooks installed: system={(hSystem != IntPtr.Zero)} object={(hObject != IntPtr.Zero)}");
+        // Focus (round 3): EVENT_OBJECT_FOCUS (0x8005). High-volume — logged with
+        // consecutive-duplicate suppression, NOT the class allow-list, so focus
+        // moving into menu items / popup content is visible.
+        IntPtr hFocus = SetWinEventHook(
+            EVENT_OBJECT_FOCUS, EVENT_OBJECT_FOCUS,
+            IntPtr.Zero, _winEventProc, 0, 0,
+            WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+
+        Log($"WinEvent hooks installed: system={(hSystem != IntPtr.Zero)} object={(hObject != IntPtr.Zero)} focus={(hFocus != IntPtr.Zero)}");
 
         // ---- managed UIA MenuOpened / MenuClosed ---------------------------
         // Subtree at the desktop root — deliberately broad, because the whole
@@ -131,6 +139,21 @@ internal static class Program
             Log($"!! COM UIA event registration FAILED: {ex.GetType().Name}: {ex.Message}");
         }
         Log($"UIA (COM) WindowOpened/Closed + MenuModeStart/End handlers registered: {comOk}");
+
+        // ---- managed UIA focus-changed (round 3) ----------------------------
+        // Event-driven alternative to the racy synchronous focus snapshot; also
+        // the last chance for an open signal in Electron in-DOM menus (VS Code).
+        bool focusOk = false;
+        try
+        {
+            Automation.AddAutomationFocusChangedEventHandler(OnFocusChanged);
+            focusOk = true;
+        }
+        catch (Exception ex)
+        {
+            Log($"!! UIA focus-changed registration FAILED: {ex.GetType().Name}: {ex.Message}");
+        }
+        Log($"UIA (managed) FocusChanged handler registered: {focusOk}");
         Log("──────────────────────────────────────────────────────────────────────");
         Log("READY. Open a surface, or type a label + Enter to drop a MARK divider.");
         Log("──────────────────────────────────────────────────────────────────────");
@@ -145,6 +168,7 @@ internal static class Program
             e.Cancel = false;
             try { if (hSystem != IntPtr.Zero) UnhookWinEvent(hSystem); } catch { }
             try { if (hObject != IntPtr.Zero) UnhookWinEvent(hObject); } catch { }
+            try { if (hFocus != IntPtr.Zero) UnhookWinEvent(hFocus); } catch { }
             try { Automation.RemoveAllEventHandlers(); } catch { }
             try { _com?.RemoveAllEventHandlers(); } catch { }
             Log("Shutting down.");
@@ -174,6 +198,15 @@ internal static class Program
         try
         {
             string name = EventName(ev);
+
+            // EVENT_OBJECT_FOCUS is very high-volume — drop exact consecutive
+            // repeats so the focus stream stays readable.
+            if (ev == EVENT_OBJECT_FOCUS)
+            {
+                var fkey = (hwnd, idObject, idChild);
+                if (fkey == _lastFocusKey) return;
+                _lastFocusKey = fkey;
+            }
 
             // Object create/destroy/show/hide is a firehose — drop anything not in the
             // allow-list and anything that isn't the window object itself
@@ -261,6 +294,32 @@ internal static class Program
     // ---- managed UIA menu callbacks ---------------------------------------
     private static void OnMenuOpened(object? sender, AutomationEventArgs e) => LogMenu("MenuOpened", sender);
     private static void OnMenuClosed(object? sender, AutomationEventArgs e) => LogMenu("MenuClosed", sender);
+
+    // ---- managed UIA focus-changed (round 3) ------------------------------
+    private static string _lastUiaFocus = "";
+    private static void OnFocusChanged(object? sender, AutomationFocusChangedEventArgs e)
+    {
+        try
+        {
+            var el = sender as AutomationElement;
+            string ctl = "?", nm = "?", cls = "?", proc = "?";
+            if (el is not null)
+            {
+                try { ctl = el.Current.ControlType.ProgrammaticName.Replace("ControlType.", ""); } catch { }
+                try { nm = el.Current.Name; } catch { }
+                try { cls = el.Current.ClassName; } catch { }
+                try { proc = SafeProcName(el.Current.ProcessId); } catch { }
+            }
+            string sig = $"{ctl}|{nm}|{cls}|{proc}";
+            if (sig == _lastUiaFocus) return; // suppress consecutive duplicates
+            _lastUiaFocus = sig;
+            Log($"UIA      FocusChanged            ctl={ctl} name='{Trunc(nm, 30)}' class='{cls}' proc={proc}");
+        }
+        catch (Exception ex)
+        {
+            Log($"!! FocusChanged handler threw: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
 
     private static void LogMenu(string which, object? sender)
     {
@@ -407,6 +466,7 @@ internal static class Program
         EVENT_OBJECT_DESTROY => "OBJECT_DESTROY",
         EVENT_OBJECT_SHOW => "OBJECT_SHOW",
         EVENT_OBJECT_HIDE => "OBJECT_HIDE",
+        EVENT_OBJECT_FOCUS => "OBJECT_FOCUS",
         _ => $"0x{ev:X4}",
     };
 
@@ -424,6 +484,8 @@ internal static class Program
         Log("               VS Code · GitHub Desktop · Visual Studio · File Explorer");
         Log("  Round 2 (COM): also watch UIA-COM Win.WindowOpened/Closed + MenuModeStart/End");
         Log("               — focus the problem apps (VS Code, GitHub Desktop).");
+        Log("  Round 3: WINEVENT OBJECT_FOCUS + UIA FocusChanged — does focus-changed give a");
+        Log("               clean focused-element signal, incl. into VS Code's in-DOM menu?");
         Log("  Tip: type a label + Enter (e.g. 'START MENU') right before opening it to mark the log.");
         Log("  Ctrl+C to quit.");
         Log("");
@@ -439,6 +501,10 @@ internal static class Program
     private const uint EVENT_OBJECT_DESTROY = 0x8001;
     private const uint EVENT_OBJECT_SHOW = 0x8002;
     private const uint EVENT_OBJECT_HIDE = 0x8003;
+    private const uint EVENT_OBJECT_FOCUS = 0x8005;
+
+    // consecutive-duplicate suppressor for the high-volume focus stream
+    private static (IntPtr hwnd, int idObject, int idChild) _lastFocusKey;
 
     private const uint WINEVENT_OUTOFCONTEXT = 0x0000;
     private const uint WINEVENT_SKIPOWNPROCESS = 0x0002;
