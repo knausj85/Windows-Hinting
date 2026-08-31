@@ -238,9 +238,25 @@ specific `MenuItem` without decoding `idObject`/`idChild` via `AccessibleObjectF
   tree rather than waiting for focus to step through each. This is exactly the
   Talon seed's `on_element_focus` model — Round 3 validates it.
 
+### GitHub Desktop (both Electron menu types) — [`…round3-ghd…`](captured-sweep-round3-ghd-2026-08-31.log)
+Confirms VS Code and adds the cleaner case: **both** GHD menu kinds are exposed by
+`FocusChanged`.
+- **In-DOM menu bar** (like VS Code): `MenuItem name='New repository… Ctrl+N' /
+  'Add local repository… Ctrl+O' / 'Clone repository… Ctrl+Shift+O'` (class
+  `menu-item`), on the main `Chrome_RenderWidgetHostHWND`. No open event — detect
+  via focus landing on a `MenuItem`.
+- **Native context popup**: `FocusChanged` names the items too — `MenuItem
+  name='Discard changes…' / 'Ignore file…' / 'Ignore folder…'` (class
+  `MenuItemView`) — **and** it fires `SYSTEM_MENUSTART`/`MENUPOPUPSTART` on a
+  separate `Chrome_WidgetWin_1` popup window, i.e. a real open trigger the in-DOM
+  menu bar lacks. So GHD's context menu has both an open trigger *and* item
+  enumeration; only its menu-bar relies on focus alone.
+
 ### Net
 - **Adopt UIA `FocusChanged`** as the element-level signal: it fixes stale focus
-  everywhere and is the **only** viable hook for Electron in-DOM menus (VS Code).
+  everywhere and is the **only** viable hook for Electron in-DOM menus (VS Code
+  *and* GitHub Desktop menu bars). GitHub Desktop's native context popup also has
+  a WinEvent `MENUSTART` open trigger.
 - Keep `EVENT_OBJECT_FOCUS` only as a coarse backstop; UIA is richer.
 - Revises Round 1/2: the Electron in-DOM menu is **no longer a hard gap** — items
   are reachable via `FocusChanged` (open-detection still weaker than native).

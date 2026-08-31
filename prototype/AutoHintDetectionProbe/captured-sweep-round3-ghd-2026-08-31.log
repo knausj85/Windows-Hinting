@@ -1,0 +1,591 @@
+[+      2ms] AutoHintDetectionProbe — wayfinder #45 detection spike (THROWAWAY)
+[+      5ms] Logging to: C:\Users\knausj\git\Windows-Hinting\auto-hint-detection-probe.log
+[+      5ms] 
+[+      5ms] Manual test checklist — open each, watch which events fire + the classify line:
+[+      5ms]   v1 catalog:  Start menu · Search · Notification Center · Control Center ·
+[+      5ms]                System-tray overflow · taskbar jump list (right-click a pinned app) ·
+[+      5ms]                Task View · Snap Assist (Win+Z / drag-snap) ·
+[+      5ms]                shell context menu (right-click desktop) · a Win11 XAML flyout
+[+      5ms]   MenuOpened matrix — open a menu bar / context menu in EACH and note if UIA fires:
+[+      5ms]                VS Code · GitHub Desktop · Visual Studio · File Explorer
+[+      5ms]   Round 2 (COM): also watch UIA-COM Win.WindowOpened/Closed + MenuModeStart/End
+[+      5ms]                — focus the problem apps (VS Code, GitHub Desktop).
+[+      5ms]   Round 3: WINEVENT OBJECT_FOCUS + UIA FocusChanged — does focus-changed give a
+[+      5ms]                clean focused-element signal, incl. into VS Code's in-DOM menu?
+[+      5ms]   Tip: type a label + Enter (e.g. 'START MENU') right before opening it to mark the log.
+[+      5ms]   Ctrl+C to quit.
+[+      5ms] 
+[+      8ms] WinEvent hooks installed: system=True object=True focus=True
+[+    312ms] UIA (managed) MenuOpened/MenuClosed handlers registered: True
+[+    355ms] UIA (COM) WindowOpened/Closed + MenuModeStart/End handlers registered: True
+[+    366ms] UIA (managed) FocusChanged handler registered: True
+[+    367ms] ──────────────────────────────────────────────────────────────────────
+[+    367ms] READY. Open a surface, or type a label + Enter to drop a MARK divider.
+[+    367ms] ──────────────────────────────────────────────────────────────────────
+[+   5328ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  25728ms] WINEVENT OBJECT_FOCUS           lat=  15ms hwnd=0x000100DA class='Shell_TrayWnd' title='' proc=explorer(5768)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+  25733ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x00010288 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=explorer(5768)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  25739ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x0001028A class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5768)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  25744ms] WINEVENT OBJECT_FOCUS           lat=  47ms hwnd=0x0001028A class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5768)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  25749ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000100DA class='Shell_TrayWnd' title='' proc=explorer(5768)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+  25753ms] UIA      FocusChanged            ctl=Button name='Start' class='ToggleButton' proc=explorer(5768)
+[+  25756ms] UIA      FocusChanged            ctl=Pane name='' class='Shell_TrayWnd' proc=explorer(5768)
+[+  25761ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  25765ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  25775ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  25784ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  25786ms] UIA      FocusChanged            ctl=Button name='Start' class='' proc=explorer(5768)
+[+  25866ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x002207F6 class='Chrome_WidgetWin_1' title='GitHub Desktop' proc=GitHubDesktop(16288)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  26011ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26011ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26011ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26015ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002207F6 class='Chrome_WidgetWin_1' title='GitHub Desktop' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='prototype/AutoHintDetectionPro…' | parent: ctl=List name='2 changed files'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  26023ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='prototype/AutoHintDetectionPro…' | parent: ctl=List name='2 changed files'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  26060ms] UIA      FocusChanged            ctl=ListItem name='prototype/AutoHintDetectionPro…' class='list-item selected' proc=GitHubDesktop(16288)
+[+  26076ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26099ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26121ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26143ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26187ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26239ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26259ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26277ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26291ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26295ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26301ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26304ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26307ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26313ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26317ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26321ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26326ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26335ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26354ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26360ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26377ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26384ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26391ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26398ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26406ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26412ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26417ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26423ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26431ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26437ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26445ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26454ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26461ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  26462ms] UIA      FocusChanged            ctl=ListItem name='prototype/AutoHintDetectionPro…' class='' proc=GitHubDesktop(16288)
+[+  27161ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=Document name='GitHub Desktop' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  27170ms] UIA      FocusChanged            ctl=Document name='GitHub Desktop' class='' proc=GitHubDesktop(16288)
+[+  27170ms] UIA      FocusChanged            ctl=Document name='GitHub Desktop' class='Chrome_RenderWidgetHostHWND' proc=GitHubDesktop(16288)
+[+  27902ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=MenuItem name='File' | parent: ctl=MenuBar name='Application menu'
+            → classify: MENU (strategy: element-override=parent)
+[+  27903ms] UIA      FocusChanged            ctl=MenuItem name='File' class='button-component' proc=GitHubDesktop(16288)
+[+  27908ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27912ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27917ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27921ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27925ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27927ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27930ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27933ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27937ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27940ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27944ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27949ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27953ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27957ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27962ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27967ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27968ms] UIA      FocusChanged            ctl=MenuItem name='File' class='' proc=GitHubDesktop(16288)
+[+  28088ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=MenuItem name='New repository… Ctrl+N' | parent: ctl=Menu name='File'
+            → classify: MENU (strategy: element-override=parent)
+[+  28089ms] UIA      FocusChanged            ctl=MenuItem name='New repository… Ctrl+N' class='menu-item selected' proc=GitHubDesktop(16288)
+[+  28096ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28103ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28108ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28113ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28118ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28122ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28126ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28129ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28133ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28136ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28140ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28143ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28148ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28153ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28158ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28164ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28168ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28173ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28179ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28184ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28189ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28194ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28201ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28202ms] UIA      FocusChanged            ctl=MenuItem name='New repository… Ctrl+N' class='' proc=GitHubDesktop(16288)
+[+  28830ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=MenuItem name='Add local repository… Ctrl+O' | parent: ctl=Menu name='File'
+            → classify: MENU (strategy: element-override=parent)
+[+  28830ms] UIA      FocusChanged            ctl=MenuItem name='Add local repository… Ctrl+O' class='menu-item selected' proc=GitHubDesktop(16288)
+[+  28835ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28839ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28843ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28847ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28851ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28855ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28858ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28861ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28864ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28866ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28869ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28872ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28876ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28880ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28884ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28888ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28892ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28899ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28903ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28908ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28913ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28918ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28926ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28930ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28935ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  28936ms] UIA      FocusChanged            ctl=MenuItem name='Add local repository… Ctrl+O' class='' proc=GitHubDesktop(16288)
+[+  29539ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=MenuItem name='Clone repository… Ctrl+Shift+O' | parent: ctl=Menu name='File'
+            → classify: MENU (strategy: element-override=parent)
+[+  29543ms] UIA      FocusChanged            ctl=MenuItem name='Clone repository… Ctrl+Shift+O' class='menu-item selected' proc=GitHubDesktop(16288)
+[+  29550ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29555ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29560ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29565ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29569ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29573ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29577ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29581ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29585ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29587ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29591ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29595ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29599ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29603ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29608ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29612ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29616ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29621ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29626ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29631ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29637ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29644ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29651ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29657ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29663ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29669ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  29670ms] UIA      FocusChanged            ctl=MenuItem name='Clone repository… Ctrl+Shift+O' class='' proc=GitHubDesktop(16288)
+[+  30672ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  30676ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  30678ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  30679ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=MenuItem name='File' | parent: ctl=MenuBar name='Application menu'
+            → classify: MENU (strategy: element-override=parent)
+[+  30679ms] UIA      FocusChanged            ctl=MenuItem name='File' class='button-component' proc=GitHubDesktop(16288)
+[+  30683ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=MenuItem name='File' | parent: ctl=MenuBar name='Application menu'
+            → classify: MENU (strategy: element-override=parent)
+[+  30689ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30695ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30700ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30703ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30706ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30708ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30710ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30713ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30716ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30720ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30723ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30728ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30731ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30735ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30739ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30744ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  30876ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34488ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=TabItem name='History' | parent: ctl=Tab name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  34489ms] UIA      FocusChanged            ctl=TabItem name='History' class='tab-bar-item' proc=GitHubDesktop(16288)
+[+  34494ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34499ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34502ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34506ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34510ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34513ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34516ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34519ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34522ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34525ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34528ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34531ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34535ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34538ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34543ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34547ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34551ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34556ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34562ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34568ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34574ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34575ms] UIA      FocusChanged            ctl=TabItem name='History' class='' proc=GitHubDesktop(16288)
+[+  35454ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=TabItem name='Changes' | parent: ctl=Tab name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  35454ms] UIA      FocusChanged            ctl=TabItem name='Changes' class='tab-bar-item' proc=GitHubDesktop(16288)
+[+  35460ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35465ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35470ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35475ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35479ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35482ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35485ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35488ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35491ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35494ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35497ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35501ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35507ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35512ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35519ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35525ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35533ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35542ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35555ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35567ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  35569ms] UIA      FocusChanged            ctl=TabItem name='Changes' class='' proc=GitHubDesktop(16288)
+[+  35905ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  38056ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=Document name='GitHub Desktop' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  38056ms] UIA      FocusChanged            ctl=Document name='GitHub Desktop' class='' proc=GitHubDesktop(16288)
+[+  38057ms] UIA      FocusChanged            ctl=Document name='GitHub Desktop' class='Chrome_RenderWidgetHostHWND' proc=GitHubDesktop(16288)
+[+  40357ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=Button name='Current repository Windows-Hin…' | parent: ctl=Group name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  40360ms] UIA      FocusChanged            ctl=Button name='Current repository Windows-Hin…' class='button-component' proc=GitHubDesktop(16288)
+[+  40366ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40368ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40371ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40373ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40375ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40377ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40379ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40381ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40385ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40388ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40392ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40395ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40399ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40404ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40408ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40409ms] UIA      FocusChanged            ctl=Button name='Current repository Windows-Hin…' class='' proc=GitHubDesktop(16288)
+[+  40526ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=Edit name='Filter' | parent: ctl=Group name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  40528ms] UIA      FocusChanged            ctl=Edit name='Filter' class='' proc=GitHubDesktop(16288)
+[+  40534ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40539ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40548ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40553ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40557ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40560ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40564ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40566ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40569ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40571ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40574ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40577ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40582ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40585ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40590ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40595ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40600ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40604ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40610ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  40615ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45132ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='erin_talon, knausj85' | parent: ctl=List name='knausj85'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  45133ms] UIA      FocusChanged            ctl=ListItem name='erin_talon, knausj85' class='list-item selected' proc=GitHubDesktop(16288)
+[+  45139ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45145ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45151ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45156ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45160ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45165ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45168ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45172ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45176ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45180ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45183ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45185ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45188ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45191ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45195ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45199ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45202ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45206ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45211ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45218ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45225ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45231ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45236ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45241ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45247ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45253ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45271ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=Button name='Current repository erin_talon' | parent: ctl=Group name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  45276ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45278ms] UIA      FocusChanged            ctl=Custom name='' class='' proc=GitHubDesktop(16288)
+[+  45279ms] UIA      FocusChanged            ctl=Button name='Current repository erin_talon' class='button-component' proc=GitHubDesktop(16288)
+[+  45294ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45305ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45314ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45350ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45377ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45385ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45398ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45412ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45430ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45469ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45510ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45540ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45566ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45585ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  45594ms] UIA      FocusChanged            ctl=Button name='Current repository erin_talon' class='' proc=GitHubDesktop(16288)
+[+  45597ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46857ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='apps/teams/teams.talon Modifie…' | parent: ctl=List name='1 changed file'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  46858ms] UIA      FocusChanged            ctl=ListItem name='apps/teams/teams.talon Modifie…' class='list-item selected' proc=GitHubDesktop(16288)
+[+  46868ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46876ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46884ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46890ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46897ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46904ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46909ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46913ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46917ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46920ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46924ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46926ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46929ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46932ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46935ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46939ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46943ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46946ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46950ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46955ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46960ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46966ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  46975ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  47063ms] WINEVENT SYSTEM_MENUPOPUPSTART  lat=  16ms hwnd=0x03BF0A0A class='Chrome_WidgetWin_1' title='' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='apps/teams/teams.talon Modifie…' | parent: ctl=List name='1 changed file'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  47084ms] WINEVENT SYSTEM_MENUSTART       lat=   0ms hwnd=0x03BF0A0A class='Chrome_WidgetWin_1' title='' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='apps/teams/teams.talon Modifie…' | parent: ctl=List name='1 changed file'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  47086ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  47106ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  47113ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  47120ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  47125ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  47135ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  47142ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  47151ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  47157ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  47158ms] UIA      FocusChanged            ctl=ListItem name='apps/teams/teams.talon Modifie…' class='' proc=GitHubDesktop(16288)
+[+  47228ms] UIA      MenuOpened             ctl=ControlType.Pane name='' class='Chrome_WidgetWin_1' proc=GitHubDesktop(16288)
+[+  48156ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x03BF0A0A class='Chrome_WidgetWin_1' title='' proc=GitHubDesktop(16288)
+            focus: ctl=MenuItem name='Discard changes…' | parent: ctl=Menu name=''
+            → classify: MENU (strategy: element-override=parent)
+[+  48158ms] UIA      FocusChanged            ctl=MenuItem name='Discard changes…' class='MenuItemView' proc=GitHubDesktop(16288)
+[+  48166ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48171ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48176ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48180ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48185ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48192ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48196ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48201ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48206ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48214ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48215ms] UIA      FocusChanged            ctl=MenuItem name='Discard changes…' class='' proc=GitHubDesktop(16288)
+[+  48383ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x03BF0A0A class='Chrome_WidgetWin_1' title='' proc=GitHubDesktop(16288)
+            focus: ctl=MenuItem name='Ignore file (add to .gitignore…' | parent: ctl=Menu name=''
+            → classify: MENU (strategy: element-override=parent)
+[+  48384ms] UIA      FocusChanged            ctl=MenuItem name='Ignore file (add to .gitignore…' class='MenuItemView' proc=GitHubDesktop(16288)
+[+  48394ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48402ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48409ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48416ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48422ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48428ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48437ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48449ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48461ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48475ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48493ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48507ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48509ms] UIA      FocusChanged            ctl=MenuItem name='Ignore file (add to .gitignore…' class='' proc=GitHubDesktop(16288)
+[+  48603ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48700ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x03BF0A0A class='Chrome_WidgetWin_1' title='' proc=GitHubDesktop(16288)
+            focus: ctl=MenuItem name='Ignore folder (add to .gitigno…' | parent: ctl=Menu name=''
+            → classify: MENU (strategy: element-override=parent)
+[+  48700ms] UIA      FocusChanged            ctl=MenuItem name='Ignore folder (add to .gitigno…' class='MenuItemView' proc=GitHubDesktop(16288)
+[+  48717ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48729ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48735ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48739ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48742ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48747ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48755ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48762ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48771ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48779ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48785ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48792ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48799ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  48801ms] UIA      FocusChanged            ctl=MenuItem name='Ignore folder (add to .gitigno…' class='' proc=GitHubDesktop(16288)
+[+  49674ms] UIA-COM  MenuModeEnd            ctl=? name='?' class='?' proc=?
+[+  49675ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49676ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49682ms] UIA-COM  MenuModeEnd            ctl=? name='?' class='?' proc=?
+[+  49684ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x03BF0A0A class='Chrome_WidgetWin_1' title='' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='apps/teams/teams.talon Modifie…' | parent: ctl=List name='1 changed file'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  49693ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x00090804 class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='apps/teams/teams.talon Modifie…' | parent: ctl=List name='1 changed file'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  49696ms] WINEVENT SYSTEM_MENUEND         lat=   0ms hwnd=0x03BF0A0A class='Chrome_WidgetWin_1' title='' proc=GitHubDesktop(16288)
+            focus: ctl=ListItem name='apps/teams/teams.talon Modifie…' | parent: ctl=List name='1 changed file'
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  49701ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49715ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49728ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49741ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49750ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49754ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49759ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49762ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49766ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49770ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49773ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49775ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49778ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49781ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49784ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49787ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49791ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49794ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49799ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49803ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49808ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49812ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49818ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49822ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49829ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49835ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49839ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49844ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49850ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49856ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49862ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49868ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49869ms] UIA      FocusChanged            ctl=ListItem name='apps/teams/teams.talon Modifie…' class='' proc=GitHubDesktop(16288)
+[+  49869ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  49869ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  49870ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  49870ms] UIA      FocusChanged            ctl=ListItem name='apps/teams/teams.talon Modifie…' class='list-item selected' proc=GitHubDesktop(16288)
+[+  49876ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49882ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49887ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49894ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49899ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49904ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49908ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49912ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49915ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49918ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49921ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49924ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49927ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49929ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49933ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49936ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49940ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49943ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49948ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49951ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49957ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49961ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49966ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49970ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49976ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49980ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49985ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49990ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  49995ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50000ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50006ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50012ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50546ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  50584ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000C0670 class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Run the live sweep' proc=WindowsTerminal(4428)
+            focus: ctl=Window name='✳ Run the live sweep' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  50588ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00160432 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  50591ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00D105DE class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  50592ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='TermControl' proc=WindowsTerminal(4428)
+[+  50593ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00D105DE class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(4428)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  50593ms] UIA      FocusChanged            ctl=Window name='✳ Run the live sweep' class='CASCADIA_HOSTING_WINDOW_CLASS' proc=WindowsTerminal(4428)
+[+  50595ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50599ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50605ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50607ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50611ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  50612ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='' proc=WindowsTerminal(4428)
+[+  60580ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  78818ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
