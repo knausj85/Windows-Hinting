@@ -144,9 +144,11 @@ internal static class Program
         {
             string name = EventName(ev);
 
-            // Object show/hide/create is a firehose — drop anything not in the allow-list
-            // and anything that isn't the window object itself (idObject 0 = OBJID_WINDOW).
-            bool isObjectRange = ev is EVENT_OBJECT_CREATE or EVENT_OBJECT_SHOW or EVENT_OBJECT_HIDE;
+            // Object create/destroy/show/hide is a firehose — drop anything not in the
+            // allow-list and anything that isn't the window object itself
+            // (idObject 0 = OBJID_WINDOW). Covers the whole 0x8000..0x8003 range so
+            // DESTROY (0x8001) is filtered too, not just the three we name explicitly.
+            bool isObjectRange = ev is >= EVENT_OBJECT_CREATE and <= EVENT_OBJECT_HIDE;
             string cls = GetClass(hwnd);
             if (isObjectRange)
             {
@@ -321,6 +323,7 @@ internal static class Program
         EVENT_SYSTEM_MENUPOPUPSTART => "SYSTEM_MENUPOPUPSTART",
         EVENT_SYSTEM_MENUPOPUPEND => "SYSTEM_MENUPOPUPEND",
         EVENT_OBJECT_CREATE => "OBJECT_CREATE",
+        EVENT_OBJECT_DESTROY => "OBJECT_DESTROY",
         EVENT_OBJECT_SHOW => "OBJECT_SHOW",
         EVENT_OBJECT_HIDE => "OBJECT_HIDE",
         _ => $"0x{ev:X4}",
@@ -350,6 +353,7 @@ internal static class Program
     private const uint EVENT_SYSTEM_MENUPOPUPSTART = 0x0006;
     private const uint EVENT_SYSTEM_MENUPOPUPEND = 0x0007;
     private const uint EVENT_OBJECT_CREATE = 0x8000;
+    private const uint EVENT_OBJECT_DESTROY = 0x8001;
     private const uint EVENT_OBJECT_SHOW = 0x8002;
     private const uint EVENT_OBJECT_HIDE = 0x8003;
 
