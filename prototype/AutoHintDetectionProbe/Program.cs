@@ -1,5 +1,6 @@
-// PROTOTYPE — throwaway. Wayfinder ticket #45: WinEvent + UIA detection & surface
-// classification for transient shell surfaces. Do NOT merge; do NOT productionize.
+// PROTOTYPE — throwaway. Wayfinder tickets #45 + #49: WinEvent + UIA detection & surface
+// classification for transient shell surfaces, plus a UIA StructureChanged redraw spike.
+// Do NOT merge; do NOT productionize.
 //
 // What it does: installs WinEvent hooks (foreground / menu / object-show) and managed
 // UIA MenuOpened/MenuClosed handlers, and logs every event with the data the Talon
@@ -7,6 +8,17 @@
 // name, parent control type + name), plus a proposed surface classification and the
 // delivery latency. You drive it by hand: run it, then open each v1-catalog surface and
 // each app in the MenuOpened matrix, and read the log.
+//
+// #49 (StructureChanged redraw spike, CORRECTED TARGETING): the probe attaches a UIA
+// StructureChanged handler (Subtree) to the REAL Start content root — the sender of the
+// COM UIA WindowOpened(name='Start', StartMenuExperienceHost) event — NOT the Search
+// CoreWindow that EVENT_SYSTEM_FOREGROUND hands you (the first run's confound). It logs
+// every StructureChanged event: its StructureChangeType, latency since attach (readiness),
+// gap since the previous event (redraw cadence / debounce), and the callback thread. Drive
+// it: open Start (readiness of pinned/recommended), click All apps + scroll the virtualized
+// list (in-place redraw + volume — this content stays in the Start root), then read the SC
+// stream. NOTE: typing shifts results to the SearchHost window, a SEPARATE root — so search
+// redraw is out of this attachment's scope by design. Manual `attach`/`detach` still work.
 //
 // Output: console + auto-hint-detection-probe.log in the working directory.
 
@@ -169,6 +181,7 @@ internal static class Program
             try { if (hSystem != IntPtr.Zero) UnhookWinEvent(hSystem); } catch { }
             try { if (hObject != IntPtr.Zero) UnhookWinEvent(hObject); } catch { }
             try { if (hFocus != IntPtr.Zero) UnhookWinEvent(hFocus); } catch { }
+            try { DetachStructureChanged("shutdown"); } catch { }
             try { Automation.RemoveAllEventHandlers(); } catch { }
             try { _com?.RemoveAllEventHandlers(); } catch { }
             Log("Shutting down.");
@@ -184,8 +197,39 @@ internal static class Program
         {
             string? line = Console.ReadLine();
             if (line is null) return; // stdin closed
-            Log($"════════════ MARK: {line} ════════════");
+            switch (line.Trim().ToLowerInvariant())
+            {
+                case "attach":
+                case "attach subtree":
+                    ManualAttach(UIA.TreeScope.TreeScope_Subtree);
+                    break;
+                case "attach children":
+                    ManualAttach(UIA.TreeScope.TreeScope_Children);
+                    break;
+                case "detach":
+                    DetachStructureChanged("manual");
+                    break;
+                default:
+                    Log($"════════════ MARK: {line} ════════════");
+                    break;
+            }
         }
+    }
+
+    // #49: attach StructureChanged to whatever is foreground right now — the reliable
+    // manual override when the FOREGROUND auto-attach doesn't fire (or attaches to the
+    // wrong CoreWindow). Open the surface, then type `attach` <Enter>.
+    private static void ManualAttach(UIA.TreeScope scope)
+    {
+        try
+        {
+            if (_com is null) { Log("!! manual attach: COM UIA not available"); return; }
+            IntPtr fg = GetForegroundWindow();
+            _scHwnd = fg;
+            AttachStructureChanged(_com.ElementFromHandle(fg), scope,
+                $"manual: foreground hwnd=0x{fg.ToInt64():X8}");
+        }
+        catch (Exception ex) { Log($"!! manual attach threw: {ex.GetType().Name}: {ex.Message}"); }
     }
 
     // ---- WinEvent callback -------------------------------------------------
@@ -223,6 +267,26 @@ internal static class Program
             long latency = unchecked((uint)Environment.TickCount - dwmsEventTime);
             string title = GetText(hwnd);
             string proc = ProcName(hwnd);
+
+            // #49 StructureChanged spike (CORRECTED TARGETING). The first run attached SC
+            // to whatever CoreWindow foregrounded — which on this build is the SearchHost
+            // "Search" CoreWindow, NOT the Start content root. SC there tracked window
+            // lifecycle, not content. Attach is now driven by the COM UIA WindowOpened
+            // (name='Start', StartMenuExperienceHost) handler below — the sender there IS
+            // the real Start content root. The WinEvent path only tears the attachment
+            // down when focus leaves the watched surface (Start ⇄ Search stays attached).
+            if (ev == EVENT_SYSTEM_FOREGROUND)
+            {
+                bool isStartish = cls == "Windows.UI.Core.CoreWindow" &&
+                    (proc.StartsWith("StartMenuExperienceHost", StringComparison.OrdinalIgnoreCase) ||
+                     proc.StartsWith("SearchHost", StringComparison.OrdinalIgnoreCase));
+                if (!isStartish && _scHwnd != IntPtr.Zero && hwnd != _scHwnd)
+                    DetachStructureChanged("foreground-away");
+            }
+            else if (ev == EVENT_OBJECT_HIDE && hwnd == _scHwnd && _scHwnd != IntPtr.Zero)
+            {
+                DetachStructureChanged("OBJECT_HIDE");
+            }
 
             var sb = new StringBuilder();
             sb.Append($"WINEVENT {name,-22} lat={latency,4}ms hwnd=0x{hwnd.ToInt64():X8} ");
@@ -276,6 +340,26 @@ internal static class Program
                 try { proc = SafeProcName(sender.CurrentProcessId); } catch { }
             }
             Log($"UIA-COM  {which,-22} ctl={ctl} name='{Trunc(nm, 30)}' class='{cls}' proc={proc}");
+
+            // #49 CORRECTED TARGETING: attach SC to the REAL Start content root. The
+            // WindowOpened sender for name='Start' from StartMenuExperienceHost is that
+            // root (pinned / recommended / all-apps live here) — not the Search CoreWindow
+            // that FOREGROUND hands us. This callback is on a COM thread; AttachStructureChanged
+            // touches shared _sc* fields, fine for a hand-driven spike.
+            bool isStartRoot = nm == "Start" &&
+                proc.StartsWith("StartMenuExperienceHost", StringComparison.OrdinalIgnoreCase);
+            if (sender is not null && eventId == UIA_Window_WindowOpenedEventId && isStartRoot && _scHandler is null)
+            {
+                IntPtr h = new IntPtr(-1); // sentinel so foreground-away teardown still triggers
+                try { h = (IntPtr)sender.CurrentNativeWindowHandle; } catch { }
+                _scHwnd = h;
+                AttachStructureChanged(sender, UIA.TreeScope.TreeScope_Subtree,
+                    $"WindowOpened name='Start' (StartMenuExperienceHost) hwnd=0x{h.ToInt64():X8}");
+            }
+            else if (eventId == UIA_Window_WindowClosedEventId && isStartRoot)
+            {
+                DetachStructureChanged("WindowClosed name='Start'");
+            }
         }
     }
 
@@ -417,6 +501,110 @@ internal static class Program
         }
     }
 
+    // ---- UIA StructureChanged spike (#49) ---------------------------------
+    // COM handler: the managed System.Windows.Automation StructureChanged path has
+    // the documented runtimeId divergence flagged in #48, so we drive it through the
+    // same native COM client the main app will use (behind the HintSource seam).
+    private sealed class ComStructureChangedHandler : UIA.IUIAutomationStructureChangedEventHandler
+    {
+        public void HandleStructureChangedEvent(
+            UIA.IUIAutomationElement sender, UIA.StructureChangeType changeType, Array runtimeId)
+            => OnStructureChanged(sender, changeType, runtimeId);
+    }
+
+    private static ComStructureChangedHandler? _scHandler;
+    private static UIA.IUIAutomationElement? _scElement;
+    private static IntPtr _scHwnd;
+    private static readonly object ScLock = new();
+    private static long _scAttachMs;
+    private static long _scLastMs;
+    private static int _scCount;
+
+    private static void TryAutoAttach(IntPtr hwnd, string why)
+    {
+        try
+        {
+            if (_com is null) return;
+            _scHwnd = hwnd;
+            AttachStructureChanged(_com.ElementFromHandle(hwnd), UIA.TreeScope.TreeScope_Subtree, why);
+        }
+        catch (Exception ex) { Log($"!! auto-attach threw: {ex.GetType().Name}: {ex.Message}"); }
+    }
+
+    private static void AttachStructureChanged(UIA.IUIAutomationElement? element, UIA.TreeScope scope, string why)
+    {
+        if (_com is null) { Log("!! SC attach skipped: COM UIA not available"); return; }
+        if (element is null) { Log($"!! SC attach skipped ({why}): null element"); return; }
+        DetachStructureChanged("re-attach");
+        try
+        {
+            _scHandler = new ComStructureChangedHandler();
+            _com.AddStructureChangedEventHandler(element, scope, null, _scHandler);
+            _scElement = element;
+            lock (ScLock) { _scAttachMs = Clock.ElapsedMilliseconds; _scLastMs = _scAttachMs; _scCount = 0; }
+            string ctl = "?", nm = "?", cls = "?";
+            try { ctl = ControlTypeName(element.CurrentControlType); } catch { }
+            try { nm = element.CurrentName ?? ""; } catch { }
+            try { cls = element.CurrentClassName ?? ""; } catch { }
+            Log($"╔═ SC ATTACHED ({why}) scope={scope} → ctl={ctl} name='{Trunc(nm, 30)}' class='{cls}'. Watching readiness + redraw…");
+        }
+        catch (Exception ex)
+        {
+            Log($"!! SC attach FAILED ({why}): {ex.GetType().Name}: {ex.Message}");
+            _scHandler = null; _scElement = null; _scHwnd = IntPtr.Zero;
+        }
+    }
+
+    private static void DetachStructureChanged(string why)
+    {
+        if (_com is null || _scHandler is null || _scElement is null) { _scHwnd = IntPtr.Zero; return; }
+        try { _com.RemoveStructureChangedEventHandler(_scElement, _scHandler); } catch { }
+        int n; long dur;
+        lock (ScLock) { n = _scCount; dur = Clock.ElapsedMilliseconds - _scAttachMs; }
+        Log($"╚═ SC DETACHED ({why}) — {n} events over {dur}ms.");
+        _scHandler = null; _scElement = null; _scHwnd = IntPtr.Zero;
+    }
+
+    private static void OnStructureChanged(
+        UIA.IUIAutomationElement sender, UIA.StructureChangeType changeType, Array runtimeId)
+    {
+        try
+        {
+            long now = Clock.ElapsedMilliseconds;
+            long sinceAttach, sinceLast; int n;
+            lock (ScLock)
+            {
+                sinceAttach = now - _scAttachMs;
+                sinceLast = _scCount == 0 ? 0 : now - _scLastMs;
+                _scLastMs = now;
+                n = ++_scCount;
+            }
+            string ctl = "?", nm = "?";
+            if (sender is not null)
+            {
+                try { ctl = ControlTypeName(sender.CurrentControlType); } catch { }
+                try { nm = sender.CurrentName ?? ""; } catch { }
+            }
+            // #48 flagged: COM populates runtimeId only for ChildRemoved (NULL otherwise).
+            // Log the length so that divergence is visible in the raw sweep.
+            int rid = runtimeId?.Length ?? -1;
+            Log($"SC #{n,-3} {ChangeTypeName(changeType),-20} +{sinceAttach,6}ms (Δ{sinceLast,5}ms) " +
+                $"tid={Thread.CurrentThread.ManagedThreadId} ctl={ctl} name='{Trunc(nm, 30)}' rid.len={rid}");
+        }
+        catch (Exception ex) { Log($"!! OnStructureChanged threw: {ex.GetType().Name}: {ex.Message}"); }
+    }
+
+    private static string ChangeTypeName(UIA.StructureChangeType t) => t switch
+    {
+        UIA.StructureChangeType.StructureChangeType_ChildAdded => "ChildAdded",
+        UIA.StructureChangeType.StructureChangeType_ChildRemoved => "ChildRemoved",
+        UIA.StructureChangeType.StructureChangeType_ChildrenInvalidated => "ChildrenInvalidated",
+        UIA.StructureChangeType.StructureChangeType_ChildrenBulkAdded => "ChildrenBulkAdded",
+        UIA.StructureChangeType.StructureChangeType_ChildrenBulkRemoved => "ChildrenBulkRemoved",
+        UIA.StructureChangeType.StructureChangeType_ChildrenReordered => "ChildrenReordered",
+        _ => t.ToString(),
+    };
+
     // ---- small helpers -----------------------------------------------------
     private static string SafeCtl(AutomationElement el)
     {
@@ -486,6 +674,13 @@ internal static class Program
         Log("               — focus the problem apps (VS Code, GitHub Desktop).");
         Log("  Round 3: WINEVENT OBJECT_FOCUS + UIA FocusChanged — does focus-changed give a");
         Log("               clean focused-element signal, incl. into VS Code's in-DOM menu?");
+        Log("  #49 SC redraw spike (CORRECTED): SC now attaches to the REAL Start root via");
+        Log("               WindowOpened(name='Start') — look for 'SC ATTACHED (WindowOpened...)'.");
+        Log("               (a) open START, note first SC +latency vs the WindowOpened lag (readiness);");
+        Log("               (b) click ALL APPS + SCROLL the list (stays in the Start root) — watch SC");
+        Log("               cadence (Δ gaps) + volume: clean debounce-able redraw, or thrash? (c) note tid.");
+        Log("               NOTE: typing → results move to the SearchHost window (separate root, not");
+        Log("               watched here). Manual override: type 'attach' / 'detach' + Enter.");
         Log("  Tip: type a label + Enter (e.g. 'START MENU') right before opening it to mark the log.");
         Log("  Ctrl+C to quit.");
         Log("");
@@ -529,4 +724,7 @@ internal static class Program
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
 }
