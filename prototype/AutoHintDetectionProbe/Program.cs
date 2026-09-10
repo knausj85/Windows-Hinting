@@ -9,7 +9,16 @@
 // delivery latency. You drive it by hand: run it, then open each v1-catalog surface and
 // each app in the MenuOpened matrix, and read the log.
 //
-// #49 (StructureChanged redraw spike, CORRECTED TARGETING): the probe attaches a UIA
+// #49 (redraw spike): on attach to the Start root the probe watches THREE UIA signals in
+// parallel and tags each log line SC / LAYOUT / SCROLL on one shared Δ cadence clock, to
+// find which one actually tracks in-place redraw: StructureChanged (tree mutation —
+// virtualization-bound, only fires when the virtualized list realizes new children),
+// LayoutInvalidated (event 20003 — the container re-laid-out its children), and ScrollPattern
+// V/H-ScrollPercent property-changes (30055/30057 — the visible offset moved). First-run finding:
+// SC scoped to the Start root under-reports scroll because the list is virtualized; hence the
+// LAYOUT + SCROLL alternatives.
+//
+// StructureChanged targeting (CORRECTED): the probe attaches a UIA
 // StructureChanged handler (Subtree) to the REAL Start content root — the sender of the
 // COM UIA WindowOpened(name='Start', StartMenuExperienceHost) event — NOT the Search
 // CoreWindow that EVENT_SYSTEM_FOREGROUND hands you (the first run's confound). It logs
@@ -315,6 +324,14 @@ internal static class Program
     private const int UIA_Window_WindowClosedEventId = 20017;
     private const int UIA_MenuModeStartEventId = 20018;
     private const int UIA_MenuModeEndEventId = 20019;
+    // #49 redraw-alternatives spike: StructureChanged is bound to *virtualization*
+    // (only fires when the virtualized list realizes new children far down), so it is
+    // the wrong instrument for in-place scroll/redraw. Compare two better-matched signals
+    // on the same Start root: LayoutInvalidated (the container re-laid-out its children)
+    // and ScrollPattern V/H-ScrollPercent property-changed (the visible offset moved).
+    private const int UIA_LayoutInvalidatedEventId = 20003;
+    private const int UIA_ScrollVerticalScrollPercentPropertyId = 30055;
+    private const int UIA_ScrollHorizontalScrollPercentPropertyId = 30057;
 
     private sealed class ComEventHandler : UIA.IUIAutomationEventHandler
     {
@@ -512,13 +529,48 @@ internal static class Program
             => OnStructureChanged(sender, changeType, runtimeId);
     }
 
+    // #49 redraw-alternatives: LayoutInvalidated (a distinct UIA event, not a
+    // StructureChangeType subtype) and ScrollPattern percent property-changes.
+    private sealed class ComLayoutHandler : UIA.IUIAutomationEventHandler
+    {
+        public void HandleAutomationEvent(UIA.IUIAutomationElement sender, int eventId)
+            => OnLayoutInvalidated(sender);
+    }
+
+    private sealed class ComPropHandler : UIA.IUIAutomationPropertyChangedEventHandler
+    {
+        public void HandlePropertyChangedEvent(UIA.IUIAutomationElement sender, int propertyId, object newValue)
+            => OnScrollPercentChanged(sender, propertyId, newValue);
+    }
+
     private static ComStructureChangedHandler? _scHandler;
+    private static ComLayoutHandler? _layoutHandler;
+    private static ComPropHandler? _propHandler;
     private static UIA.IUIAutomationElement? _scElement;
     private static IntPtr _scHwnd;
     private static readonly object ScLock = new();
     private static long _scAttachMs;
-    private static long _scLastMs;
+    // One shared "last redraw-signal" clock across SC / LAYOUT / SCROLL, so the Δ column
+    // reads as a single interleaved cadence — that is what a real debounce would see.
+    private static long _redrawLastMs;
+    private static bool _redrawSeen;
     private static int _scCount;
+    private static int _layoutCount;
+    private static int _scrollCount;
+
+    // Stamp one redraw-signal event against the shared cadence clock.
+    private static (long sinceAttach, long sinceLast, int n) StampRedraw(ref int counter)
+    {
+        long now = Clock.ElapsedMilliseconds;
+        lock (ScLock)
+        {
+            long sinceAttach = now - _scAttachMs;
+            long sinceLast = _redrawSeen ? now - _redrawLastMs : 0;
+            _redrawLastMs = now;
+            _redrawSeen = true;
+            return (sinceAttach, sinceLast, ++counter);
+        }
+    }
 
     private static void TryAutoAttach(IntPtr hwnd, string why)
     {
@@ -541,12 +593,34 @@ internal static class Program
             _scHandler = new ComStructureChangedHandler();
             _com.AddStructureChangedEventHandler(element, scope, null, _scHandler);
             _scElement = element;
-            lock (ScLock) { _scAttachMs = Clock.ElapsedMilliseconds; _scLastMs = _scAttachMs; _scCount = 0; }
+            lock (ScLock)
+            {
+                _scAttachMs = Clock.ElapsedMilliseconds;
+                _redrawLastMs = _scAttachMs; _redrawSeen = false;
+                _scCount = 0; _layoutCount = 0; _scrollCount = 0;
+            }
+            // #49 redraw alternatives on the same element/scope, so all three streams
+            // share the attach baseline and interleave on the Δ cadence clock.
+            string layoutOk = "ok", scrollOk = "ok";
+            try
+            {
+                _layoutHandler = new ComLayoutHandler();
+                _com.AddAutomationEventHandler(UIA_LayoutInvalidatedEventId, element, scope, null, _layoutHandler);
+            }
+            catch (Exception ex) { _layoutHandler = null; layoutOk = $"FAILED: {ex.GetType().Name}"; }
+            try
+            {
+                _propHandler = new ComPropHandler();
+                _com.AddPropertyChangedEventHandler(element, scope, null, _propHandler,
+                    new[] { UIA_ScrollVerticalScrollPercentPropertyId, UIA_ScrollHorizontalScrollPercentPropertyId });
+            }
+            catch (Exception ex) { _propHandler = null; scrollOk = $"FAILED: {ex.GetType().Name}"; }
             string ctl = "?", nm = "?", cls = "?";
             try { ctl = ControlTypeName(element.CurrentControlType); } catch { }
             try { nm = element.CurrentName ?? ""; } catch { }
             try { cls = element.CurrentClassName ?? ""; } catch { }
-            Log($"╔═ SC ATTACHED ({why}) scope={scope} → ctl={ctl} name='{Trunc(nm, 30)}' class='{cls}'. Watching readiness + redraw…");
+            Log($"╔═ SC ATTACHED ({why}) scope={scope} → ctl={ctl} name='{Trunc(nm, 30)}' class='{cls}'. " +
+                $"Watching readiness + redraw [SC + LAYOUT:{layoutOk} + SCROLL:{scrollOk}]…");
         }
         catch (Exception ex)
         {
@@ -559,10 +633,12 @@ internal static class Program
     {
         if (_com is null || _scHandler is null || _scElement is null) { _scHwnd = IntPtr.Zero; return; }
         try { _com.RemoveStructureChangedEventHandler(_scElement, _scHandler); } catch { }
-        int n; long dur;
-        lock (ScLock) { n = _scCount; dur = Clock.ElapsedMilliseconds - _scAttachMs; }
-        Log($"╚═ SC DETACHED ({why}) — {n} events over {dur}ms.");
-        _scHandler = null; _scElement = null; _scHwnd = IntPtr.Zero;
+        try { if (_layoutHandler is not null) _com.RemoveAutomationEventHandler(UIA_LayoutInvalidatedEventId, _scElement, _layoutHandler); } catch { }
+        try { if (_propHandler is not null) _com.RemovePropertyChangedEventHandler(_scElement, _propHandler); } catch { }
+        int sc, lay, scr; long dur;
+        lock (ScLock) { sc = _scCount; lay = _layoutCount; scr = _scrollCount; dur = Clock.ElapsedMilliseconds - _scAttachMs; }
+        Log($"╚═ SC DETACHED ({why}) — over {dur}ms: SC={sc}, LAYOUT={lay}, SCROLL={scr}.");
+        _scHandler = null; _layoutHandler = null; _propHandler = null; _scElement = null; _scHwnd = IntPtr.Zero;
     }
 
     private static void OnStructureChanged(
@@ -570,15 +646,7 @@ internal static class Program
     {
         try
         {
-            long now = Clock.ElapsedMilliseconds;
-            long sinceAttach, sinceLast; int n;
-            lock (ScLock)
-            {
-                sinceAttach = now - _scAttachMs;
-                sinceLast = _scCount == 0 ? 0 : now - _scLastMs;
-                _scLastMs = now;
-                n = ++_scCount;
-            }
+            var (sinceAttach, sinceLast, n) = StampRedraw(ref _scCount);
             string ctl = "?", nm = "?";
             if (sender is not null)
             {
@@ -588,10 +656,47 @@ internal static class Program
             // #48 flagged: COM populates runtimeId only for ChildRemoved (NULL otherwise).
             // Log the length so that divergence is visible in the raw sweep.
             int rid = runtimeId?.Length ?? -1;
-            Log($"SC #{n,-3} {ChangeTypeName(changeType),-20} +{sinceAttach,6}ms (Δ{sinceLast,5}ms) " +
+            Log($"SC     #{n,-3} {ChangeTypeName(changeType),-20} +{sinceAttach,6}ms (Δ{sinceLast,5}ms) " +
                 $"tid={Thread.CurrentThread.ManagedThreadId} ctl={ctl} name='{Trunc(nm, 30)}' rid.len={rid}");
         }
         catch (Exception ex) { Log($"!! OnStructureChanged threw: {ex.GetType().Name}: {ex.Message}"); }
+    }
+
+    private static void OnLayoutInvalidated(UIA.IUIAutomationElement sender)
+    {
+        try
+        {
+            var (sinceAttach, sinceLast, n) = StampRedraw(ref _layoutCount);
+            string ctl = "?", nm = "?";
+            if (sender is not null)
+            {
+                try { ctl = ControlTypeName(sender.CurrentControlType); } catch { }
+                try { nm = sender.CurrentName ?? ""; } catch { }
+            }
+            Log($"LAYOUT #{n,-3} LayoutInvalidated     +{sinceAttach,6}ms (Δ{sinceLast,5}ms) " +
+                $"tid={Thread.CurrentThread.ManagedThreadId} ctl={ctl} name='{Trunc(nm, 30)}'");
+        }
+        catch (Exception ex) { Log($"!! OnLayoutInvalidated threw: {ex.GetType().Name}: {ex.Message}"); }
+    }
+
+    private static void OnScrollPercentChanged(UIA.IUIAutomationElement sender, int propertyId, object newValue)
+    {
+        try
+        {
+            var (sinceAttach, sinceLast, n) = StampRedraw(ref _scrollCount);
+            string which = propertyId switch
+            {
+                UIA_ScrollVerticalScrollPercentPropertyId => "V-Scroll%",
+                UIA_ScrollHorizontalScrollPercentPropertyId => "H-Scroll%",
+                _ => $"prop{propertyId}",
+            };
+            string val = "?", ctl = "?";
+            try { val = newValue?.ToString() ?? "null"; } catch { }
+            if (sender is not null) { try { ctl = ControlTypeName(sender.CurrentControlType); } catch { } }
+            Log($"SCROLL #{n,-3} {which,-20} +{sinceAttach,6}ms (Δ{sinceLast,5}ms) " +
+                $"tid={Thread.CurrentThread.ManagedThreadId} val={val} ctl={ctl}");
+        }
+        catch (Exception ex) { Log($"!! OnScrollPercentChanged threw: {ex.GetType().Name}: {ex.Message}"); }
     }
 
     private static string ChangeTypeName(UIA.StructureChangeType t) => t switch
@@ -674,11 +779,15 @@ internal static class Program
         Log("               — focus the problem apps (VS Code, GitHub Desktop).");
         Log("  Round 3: WINEVENT OBJECT_FOCUS + UIA FocusChanged — does focus-changed give a");
         Log("               clean focused-element signal, incl. into VS Code's in-DOM menu?");
-        Log("  #49 SC redraw spike (CORRECTED): SC now attaches to the REAL Start root via");
-        Log("               WindowOpened(name='Start') — look for 'SC ATTACHED (WindowOpened...)'.");
-        Log("               (a) open START, note first SC +latency vs the WindowOpened lag (readiness);");
-        Log("               (b) click ALL APPS + SCROLL the list (stays in the Start root) — watch SC");
-        Log("               cadence (Δ gaps) + volume: clean debounce-able redraw, or thrash? (c) note tid.");
+        Log("  #49 redraw spike (3 SIGNALS): on attach to the REAL Start root (via");
+        Log("               WindowOpened(name='Start')) the probe now watches THREE streams and");
+        Log("               tags each line SC / LAYOUT / SCROLL on one shared Δ cadence clock:");
+        Log("                 SC     = StructureChanged (tree gained/lost nodes — virtualization-bound)");
+        Log("                 LAYOUT = LayoutInvalidated (container re-laid-out its children)");
+        Log("                 SCROLL = ScrollPattern V/H-ScrollPercent changed (visible offset moved)");
+        Log("               (a) open START, note first SC/LAYOUT +latency vs the WindowOpened lag (readiness);");
+        Log("               (b) click ALL APPS + SCROLL the list (stays in the Start root) — which stream");
+        Log("               tracks the scroll, and is its cadence (Δ gaps) clean/debounce-able or thrash? (c) tid.");
         Log("               NOTE: typing → results move to the SearchHost window (separate root, not");
         Log("               watched here). Manual override: type 'attach' / 'detach' + Enter.");
         Log("  Tip: type a label + Enter (e.g. 'START MENU') right before opening it to mark the log.");
