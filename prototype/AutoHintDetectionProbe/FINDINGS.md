@@ -260,3 +260,69 @@ Confirms VS Code and adds the cleaner case: **both** GHD menu kinds are exposed 
 - Keep `EVENT_OBJECT_FOCUS` only as a coarse backstop; UIA is richer.
 - Revises Round 1/2: the Electron in-DOM menu is **no longer a hard gap** — items
   are reachable via `FocusChanged` (open-detection still weaker than native).
+
+---
+
+# Findings — per-surface redraw signal for the Start menu (#49)
+
+Manual HITL sweep on the same Win11 machine (2026-09-09), branch
+`prototype/auto-hint-detection`. Raw evidence:
+[`captured-sweep-round5-redraw-2026-09-09.log`](captured-sweep-round5-redraw-2026-09-09.log).
+Follows Research #48 (StructureChanged = optional content-readiness gate) and
+Prototype A #45. Question: is UIA **StructureChanged** viable as a **per-surface**
+signal to **re-scan and re-draw hints in place** on a live transient surface,
+evaluated concretely on the Start menu?
+
+## Verdict
+
+**No — StructureChanged is not the in-place redraw signal.** It is
+**virtualization-bound**: on the Start / All-apps root it fires only when the
+virtualized list *realizes* new child elements, so it mostly reports **scrollbar
+chrome** appearing/hiding and only occasionally the actual tile rows — it does
+**not** track the visible content moving. Redraw itself *is* viable on the Start
+menu, but via a different UIA signal found by comparison:
+
+**Redraw signal = ScrollPattern `VerticalScrollPercent` property-changed**
+(`UIA_ScrollVerticalScrollPercentPropertyId` 30055 / horizontal 30057). It is a
+continuous, faithful scroll-position stream, clean and debounce-able.
+
+StructureChanged demotes to what #48 already scoped it as — a **one-shot readiness
+gate** — with the added caveat (from the corrected-targeting run) that attaching
+off `Window_WindowOpened(name='Start')` lands **too late** to witness content
+population (the window is already "opened").
+
+## Evidence — one 22.8 s drive (Start open → All apps → scroll up/down)
+
+Detach tally: **`SC=34, LAYOUT=0, SCROLL=297`** over 22766 ms.
+
+| Signal | Count | What it reported |
+|---|---|---|
+| **LayoutInvalidated** (event 20003, element-scoped Subtree on Start root) | **0** | Never fired anywhere in Start's XAML tree — **dead on this surface** (joins UIA `MenuModeStart/End` from #45). |
+| **StructureChanged** (Subtree on Start root) | 34 | Search-box teardown at open (#1–3); **scrollbar** buttons `'Vertical Small/Large Decrease'`, `'Vertical' (50014)` add/remove (#4–20); only *deep-scroll* tile rows `'Accessibility folder'`, `'XBOX'`, `'WiX Toolset'` (#24–32). Near-silent during the smooth 5→34 % scroll. |
+| **ScrollPattern V-Scroll%** (property-changed, Subtree) | **297** | `ctl=List`, `val` climbing monotonically 0.63 → 34.4 while scrolling down, drifting back down when scrolling up. |
+
+**Cadence (SCROLL):** during an active fling, a steady **~14–34 ms** stream
+(≈ per-frame deltas); between gestures it goes quiet (Δ jumps to 256 / 297 ms). A
+consumer coalesces it with a short trailing debounce (~50–100 ms) and re-scans the
+viewport once the position **settles** — it does **not** redraw on every event. Not
+thrash: a well-behaved analog position signal.
+
+**Threading:** all three streams arrive on COM worker threads (`tid=6`/`7`), so a
+consumer must marshal onto the UI thread — consistent with #48.
+
+**#48 runtimeId flag:** small confirming sample — `ChildRemoved` carried
+`rid.len=1`, `ChildAdded` mostly `rid.len=0` (COM populates runtimeId chiefly for
+removals), as #48 predicted.
+
+## Consequence for the spec (ticket D) and schema (#47)
+
+- The optional per-surface redraw field (**#49 → #47**) **is warranted** — but it
+  should name a **redraw signal = ScrollPattern** (for scrollable surfaces), not
+  StructureChanged. Additive `SurfaceRule` field; no schema rework.
+- **StructureChanged** stays an *optional readiness gate* (per #48), backed by a
+  timeout, and is **not** the redraw mechanism.
+- **LayoutInvalidated** is ruled out for the Start-menu family; do not spec it.
+- Redraw must be **debounced-on-settle**, not per-event (297 events / 22 s here).
+- Scope note: this is Start-menu-specific per the ticket. Whether other v1 surfaces
+  expose ScrollPattern (or need a different per-surface redraw signal) is ticket-D
+  / spec work, not decided here.

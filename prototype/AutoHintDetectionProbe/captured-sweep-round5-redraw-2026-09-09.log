@@ -1,0 +1,955 @@
+[+      0ms] AutoHintDetectionProbe — wayfinder #45 detection spike (THROWAWAY)
+[+      1ms] Logging to: C:\Users\knausj\git\Windows-Hinting\prototype\AutoHintDetectionProbe\auto-hint-detection-probe.log
+[+      1ms] 
+[+      1ms] Manual test checklist — open each, watch which events fire + the classify line:
+[+      1ms]   v1 catalog:  Start menu · Search · Notification Center · Control Center ·
+[+      1ms]                System-tray overflow · taskbar jump list (right-click a pinned app) ·
+[+      1ms]                Task View · Snap Assist (Win+Z / drag-snap) ·
+[+      1ms]                shell context menu (right-click desktop) · a Win11 XAML flyout
+[+      1ms]   MenuOpened matrix — open a menu bar / context menu in EACH and note if UIA fires:
+[+      1ms]                VS Code · GitHub Desktop · Visual Studio · File Explorer
+[+      1ms]   Round 2 (COM): also watch UIA-COM Win.WindowOpened/Closed + MenuModeStart/End
+[+      1ms]                — focus the problem apps (VS Code, GitHub Desktop).
+[+      1ms]   Round 3: WINEVENT OBJECT_FOCUS + UIA FocusChanged — does focus-changed give a
+[+      1ms]                clean focused-element signal, incl. into VS Code's in-DOM menu?
+[+      1ms]   #49 redraw spike (3 SIGNALS): on attach to the REAL Start root (via
+[+      1ms]                WindowOpened(name='Start')) the probe now watches THREE streams and
+[+      1ms]                tags each line SC / LAYOUT / SCROLL on one shared Δ cadence clock:
+[+      1ms]                  SC     = StructureChanged (tree gained/lost nodes — virtualization-bound)
+[+      1ms]                  LAYOUT = LayoutInvalidated (container re-laid-out its children)
+[+      1ms]                  SCROLL = ScrollPattern V/H-ScrollPercent changed (visible offset moved)
+[+      1ms]                (a) open START, note first SC/LAYOUT +latency vs the WindowOpened lag (readiness);
+[+      1ms]                (b) click ALL APPS + SCROLL the list (stays in the Start root) — which stream
+[+      1ms]                tracks the scroll, and is its cadence (Δ gaps) clean/debounce-able or thrash? (c) tid.
+[+      1ms]                NOTE: typing → results move to the SearchHost window (separate root, not
+[+      1ms]                watched here). Manual override: type 'attach' / 'detach' + Enter.
+[+      1ms]   Tip: type a label + Enter (e.g. 'START MENU') right before opening it to mark the log.
+[+      1ms]   Ctrl+C to quit.
+[+      1ms] 
+[+      2ms] WinEvent hooks installed: system=True object=True focus=True
+[+     64ms] UIA (managed) MenuOpened/MenuClosed handlers registered: True
+[+     91ms] UIA (COM) WindowOpened/Closed + MenuModeStart/End handlers registered: True
+[+    101ms] UIA (managed) FocusChanged handler registered: True
+[+    101ms] ──────────────────────────────────────────────────────────────────────
+[+    101ms] READY. Open a surface, or type a label + Enter to drop a MARK divider.
+[+    101ms] ──────────────────────────────────────────────────────────────────────
+[+  12800ms] ════════════ MARK: ALLAPPS2 ════════════
+[+  15206ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+  15221ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+  15227ms] WINEVENT SYSTEM_FOREGROUND      lat=  31ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+  15243ms] UIA      FocusChanged            ctl=Edit name='Search box' class='' proc=SearchHost(7044)
+[+  15282ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  15282ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  15292ms] UIA-COM  Win.WindowOpened       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(7052)
+[+  15300ms] ╔═ SC ATTACHED (WindowOpened name='Start' (StartMenuExperienceHost) hwnd=0x000101B0) scope=TreeScope_Subtree → ctl=Window name='Start' class='Windows.UI.Core.CoreWindow'. Watching readiness + redraw [SC + LAYOUT:ok + SCROLL:ok]…
+[+  15308ms] SC     #1   ChildAdded           +    12ms (Δ    0ms) tid=6 ctl=Window name='Search' rid.len=2
+[+  15566ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  15567ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  16159ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  16239ms] SC     #2   ChildRemoved         +   944ms (Δ  932ms) tid=6 ctl=Pane name='CoreInput' rid.len=2
+[+  16248ms] SC     #3   ChildRemoved         +   952ms (Δ    8ms) tid=6 ctl=Pane name='Search' rid.len=2
+[+  16248ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  16911ms] SCROLL #1   V-Scroll%            +  1613ms (Δ  661ms) tid=7 val=0.6295105857159867 ctl=List
+[+  16922ms] SCROLL #2   V-Scroll%            +  1627ms (Δ   14ms) tid=7 val=0.9625473429071071 ctl=List
+[+  16939ms] SCROLL #3   V-Scroll%            +  1644ms (Δ   17ms) tid=7 val=1.2682260314711324 ctl=List
+[+  16955ms] SCROLL #4   V-Scroll%            +  1660ms (Δ   16ms) tid=7 val=1.530916607458942 ctl=List
+[+  16972ms] SCROLL #5   V-Scroll%            +  1677ms (Δ   17ms) tid=7 val=2.2247502882211303 ctl=List
+[+  16991ms] SCROLL #6   V-Scroll%            +  1696ms (Δ   19ms) tid=7 val=2.6550253299468674 ctl=List
+[+  17006ms] SCROLL #7   V-Scroll%            +  1710ms (Δ   14ms) tid=7 val=3.063672282800212 ctl=List
+[+  17022ms] SCROLL #8   V-Scroll%            +  1727ms (Δ   17ms) tid=7 val=3.887934692811241 ctl=List
+[+  17055ms] SCROLL #9   V-Scroll%            +  1760ms (Δ   33ms) tid=7 val=4.578919226615308 ctl=List
+[+  17090ms] SCROLL #10  V-Scroll%            +  1794ms (Δ   34ms) tid=7 val=5.126579440369898 ctl=List
+[+  17124ms] SCROLL #11  V-Scroll%            +  1828ms (Δ   34ms) tid=7 val=5.51841713030007 ctl=List
+[+  17155ms] SCROLL #12  V-Scroll%            +  1860ms (Δ   32ms) tid=7 val=5.6376915518521304 ctl=List
+[+  17171ms] SCROLL #13  V-Scroll%            +  1876ms (Δ   16ms) tid=7 val=5.716748462609068 ctl=List
+[+  17188ms] SCROLL #14  V-Scroll%            +  1893ms (Δ   17ms) tid=7 val=5.7453936506554255 ctl=List
+[+  17207ms] SCROLL #15  V-Scroll%            +  1911ms (Δ   18ms) tid=7 val=5.745482906538411 ctl=List
+[+  17509ms] SCROLL #16  V-Scroll%            +  2213ms (Δ  302ms) tid=7 val=6.3749935418409995 ctl=List
+[+  17524ms] SCROLL #17  V-Scroll%            +  2229ms (Δ   16ms) tid=7 val=7.030836646088571 ctl=List
+[+  17556ms] SCROLL #18  V-Scroll%            +  2261ms (Δ   32ms) tid=7 val=7.54308686925208 ctl=List
+[+  17573ms] SCROLL #19  V-Scroll%            +  2278ms (Δ   17ms) tid=7 val=7.767115962004826 ctl=List
+[+  17591ms] SCROLL #20  V-Scroll%            +  2296ms (Δ   18ms) tid=7 val=7.953439402856087 ctl=List
+[+  17624ms] SCROLL #21  V-Scroll%            +  2328ms (Δ   32ms) tid=7 val=8.271092759854739 ctl=List
+[+  17639ms] SCROLL #22  V-Scroll%            +  2344ms (Δ   16ms) tid=7 val=8.384004228681919 ctl=List
+[+  17673ms] SCROLL #23  V-Scroll%            +  2378ms (Δ   34ms) tid=7 val=8.546772843666727 ctl=List
+[+  17689ms] SCROLL #24  V-Scroll%            +  2394ms (Δ   16ms) tid=7 val=8.58718949425411 ctl=List
+[+  17706ms] SCROLL #25  V-Scroll%            +  2411ms (Δ   17ms) tid=7 val=8.604820109647163 ctl=List
+[+  17740ms] SCROLL #26  V-Scroll%            +  2444ms (Δ   33ms) tid=7 val=8.605225529702327 ctl=List
+[+  18209ms] SCROLL #27  V-Scroll%            +  2914ms (Δ  470ms) tid=7 val=9.00483403515168 ctl=List
+[+  18224ms] SCROLL #28  V-Scroll%            +  2929ms (Δ   15ms) tid=7 val=9.355389094083096 ctl=List
+[+  18240ms] SCROLL #29  V-Scroll%            +  2944ms (Δ   15ms) tid=7 val=9.678788943174801 ctl=List
+[+  18256ms] SCROLL #30  V-Scroll%            +  2960ms (Δ   16ms) tid=7 val=10.228421116904165 ctl=List
+[+  18272ms] SCROLL #31  V-Scroll%            +  2977ms (Δ   17ms) tid=7 val=10.471519233190888 ctl=List
+[+  18289ms] SCROLL #32  V-Scroll%            +  2994ms (Δ   17ms) tid=7 val=10.675662908599945 ctl=List
+[+  18306ms] SCROLL #33  V-Scroll%            +  3011ms (Δ   17ms) tid=7 val=10.86655545727447 ctl=List
+[+  18323ms] SCROLL #34  V-Scroll%            +  3028ms (Δ   17ms) tid=7 val=11.030824364479072 ctl=List
+[+  18357ms] SCROLL #35  V-Scroll%            +  3061ms (Δ   33ms) tid=7 val=11.27425649611457 ctl=List
+[+  18390ms] SCROLL #36  V-Scroll%            +  3095ms (Δ   34ms) tid=7 val=11.418786762316392 ctl=List
+[+  18406ms] SCROLL #37  V-Scroll%            +  3111ms (Δ   16ms) tid=7 val=11.454823130859628 ctl=List
+[+  18423ms] SCROLL #38  V-Scroll%            +  3128ms (Δ   17ms) tid=7 val=11.464968152866241 ctl=List
+[+  18826ms] SCROLL #39  V-Scroll%            +  3530ms (Δ  402ms) tid=7 val=12.074042364507507 ctl=List
+[+  18842ms] SCROLL #40  V-Scroll%            +  3546ms (Δ   16ms) tid=7 val=12.698654240259001 ctl=List
+[+  18857ms] SCROLL #41  V-Scroll%            +  3562ms (Δ   16ms) tid=7 val=12.980175229053604 ctl=List
+[+  18890ms] SCROLL #42  V-Scroll%            +  3595ms (Δ   33ms) tid=7 val=13.449022498131418 ctl=List
+[+  18923ms] SCROLL #43  V-Scroll%            +  3628ms (Δ   33ms) tid=7 val=13.82614090122514 ctl=List
+[+  18956ms] SCROLL #44  V-Scroll%            +  3661ms (Δ   33ms) tid=7 val=14.090649322029767 ctl=List
+[+  18989ms] SCROLL #45  V-Scroll%            +  3694ms (Δ   33ms) tid=7 val=14.256105134131678 ctl=List
+[+  19005ms] SCROLL #46  V-Scroll%            +  3709ms (Δ   15ms) tid=7 val=14.300856843782498 ctl=List
+[+  19022ms] SCROLL #47  V-Scroll%            +  3727ms (Δ   18ms) tid=7 val=14.323584168440465 ctl=List
+[+  19039ms] SCROLL #48  V-Scroll%            +  3744ms (Δ   17ms) tid=7 val=14.324710776030157 ctl=List
+[+  19344ms] SCROLL #49  V-Scroll%            +  4049ms (Δ  305ms) tid=7 val=15.014970552064376 ctl=List
+[+  19359ms] SCROLL #50  V-Scroll%            +  4064ms (Δ   15ms) tid=7 val=15.343192598994216 ctl=List
+[+  19373ms] SCROLL #51  V-Scroll%            +  4078ms (Δ   14ms) tid=7 val=15.902191483430554 ctl=List
+[+  19406ms] SCROLL #52  V-Scroll%            +  4111ms (Δ   33ms) tid=7 val=16.358684944917457 ctl=List
+[+  19439ms] SCROLL #53  V-Scroll%            +  4144ms (Δ   33ms) tid=7 val=16.554292584370533 ctl=List
+[+  19456ms] SCROLL #54  V-Scroll%            +  4161ms (Δ   17ms) tid=7 val=16.858060899519042 ctl=List
+[+  19489ms] SCROLL #55  V-Scroll%            +  4194ms (Δ   33ms) tid=7 val=17.06244814431545 ctl=List
+[+  19523ms] SCROLL #56  V-Scroll%            +  4227ms (Δ   33ms) tid=7 val=17.12920361093283 ctl=List
+[+  19539ms] SCROLL #57  V-Scroll%            +  4244ms (Δ   17ms) tid=7 val=17.168176299679903 ctl=List
+[+  19555ms] SCROLL #58  V-Scroll%            +  4260ms (Δ   16ms) tid=7 val=17.49591755492006 ctl=List
+[+  19572ms] SCROLL #59  V-Scroll%            +  4277ms (Δ   17ms) tid=7 val=17.767139604896496 ctl=List
+[+  19591ms] SCROLL #60  V-Scroll%            +  4296ms (Δ   19ms) tid=7 val=18.344549796182406 ctl=List
+[+  19622ms] SCROLL #61  V-Scroll%            +  4327ms (Δ   31ms) tid=7 val=18.901516026643538 ctl=List
+[+  19638ms] SCROLL #62  V-Scroll%            +  4343ms (Δ   16ms) tid=7 val=19.16037712855843 ctl=List
+[+  19655ms] SCROLL #63  V-Scroll%            +  4360ms (Δ   17ms) tid=7 val=19.393170752327602 ctl=List
+[+  19688ms] SCROLL #64  V-Scroll%            +  4393ms (Δ   33ms) tid=7 val=19.75685713676394 ctl=List
+[+  19722ms] SCROLL #65  V-Scroll%            +  4427ms (Δ   34ms) tid=7 val=19.99216737974051 ctl=List
+[+  19756ms] SCROLL #66  V-Scroll%            +  4461ms (Δ   34ms) tid=7 val=20.07019368256857 ctl=List
+[+  19925ms] SCROLL #67  V-Scroll%            +  4630ms (Δ  169ms) tid=7 val=20.638114981761017 ctl=List
+[+  19940ms] SCROLL #68  V-Scroll%            +  4645ms (Δ   15ms) tid=7 val=20.975952862484565 ctl=List
+[+  19956ms] SCROLL #69  V-Scroll%            +  4661ms (Δ   16ms) tid=7 val=21.26896128176589 ctl=List
+[+  19972ms] SCROLL #70  V-Scroll%            +  4677ms (Δ   16ms) tid=7 val=21.553697862504876 ctl=List
+[+  19989ms] SCROLL #71  V-Scroll%            +  4694ms (Δ   17ms) tid=7 val=21.811162605717048 ctl=List
+[+  20005ms] SCROLL #72  V-Scroll%            +  4710ms (Δ   16ms) tid=7 val=22.233789608349312 ctl=List
+[+  20039ms] SCROLL #73  V-Scroll%            +  4743ms (Δ   33ms) tid=7 val=22.55573121465943 ctl=List
+[+  20073ms] SCROLL #74  V-Scroll%            +  4778ms (Δ   35ms) tid=7 val=22.783318641947226 ctl=List
+[+  20107ms] SCROLL #75  V-Scroll%            +  4812ms (Δ   34ms) tid=7 val=22.85411085463246 ctl=List
+[+  20122ms] SCROLL #76  V-Scroll%            +  4827ms (Δ   15ms) tid=7 val=22.927727520148185 ctl=List
+[+  20156ms] SCROLL #77  V-Scroll%            +  4861ms (Δ   34ms) tid=7 val=22.929936305732483 ctl=List
+[+  20448ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  20489ms] SCROLL #78  V-Scroll%            +  5194ms (Δ  333ms) tid=7 val=23.308092457225726 ctl=List
+[+  20505ms] SCROLL #79  V-Scroll%            +  5210ms (Δ   16ms) tid=7 val=23.640257630719486 ctl=List
+[+  20522ms] SCROLL #80  V-Scroll%            +  5227ms (Δ   17ms) tid=7 val=23.9668738651412 ctl=List
+[+  20539ms] SCROLL #81  V-Scroll%            +  5244ms (Δ   17ms) tid=7 val=24.266105601277136 ctl=List
+[+  20556ms] SCROLL #82  V-Scroll%            +  5260ms (Δ   16ms) tid=7 val=24.52274839698021 ctl=List
+[+  20572ms] SCROLL #83  V-Scroll%            +  5277ms (Δ   17ms) tid=7 val=24.98831184294976 ctl=List
+[+  20590ms] SCROLL #84  V-Scroll%            +  5295ms (Δ   18ms) tid=7 val=25.17019391106363 ctl=List
+[+  20607ms] SCROLL #85  V-Scroll%            +  5312ms (Δ   17ms) tid=7 val=25.337585584094306 ctl=List
+[+  20623ms] SCROLL #86  V-Scroll%            +  5328ms (Δ   16ms) tid=7 val=25.478494044910956 ctl=List
+[+  20655ms] SCROLL #87  V-Scroll%            +  5360ms (Δ   32ms) tid=7 val=25.587035545707135 ctl=List
+[+  20672ms] SCROLL #88  V-Scroll%            +  5376ms (Δ   16ms) tid=7 val=25.740565185070842 ctl=List
+[+  20689ms] SCROLL #89  V-Scroll%            +  5394ms (Δ   18ms) tid=7 val=25.776648363366046 ctl=List
+[+  20723ms] SCROLL #90  V-Scroll%            +  5428ms (Δ   34ms) tid=7 val=25.7896789288964 ctl=List
+[+  21777ms] SCROLL #91  V-Scroll%            +  6482ms (Δ 1054ms) tid=7 val=26.398753140537664 ctl=List
+[+  21791ms] SCROLL #92  V-Scroll%            +  6496ms (Δ   14ms) tid=7 val=26.733392090414988 ctl=List
+[+  21807ms] SCROLL #93  V-Scroll%            +  6511ms (Δ   15ms) tid=7 val=27.02336501628916 ctl=List
+[+  21824ms] SCROLL #94  V-Scroll%            +  6529ms (Δ   18ms) tid=7 val=27.559154197606592 ctl=List
+[+  21840ms] SCROLL #95  V-Scroll%            +  6544ms (Δ   15ms) tid=7 val=27.773733274161575 ctl=List
+[+  21873ms] SCROLL #96  V-Scroll%            +  6578ms (Δ   34ms) tid=7 val=28.150851677255297 ctl=List
+[+  21889ms] SCROLL #97  V-Scroll%            +  6594ms (Δ   16ms) tid=7 val=28.299535317212076 ctl=List
+[+  21905ms] SCROLL #98  V-Scroll%            +  6610ms (Δ   16ms) tid=7 val=28.415360098059924 ctl=List
+[+  21938ms] SCROLL #99  V-Scroll%            +  6643ms (Δ   33ms) tid=7 val=28.580815910161835 ctl=List
+[+  21971ms] SCROLL #100 V-Scroll%            +  6676ms (Δ   33ms) tid=7 val=28.648294944470624 ctl=List
+[+  22006ms] SCROLL #101 V-Scroll%            +  6710ms (Δ   34ms) tid=7 val=28.649421552060314 ctl=List
+[+  22261ms] SCROLL #102 V-Scroll%            +  6966ms (Δ  256ms) tid=7 val=29.29927419813467 ctl=List
+[+  22273ms] SCROLL #103 V-Scroll%            +  6978ms (Δ   12ms) tid=7 val=29.63070945685201 ctl=List
+[+  22289ms] SCROLL #104 V-Scroll%            +  6994ms (Δ   16ms) tid=7 val=29.934776084996102 ctl=List
+[+  22306ms] SCROLL #105 V-Scroll%            +  7011ms (Δ   17ms) tid=7 val=30.447027101545235 ctl=List
+[+  22340ms] SCROLL #106 V-Scroll%            +  7045ms (Δ   34ms) tid=7 val=30.671053814141104 ctl=List
+[+  22357ms] SCROLL #107 V-Scroll%            +  7061ms (Δ   16ms) tid=7 val=31.280999163200313 ctl=List
+[+  22374ms] SCROLL #108 V-Scroll%            +  7079ms (Δ   18ms) tid=7 val=32.040621471020735 ctl=List
+[+  22407ms] SCROLL #109 V-Scroll%            +  7111ms (Δ   32ms) tid=7 val=32.39255781432796 ctl=List
+[+  22422ms] SCROLL #110 V-Scroll%            +  7127ms (Δ   16ms) tid=7 val=32.74852773016053 ctl=List
+[+  22441ms] SCROLL #111 V-Scroll%            +  7146ms (Δ   19ms) tid=7 val=33.36290651810087 ctl=List
+[+  22455ms] SCROLL #112 V-Scroll%            +  7160ms (Δ   14ms) tid=7 val=33.63130570201807 ctl=List
+[+  22472ms] SCROLL #113 V-Scroll%            +  7177ms (Δ   17ms) tid=7 val=33.86277754533342 ctl=List
+[+  22506ms] SCROLL #114 V-Scroll%            +  7210ms (Δ   33ms) tid=7 val=34.19799249317561 ctl=List
+[+  22539ms] SCROLL #115 V-Scroll%            +  7244ms (Δ   34ms) tid=7 val=34.30836195445535 ctl=List
+[+  22556ms] SCROLL #116 V-Scroll%            +  7261ms (Δ   17ms) tid=7 val=34.394904458598724 ctl=List
+[+  24180ms] SC     #4   ChildAdded           +  8884ms (Δ 1623ms) tid=7 ctl=Button name='Vertical Small Decrease' rid.len=0
+[+  24185ms] SC     #5   ChildAdded           +  8889ms (Δ    5ms) tid=7 ctl=Button name='Vertical Small Decrease' rid.len=0
+[+  24189ms] SC     #6   ChildAdded           +  8894ms (Δ    5ms) tid=7 ctl=Button name='Vertical Large Decrease' rid.len=0
+[+  24191ms] SC     #7   ChildAdded           +  8896ms (Δ    2ms) tid=7 ctl=Button name='Vertical Large Increase' rid.len=0
+[+  24193ms] SC     #8   ChildAdded           +  8898ms (Δ    2ms) tid=7 ctl=Button name='Vertical Small Increase' rid.len=0
+[+  24195ms] SC     #9   ChildAdded           +  8899ms (Δ    1ms) tid=7 ctl=Button name='Vertical Small Increase' rid.len=0
+[+  24459ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000101B0 class='Windows.UI.Core.CoreWindow' title='Start' proc=StartMenuExperienceHost(7052)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: CoreWindow (AMBIGUOUS — needs Start/Search/NotifCenter disambiguation)
+[+  24482ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000101B0 class='Windows.UI.Core.CoreWindow' title='Start' proc=StartMenuExperienceHost(7052)
+            focus: ctl=ListItem name='Accessibility folder, Collapse…' | parent: ctl=Group name='A'
+            → classify: CoreWindow (AMBIGUOUS — needs Start/Search/NotifCenter disambiguation)
+[+  24491ms] SCROLL #117 V-Scroll%            +  9196ms (Δ  297ms) tid=7 val=34.31101184114906 ctl=List
+[+  24492ms] WINEVENT OBJECT_FOCUS           lat=  15ms hwnd=0x000101B0 class='Windows.UI.Core.CoreWindow' title='Start' proc=StartMenuExperienceHost(7052)
+            focus: ctl=ListItem name='Accessibility folder, Collapse…' | parent: ctl=Group name='A'
+            → classify: CoreWindow (AMBIGUOUS — needs Start/Search/NotifCenter disambiguation)
+[+  24494ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  24497ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  24500ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  24504ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  24506ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  24508ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  24551ms] SCROLL #118 V-Scroll%            +  9256ms (Δ   60ms) tid=7 val=34.2271192236994 ctl=List
+[+  24557ms] SCROLL #119 V-Scroll%            +  9262ms (Δ    6ms) tid=7 val=34.14322660624974 ctl=List
+[+  24560ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  24561ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  24561ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  24563ms] UIA      FocusChanged            ctl=ListItem name='Accessibility folder, Collapse…' class='' proc=StartMenuExperienceHost(7052)
+[+  24583ms] SCROLL #120 V-Scroll%            +  9288ms (Δ   26ms) tid=7 val=34.05933398880008 ctl=List
+[+  24599ms] SCROLL #121 V-Scroll%            +  9304ms (Δ   16ms) tid=7 val=33.97544137135041 ctl=List
+[+  24616ms] SCROLL #122 V-Scroll%            +  9320ms (Δ   16ms) tid=7 val=33.89154875390076 ctl=List
+[+  24633ms] SCROLL #123 V-Scroll%            +  9338ms (Δ   18ms) tid=7 val=33.807656136451094 ctl=List
+[+  24649ms] SCROLL #124 V-Scroll%            +  9354ms (Δ   16ms) tid=7 val=33.72376351900143 ctl=List
+[+  24657ms] SC     #10  ChildAdded           +  9361ms (Δ    7ms) tid=7 ctl=50006 name='' rid.len=0
+[+  24658ms] SC     #11  ChildRemoved         +  9363ms (Δ    2ms) tid=7 ctl=Button name='Search for apps, settings, and…' rid.len=1
+[+  24666ms] SCROLL #125 V-Scroll%            +  9370ms (Δ    7ms) tid=7 val=33.63987090155177 ctl=List
+[+  24682ms] SCROLL #126 V-Scroll%            +  9387ms (Δ   17ms) tid=7 val=33.47208566665244 ctl=List
+[+  24699ms] SCROLL #127 V-Scroll%            +  9404ms (Δ   17ms) tid=7 val=33.30430043175311 ctl=List
+[+  24716ms] SCROLL #128 V-Scroll%            +  9421ms (Δ   17ms) tid=7 val=33.136515196853786 ctl=List
+[+  24733ms] SCROLL #129 V-Scroll%            +  9438ms (Δ   17ms) tid=7 val=33.05262257940412 ctl=List
+[+  24749ms] SCROLL #130 V-Scroll%            +  9454ms (Δ   16ms) tid=7 val=32.884837344504795 ctl=List
+[+  24766ms] SCROLL #131 V-Scroll%            +  9471ms (Δ   17ms) tid=7 val=32.80094472705513 ctl=List
+[+  24866ms] SCROLL #132 V-Scroll%            +  9571ms (Δ  100ms) tid=7 val=32.71705210960547 ctl=List
+[+  24991ms] SCROLL #133 V-Scroll%            +  9696ms (Δ  125ms) tid=7 val=32.633159492155805 ctl=List
+[+  25024ms] SCROLL #134 V-Scroll%            +  9728ms (Δ   32ms) tid=7 val=32.54926687470615 ctl=List
+[+  25085ms] SCROLL #135 V-Scroll%            +  9790ms (Δ   62ms) tid=7 val=32.465374257256485 ctl=List
+[+  25150ms] SCROLL #136 V-Scroll%            +  9855ms (Δ   65ms) tid=7 val=32.38148163980683 ctl=List
+[+  25215ms] SCROLL #137 V-Scroll%            +  9920ms (Δ   65ms) tid=7 val=32.297589022357165 ctl=List
+[+  25264ms] SCROLL #138 V-Scroll%            +  9969ms (Δ   49ms) tid=7 val=32.2136964049075 ctl=List
+[+  25277ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  25284ms] SCROLL #139 V-Scroll%            +  9989ms (Δ   20ms) tid=7 val=32.12980378745784 ctl=List
+[+  25300ms] SCROLL #140 V-Scroll%            + 10005ms (Δ   16ms) tid=7 val=32.04591117000818 ctl=List
+[+  25316ms] SCROLL #141 V-Scroll%            + 10021ms (Δ   16ms) tid=7 val=31.962018552558515 ctl=List
+[+  25350ms] SCROLL #142 V-Scroll%            + 10055ms (Δ   34ms) tid=7 val=31.878125935108855 ctl=List
+[+  25367ms] SCROLL #143 V-Scroll%            + 10071ms (Δ   16ms) tid=7 val=31.79423331765919 ctl=List
+[+  25401ms] SCROLL #144 V-Scroll%            + 10106ms (Δ   35ms) tid=7 val=31.71034070020953 ctl=List
+[+  25433ms] SCROLL #145 V-Scroll%            + 10138ms (Δ   32ms) tid=7 val=31.626448082759868 ctl=List
+[+  25450ms] SCROLL #146 V-Scroll%            + 10155ms (Δ   17ms) tid=7 val=31.54255546531021 ctl=List
+[+  25485ms] SCROLL #147 V-Scroll%            + 10190ms (Δ   35ms) tid=7 val=31.458662847860545 ctl=List
+[+  25487ms] SCROLL #148 V-Scroll%            + 10192ms (Δ    2ms) tid=7 val=31.37477023041089 ctl=List
+[+  25553ms] SCROLL #149 V-Scroll%            + 10258ms (Δ   66ms) tid=7 val=31.290877612961225 ctl=List
+[+  25586ms] SCROLL #150 V-Scroll%            + 10291ms (Δ   33ms) tid=7 val=31.206984995511565 ctl=List
+[+  25634ms] SCROLL #151 V-Scroll%            + 10339ms (Δ   48ms) tid=7 val=31.1230923780619 ctl=List
+[+  25678ms] SCROLL #152 V-Scroll%            + 10383ms (Δ   44ms) tid=7 val=31.03919976061224 ctl=List
+[+  25710ms] SCROLL #153 V-Scroll%            + 10415ms (Δ   32ms) tid=7 val=30.955307143162578 ctl=List
+[+  25765ms] SCROLL #154 V-Scroll%            + 10469ms (Δ   54ms) tid=7 val=30.871414525712918 ctl=List
+[+  25783ms] SCROLL #155 V-Scroll%            + 10488ms (Δ   19ms) tid=7 val=30.787521908263255 ctl=List
+[+  25800ms] SCROLL #156 V-Scroll%            + 10505ms (Δ   17ms) tid=7 val=30.703629290813595 ctl=List
+[+  25816ms] SCROLL #157 V-Scroll%            + 10521ms (Δ   16ms) tid=7 val=30.61973667336393 ctl=List
+[+  25833ms] SCROLL #158 V-Scroll%            + 10538ms (Δ   17ms) tid=7 val=30.53584405591427 ctl=List
+[+  25849ms] SCROLL #159 V-Scroll%            + 10554ms (Δ   16ms) tid=7 val=30.451951438464608 ctl=List
+[+  25866ms] SCROLL #160 V-Scroll%            + 10571ms (Δ   17ms) tid=7 val=30.28416620356528 ctl=List
+[+  25883ms] SCROLL #161 V-Scroll%            + 10588ms (Δ   17ms) tid=7 val=30.11638096866595 ctl=List
+[+  25899ms] SCROLL #162 V-Scroll%            + 10604ms (Δ   16ms) tid=7 val=29.948595733766624 ctl=List
+[+  25916ms] SCROLL #163 V-Scroll%            + 10621ms (Δ   17ms) tid=7 val=29.86470311631696 ctl=List
+[+  25933ms] SCROLL #164 V-Scroll%            + 10638ms (Δ   17ms) tid=7 val=29.696917881417633 ctl=List
+[+  25950ms] SCROLL #165 V-Scroll%            + 10654ms (Δ   16ms) tid=7 val=29.61302526396797 ctl=List
+[+  25966ms] SCROLL #166 V-Scroll%            + 10671ms (Δ   17ms) tid=7 val=29.529132646518306 ctl=List
+[+  25983ms] SCROLL #167 V-Scroll%            + 10688ms (Δ   17ms) tid=7 val=29.445240029068646 ctl=List
+[+  26016ms] SCROLL #168 V-Scroll%            + 10721ms (Δ   33ms) tid=7 val=29.361347411618986 ctl=List
+[+  26033ms] SCROLL #169 V-Scroll%            + 10738ms (Δ   17ms) tid=7 val=29.193562176719656 ctl=List
+[+  26049ms] SCROLL #170 V-Scroll%            + 10754ms (Δ   16ms) tid=7 val=29.109669559269992 ctl=List
+[+  26066ms] SCROLL #171 V-Scroll%            + 10771ms (Δ   17ms) tid=7 val=29.025776941820332 ctl=List
+[+  26082ms] SCROLL #172 V-Scroll%            + 10787ms (Δ   16ms) tid=7 val=28.857991706921002 ctl=List
+[+  26100ms] SCROLL #173 V-Scroll%            + 10805ms (Δ   18ms) tid=7 val=28.774099089471342 ctl=List
+[+  26116ms] SCROLL #174 V-Scroll%            + 10821ms (Δ   16ms) tid=7 val=28.69020647202168 ctl=List
+[+  26133ms] SCROLL #175 V-Scroll%            + 10838ms (Δ   17ms) tid=7 val=28.60631385457202 ctl=List
+[+  26149ms] SCROLL #176 V-Scroll%            + 10854ms (Δ   16ms) tid=7 val=28.522421237122355 ctl=List
+[+  26166ms] SCROLL #177 V-Scroll%            + 10871ms (Δ   17ms) tid=7 val=28.438528619672695 ctl=List
+[+  26183ms] SCROLL #178 V-Scroll%            + 10888ms (Δ   17ms) tid=7 val=28.35463600222303 ctl=List
+[+  26200ms] SCROLL #179 V-Scroll%            + 10905ms (Δ   17ms) tid=7 val=28.270743384773372 ctl=List
+[+  26216ms] SCROLL #180 V-Scroll%            + 10921ms (Δ   16ms) tid=7 val=28.18685076732371 ctl=List
+[+  26250ms] SCROLL #181 V-Scroll%            + 10954ms (Δ   33ms) tid=7 val=28.10295814987405 ctl=List
+[+  26282ms] SCROLL #182 V-Scroll%            + 10987ms (Δ   33ms) tid=7 val=28.019065532424385 ctl=List
+[+  26317ms] SCROLL #183 V-Scroll%            + 11021ms (Δ   34ms) tid=7 val=27.935172914974725 ctl=List
+[+  26333ms] SCROLL #184 V-Scroll%            + 11038ms (Δ   17ms) tid=7 val=27.85128029752506 ctl=List
+[+  26349ms] SCROLL #185 V-Scroll%            + 11054ms (Δ   16ms) tid=7 val=27.7673876800754 ctl=List
+[+  26366ms] SCROLL #186 V-Scroll%            + 11071ms (Δ   17ms) tid=7 val=27.59960244517607 ctl=List
+[+  26400ms] SCROLL #187 V-Scroll%            + 11105ms (Δ   34ms) tid=7 val=27.51570982772641 ctl=List
+[+  26417ms] SCROLL #188 V-Scroll%            + 11122ms (Δ   17ms) tid=7 val=27.431817210276748 ctl=List
+[+  26433ms] SCROLL #189 V-Scroll%            + 11138ms (Δ   16ms) tid=7 val=27.34792459282709 ctl=List
+[+  26449ms] SCROLL #190 V-Scroll%            + 11154ms (Δ   16ms) tid=7 val=27.264031975377428 ctl=List
+[+  26466ms] SCROLL #191 V-Scroll%            + 11171ms (Δ   17ms) tid=7 val=27.180139357927768 ctl=List
+[+  26484ms] SCROLL #192 V-Scroll%            + 11189ms (Δ   18ms) tid=7 val=27.096246740478104 ctl=List
+[+  26499ms] SCROLL #193 V-Scroll%            + 11204ms (Δ   15ms) tid=7 val=27.012354123028445 ctl=List
+[+  26516ms] SCROLL #194 V-Scroll%            + 11221ms (Δ   17ms) tid=7 val=26.92846150557878 ctl=List
+[+  26533ms] SCROLL #195 V-Scroll%            + 11237ms (Δ   16ms) tid=7 val=26.84456888812912 ctl=List
+[+  26549ms] SCROLL #196 V-Scroll%            + 11254ms (Δ   17ms) tid=7 val=26.760676270679458 ctl=List
+[+  26566ms] SCROLL #197 V-Scroll%            + 11271ms (Δ   17ms) tid=7 val=26.676783653229798 ctl=List
+[+  26583ms] SCROLL #198 V-Scroll%            + 11288ms (Δ   17ms) tid=7 val=26.592891035780134 ctl=List
+[+  26616ms] SCROLL #199 V-Scroll%            + 11321ms (Δ   33ms) tid=7 val=26.34121318343114 ctl=List
+[+  26633ms] SCROLL #200 V-Scroll%            + 11338ms (Δ   17ms) tid=7 val=26.17342794853181 ctl=List
+[+  26652ms] SCROLL #201 V-Scroll%            + 11357ms (Δ   19ms) tid=7 val=26.089535331082146 ctl=List
+[+  26666ms] SCROLL #202 V-Scroll%            + 11371ms (Δ   14ms) tid=7 val=26.005642713632483 ctl=List
+[+  26683ms] SCROLL #203 V-Scroll%            + 11388ms (Δ   17ms) tid=7 val=25.837857478733152 ctl=List
+[+  26700ms] SCROLL #204 V-Scroll%            + 11404ms (Δ   16ms) tid=7 val=25.75396486128349 ctl=List
+[+  26716ms] SCROLL #205 V-Scroll%            + 11421ms (Δ   17ms) tid=7 val=25.670072243833822 ctl=List
+[+  26732ms] SCROLL #206 V-Scroll%            + 11437ms (Δ   16ms) tid=7 val=25.58617962638416 ctl=List
+[+  26749ms] SCROLL #207 V-Scroll%            + 11454ms (Δ   17ms) tid=7 val=25.41839439148483 ctl=List
+[+  26766ms] SCROLL #208 V-Scroll%            + 11471ms (Δ   17ms) tid=7 val=25.2506091565855 ctl=List
+[+  26783ms] SCROLL #209 V-Scroll%            + 11487ms (Δ   16ms) tid=7 val=25.166716539135837 ctl=List
+[+  26799ms] SCROLL #210 V-Scroll%            + 11504ms (Δ   17ms) tid=7 val=24.998931304236503 ctl=List
+[+  26816ms] SCROLL #211 V-Scroll%            + 11521ms (Δ   17ms) tid=7 val=24.74725345188751 ctl=List
+[+  26833ms] SCROLL #212 V-Scroll%            + 11537ms (Δ   16ms) tid=7 val=24.663360834437846 ctl=List
+[+  26849ms] SCROLL #213 V-Scroll%            + 11554ms (Δ   17ms) tid=7 val=24.579468216988182 ctl=List
+[+  26866ms] SCROLL #214 V-Scroll%            + 11571ms (Δ   17ms) tid=7 val=24.49557559953852 ctl=List
+[+  26885ms] SCROLL #215 V-Scroll%            + 11590ms (Δ   19ms) tid=7 val=24.411682982088852 ctl=List
+[+  26934ms] SCROLL #216 V-Scroll%            + 11639ms (Δ   49ms) tid=7 val=24.32779036463919 ctl=List
+[+  26950ms] SCROLL #217 V-Scroll%            + 11655ms (Δ   16ms) tid=7 val=24.243897747189525 ctl=List
+[+  26967ms] SCROLL #218 V-Scroll%            + 11672ms (Δ   17ms) tid=7 val=24.160005129739858 ctl=List
+[+  26983ms] SCROLL #219 V-Scroll%            + 11688ms (Δ   16ms) tid=7 val=24.076112512290194 ctl=List
+[+  27016ms] SCROLL #220 V-Scroll%            + 11721ms (Δ   33ms) tid=7 val=23.99221989484053 ctl=List
+[+  27033ms] SCROLL #221 V-Scroll%            + 11738ms (Δ   17ms) tid=7 val=23.908327277390867 ctl=List
+[+  27050ms] SCROLL #222 V-Scroll%            + 11754ms (Δ   16ms) tid=7 val=23.8244346599412 ctl=List
+[+  27066ms] SCROLL #223 V-Scroll%            + 11771ms (Δ   17ms) tid=7 val=23.740542042491537 ctl=List
+[+  27099ms] SCROLL #224 V-Scroll%            + 11804ms (Δ   33ms) tid=7 val=23.656649425041874 ctl=List
+[+  27116ms] SCROLL #225 V-Scroll%            + 11821ms (Δ   17ms) tid=7 val=23.572756807592206 ctl=List
+[+  27133ms] SCROLL #226 V-Scroll%            + 11838ms (Δ   17ms) tid=7 val=23.488864190142543 ctl=List
+[+  27150ms] SCROLL #227 V-Scroll%            + 11855ms (Δ   17ms) tid=7 val=23.40497157269288 ctl=List
+[+  27388ms] SC     #12  ChildAdded           + 12092ms (Δ  237ms) tid=7 ctl=50006 name='' rid.len=0
+[+  27390ms] SC     #13  ChildRemoved         + 12094ms (Δ    2ms) tid=7 ctl=Button name='Search for apps, settings, and…' rid.len=1
+[+  27391ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+  27395ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+  27400ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+  27401ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27406ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  27407ms] UIA      FocusChanged            ctl=Edit name='Search box' class='' proc=SearchHost(7044)
+[+  29479ms] SC     #14  ChildRemoved         + 14183ms (Δ 2089ms) tid=7 ctl=Button name='Vertical Small Decrease' rid.len=1
+[+  29484ms] SC     #15  ChildRemoved         + 14188ms (Δ    5ms) tid=7 ctl=50014 name='Vertical' rid.len=1
+[+  29488ms] SC     #16  ChildRemoved         + 14192ms (Δ    4ms) tid=7 ctl=50014 name='Vertical' rid.len=1
+[+  29491ms] SC     #17  ChildRemoved         + 14195ms (Δ    3ms) tid=7 ctl=50014 name='Vertical' rid.len=1
+[+  29495ms] SC     #18  ChildRemoved         + 14199ms (Δ    4ms) tid=7 ctl=50014 name='Vertical' rid.len=1
+[+  29499ms] SC     #19  ChildRemoved         + 14203ms (Δ    4ms) tid=7 ctl=50014 name='Vertical' rid.len=1
+[+  29501ms] SC     #20  ChildRemoved         + 14206ms (Δ    3ms) tid=7 ctl=Button name='Vertical Small Increase' rid.len=1
+[+  32534ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  33625ms] SC     #21  ChildAdded           + 18329ms (Δ 4123ms) tid=7 ctl=50014 name='Vertical' rid.len=0
+[+  34349ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000101B0 class='Windows.UI.Core.CoreWindow' title='Start' proc=StartMenuExperienceHost(7052)
+            focus: ctl=ListItem name='Accessibility folder, Collapse…' | parent: ctl=Group name='A'
+            → classify: CoreWindow (AMBIGUOUS — needs Start/Search/NotifCenter disambiguation)
+[+  34352ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x000101B0 class='Windows.UI.Core.CoreWindow' title='Start' proc=StartMenuExperienceHost(7052)
+            focus: ctl=ListItem name='Accessibility folder, Collapse…' | parent: ctl=Group name='A'
+            → classify: CoreWindow (AMBIGUOUS — needs Start/Search/NotifCenter disambiguation)
+[+  34357ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34358ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x000101B0 class='Windows.UI.Core.CoreWindow' title='Start' proc=StartMenuExperienceHost(7052)
+            focus: ctl=ListItem name='Accessibility folder, Collapse…' | parent: ctl=Group name='A'
+            → classify: CoreWindow (AMBIGUOUS — needs Start/Search/NotifCenter disambiguation)
+[+  34360ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34363ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34367ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34368ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34371ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34416ms] SCROLL #228 V-Scroll%            + 19121ms (Δ  792ms) tid=7 val=23.488864190142543 ctl=List
+[+  34420ms] UIA      FocusChanged            ctl=ListItem name='Accessibility folder, Collapse…' class='' proc=StartMenuExperienceHost(7052)
+[+  34435ms] SCROLL #229 V-Scroll%            + 19140ms (Δ   19ms) tid=7 val=23.572756807592206 ctl=List
+[+  34435ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34436ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34436ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  34449ms] SCROLL #230 V-Scroll%            + 19154ms (Δ   14ms) tid=7 val=23.8244346599412 ctl=List
+[+  34466ms] SCROLL #231 V-Scroll%            + 19171ms (Δ   17ms) tid=7 val=24.076112512290194 ctl=List
+[+  34484ms] SCROLL #232 V-Scroll%            + 19189ms (Δ   18ms) tid=7 val=24.831146069337176 ctl=List
+[+  34499ms] SCROLL #233 V-Scroll%            + 19204ms (Δ   15ms) tid=7 val=26.173427948531806 ctl=List
+[+  34516ms] SCROLL #234 V-Scroll%            + 19221ms (Δ   17ms) tid=7 val=27.683495062625767 ctl=List
+[+  34522ms] SC     #22  ChildAdded           + 19227ms (Δ    6ms) tid=7 ctl=50006 name='' rid.len=0
+[+  34524ms] SC     #23  ChildRemoved         + 19229ms (Δ    2ms) tid=7 ctl=Button name='Search for apps, settings, and…' rid.len=1
+[+  34533ms] SCROLL #235 V-Scroll%            + 19237ms (Δ    8ms) tid=7 val=29.445240029068717 ctl=List
+[+  34550ms] SCROLL #236 V-Scroll%            + 19254ms (Δ   17ms) tid=7 val=31.458662847860662 ctl=List
+[+  34566ms] SCROLL #237 V-Scroll%            + 19271ms (Δ   17ms) tid=7 val=34.73047492839758 ctl=List
+[+  34583ms] SCROLL #238 V-Scroll%            + 19287ms (Δ   16ms) tid=7 val=37.918394391484824 ctl=List
+[+  34599ms] SCROLL #239 V-Scroll%            + 19304ms (Δ   17ms) tid=7 val=40.26738768007543 ctl=List
+[+  34616ms] SCROLL #240 V-Scroll%            + 19320ms (Δ   16ms) tid=7 val=43.53919976061235 ctl=List
+[+  34632ms] SCROLL #241 V-Scroll%            + 19337ms (Δ   17ms) tid=7 val=45.21705210960564 ctl=List
+[+  34649ms] SCROLL #242 V-Scroll%            + 19354ms (Δ   17ms) tid=7 val=46.978797076048586 ctl=List
+[+  34666ms] SCROLL #243 V-Scroll%            + 19371ms (Δ   17ms) tid=7 val=48.824434659941204 ctl=List
+[+  34683ms] SCROLL #244 V-Scroll%            + 19388ms (Δ   17ms) tid=7 val=50.16671653913584 ctl=List
+[+  34699ms] SCROLL #245 V-Scroll%            + 19404ms (Δ   16ms) tid=7 val=51.4251058008808 ctl=List
+[+  34716ms] SCROLL #246 V-Scroll%            + 19421ms (Δ   17ms) tid=7 val=52.34792459282711 ctl=List
+[+  34733ms] SCROLL #247 V-Scroll%            + 19438ms (Δ   17ms) tid=7 val=53.43852861967276 ctl=List
+[+  34749ms] SCROLL #248 V-Scroll%            + 19454ms (Δ   16ms) tid=7 val=54.19356217671974 ctl=List
+[+  34766ms] SCROLL #249 V-Scroll%            + 19471ms (Δ   17ms) tid=7 val=55.03248835121637 ctl=List
+[+  34783ms] SCROLL #250 V-Scroll%            + 19488ms (Δ   17ms) tid=7 val=56.20698499551167 ctl=List
+[+  34800ms] SCROLL #251 V-Scroll%            + 19505ms (Δ   17ms) tid=7 val=57.213696404907644 ctl=List
+[+  34816ms] SCROLL #252 V-Scroll%            + 19521ms (Δ   16ms) tid=7 val=58.555978284102274 ctl=List
+[+  34832ms] SCROLL #253 V-Scroll%            + 19537ms (Δ   16ms) tid=7 val=59.14322660624993 ctl=List
+[+  34849ms] SCROLL #254 V-Scroll%            + 19554ms (Δ   17ms) tid=7 val=59.39490445859893 ctl=List
+[+  34866ms] SCROLL #255 V-Scroll%            + 19571ms (Δ   17ms) tid=7 val=59.98215278074658 ctl=List
+[+  34883ms] SCROLL #256 V-Scroll%            + 19588ms (Δ   17ms) tid=7 val=60.653293720343896 ctl=List
+[+  34899ms] SCROLL #257 V-Scroll%            + 19604ms (Δ   16ms) tid=7 val=61.66000512973987 ctl=List
+[+  34916ms] SCROLL #258 V-Scroll%            + 19621ms (Δ   17ms) tid=7 val=63.0022870089345 ctl=List
+[+  34933ms] SCROLL #259 V-Scroll%            + 19638ms (Δ   17ms) tid=7 val=64.4284615055788 ctl=List
+[+  34950ms] SCROLL #260 V-Scroll%            + 19655ms (Δ   17ms) tid=7 val=66.86134741161906 ctl=List
+[+  34966ms] SCROLL #261 V-Scroll%            + 19671ms (Δ   16ms) tid=7 val=69.04255546531033 ctl=List
+[+  34983ms] SCROLL #262 V-Scroll%            + 19688ms (Δ   17ms) tid=7 val=71.89490445859893 ctl=List
+[+  35000ms] SCROLL #263 V-Scroll%            + 19704ms (Δ   16ms) tid=7 val=74.49557559953851 ctl=List
+[+  35016ms] SCROLL #264 V-Scroll%            + 19721ms (Δ   17ms) tid=7 val=78.7740990894714 ctl=List
+[+  35033ms] SCROLL #265 V-Scroll%            + 19738ms (Δ   17ms) tid=7 val=81.20698499551166 ctl=List
+[+  35049ms] SCROLL #266 V-Scroll%            + 19754ms (Δ   16ms) tid=7 val=82.96872996195462 ctl=List
+[+  35066ms] SCROLL #267 V-Scroll%            + 19771ms (Δ   17ms) tid=7 val=83.63987090155194 ctl=List
+[+  35083ms] SCROLL #268 V-Scroll%            + 19788ms (Δ   17ms) tid=7 val=83.7237635190016 ctl=List
+[+  35270ms] SCROLL #269 V-Scroll%            + 19974ms (Δ  186ms) tid=7 val=83.80765613645126 ctl=List
+[+  35281ms] SCROLL #270 V-Scroll%            + 19986ms (Δ   12ms) tid=7 val=83.89154875390092 ctl=List
+[+  35301ms] SCROLL #271 V-Scroll%            + 20005ms (Δ   19ms) tid=7 val=85.5694011028942 ctl=List
+[+  35317ms] SCROLL #272 V-Scroll%            + 20022ms (Δ   17ms) tid=7 val=87.49893130423649 ctl=List
+[+  35334ms] SCROLL #273 V-Scroll%            + 20038ms (Δ   16ms) tid=7 val=89.93181721027678 ctl=List
+[+  35350ms] SCROLL #274 V-Scroll%            + 20055ms (Δ   17ms) tid=7 val=92.4485957337667 ctl=List
+[+  35373ms] SCROLL #275 V-Scroll%            + 20077ms (Δ   22ms) tid=7 val=94.88148163980696 ctl=List
+[+  35375ms] SC     #24  ChildAdded           + 20079ms (Δ    2ms) tid=7 ctl=ListItem name='Accessibility folder, Collapse…' rid.len=0
+[+  35378ms] SC     #25  ChildRemoved         + 20082ms (Δ    3ms) tid=7 ctl=Group name='A' rid.len=1
+[+  35380ms] SC     #26  ChildRemoved         + 20084ms (Δ    2ms) tid=7 ctl=Group name='A' rid.len=1
+[+  35383ms] SC     #27  ChildAdded           + 20088ms (Δ    4ms) tid=7 ctl=ListItem name='Windows-Hinting, New' rid.len=0
+[+  35384ms] SCROLL #276 V-Scroll%            + 20089ms (Δ    1ms) tid=7 val=96.81101184114925 ctl=List
+[+  35391ms] SC     #28  ChildAdded           + 20095ms (Δ    6ms) tid=7 ctl=ListItem name='WiX Toolset v3.14 folder, Coll…' rid.len=0
+[+  35392ms] SC     #29  ChildAdded           + 20097ms (Δ    2ms) tid=7 ctl=ListItem name='WiX Toolset v3.14 folder, Coll…' rid.len=0
+[+  35401ms] SCROLL #277 V-Scroll%            + 20106ms (Δ    9ms) tid=7 val=98.90832727739087 ctl=List
+[+  35407ms] SC     #30  ChildAdded           + 20111ms (Δ    5ms) tid=7 ctl=ListItem name='XBOX, New' rid.len=0
+[+  35409ms] SC     #31  ChildRemoved         + 20113ms (Δ    2ms) tid=7 ctl=Group name='B' rid.len=1
+[+  35410ms] SC     #32  ChildAdded           + 20115ms (Δ    2ms) tid=7 ctl=ListItem name='XBOX, New' rid.len=0
+[+  35416ms] SCROLL #278 V-Scroll%            + 20120ms (Δ    5ms) tid=7 val=100 ctl=List
+[+  36407ms] SC     #33  ChildAdded           + 21112ms (Δ  992ms) tid=7 ctl=50006 name='' rid.len=0
+[+  36409ms] SC     #34  ChildRemoved         + 21114ms (Δ    2ms) tid=7 ctl=Button name='Search for apps, settings, and…' rid.len=1
+[+  36411ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+  36415ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+  36421ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+  36422ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  36425ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  36426ms] UIA      FocusChanged            ctl=Edit name='Search box' class='' proc=SearchHost(7044)
+[+  37059ms] SCROLL #279 V-Scroll%            + 21764ms (Δ  650ms) tid=7 val=99.36947422778825 ctl=List
+[+  37075ms] SCROLL #280 V-Scroll%            + 21779ms (Δ   15ms) tid=7 val=99.05420816813987 ctl=List
+[+  37089ms] SCROLL #281 V-Scroll%            + 21794ms (Δ   15ms) tid=7 val=98.7456319360945 ctl=List
+[+  37106ms] SCROLL #282 V-Scroll%            + 21811ms (Δ   17ms) tid=7 val=97.48138146082478 ctl=List
+[+  37123ms] SCROLL #283 V-Scroll%            + 21828ms (Δ   17ms) tid=7 val=97.02083062524373 ctl=List
+[+  37156ms] SCROLL #284 V-Scroll%            + 21861ms (Δ   33ms) tid=7 val=96.60118675256727 ctl=List
+[+  37173ms] SCROLL #285 V-Scroll%            + 21878ms (Δ   17ms) tid=7 val=96.17966414272715 ctl=List
+[+  37189ms] SCROLL #286 V-Scroll%            + 21894ms (Δ   16ms) tid=7 val=95.24652839838164 ctl=List
+[+  37206ms] SCROLL #287 V-Scroll%            + 21910ms (Δ   16ms) tid=7 val=94.2705625243728 ctl=List
+[+  37223ms] SCROLL #288 V-Scroll%            + 21928ms (Δ   18ms) tid=7 val=93.79680340488106 ctl=List
+[+  37256ms] SCROLL #289 V-Scroll%            + 21960ms (Δ   32ms) tid=7 val=92.97238687971208 ctl=List
+[+  37289ms] SCROLL #290 V-Scroll%            + 21994ms (Δ   34ms) tid=7 val=92.30153807641688 ctl=List
+[+  37305ms] SCROLL #291 V-Scroll%            + 22010ms (Δ   16ms) tid=7 val=92.03801980087417 ctl=List
+[+  37322ms] SCROLL #292 V-Scroll%            + 22027ms (Δ   17ms) tid=7 val=91.7926097588717 ctl=List
+[+  37340ms] SCROLL #293 V-Scroll%            + 22044ms (Δ   17ms) tid=7 val=91.6213019343884 ctl=List
+[+  37357ms] SCROLL #294 V-Scroll%            + 22062ms (Δ   18ms) tid=7 val=91.48888904686078 ctl=List
+[+  37390ms] SCROLL #295 V-Scroll%            + 22094ms (Δ   32ms) tid=7 val=91.40871266898479 ctl=List
+[+  37406ms] SCROLL #296 V-Scroll%            + 22111ms (Δ   17ms) tid=7 val=91.38177564019239 ctl=List
+[+  37889ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x002F0366 class='CASCADIA_HOSTING_WINDOW_CLASS' title='PowerShell' proc=WindowsTerminal(5060)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  37916ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002F0366 class='CASCADIA_HOSTING_WINDOW_CLASS' title='PowerShell' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='PowerShell' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  37922ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00290826 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='PowerShell' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  37926ms] UIA      FocusChanged            ctl=Text name='PowerShell' class='TermControl' proc=WindowsTerminal(5060)
+[+  37927ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00290826 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='PowerShell' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  37929ms] UIA      FocusChanged            ctl=Window name='PowerShell' class='CASCADIA_HOSTING_WINDOW_CLASS' proc=WindowsTerminal(5060)
+[+  37930ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00370584 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='PowerShell' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  37934ms] UIA-COM  Win.WindowClosed       ctl=Window name='Search' class='Windows.UI.Core.CoreWindow' proc=SearchHost(7044)
+[+  37944ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  37944ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  37944ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  37945ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  37948ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  37949ms] UIA      FocusChanged            ctl=Text name='PowerShell' class='' proc=WindowsTerminal(5060)
+[+  37962ms] SCROLL #297 V-Scroll%            + 22667ms (Δ  556ms) tid=7 val=0 ctl=List
+[+  38000ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  38001ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  38001ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  38060ms] UIA-COM  Win.WindowClosed       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(7052)
+[+  38061ms] ╚═ SC DETACHED (WindowClosed name='Start') — over 22766ms: SC=34, LAYOUT=0, SCROLL=297.
+[+  41579ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  42789ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  42790ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  43055ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C069C class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Plan next steps' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='PowerShell' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  43061ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x000C069C class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Plan next steps' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  43064ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='TermControl' proc=WindowsTerminal(5060)
+[+  43064ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x000905FE class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  43066ms] UIA      FocusChanged            ctl=Window name='✳ Plan next steps' class='CASCADIA_HOSTING_WINDOW_CLASS' proc=WindowsTerminal(5060)
+[+  43067ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x000605EC class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  43068ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  43071ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x000605EC class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  43072ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  43075ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  43076ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  43078ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  43079ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='' proc=WindowsTerminal(5060)
+[+  47898ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  53050ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  61600ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  68096ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  84689ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  84921ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  84922ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  84923ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85013ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85014ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85014ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85142ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85144ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85146ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85147ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85147ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85189ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000200E0 class='Shell_TrayWnd' title='' proc=explorer(5936)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+  85207ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000200E0 class='Shell_TrayWnd' title='' proc=explorer(5936)
+            focus: ctl=Pane name='' | parent: ctl=Pane name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+  85214ms] WINEVENT OBJECT_FOCUS           lat=  15ms hwnd=0x00010222 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  85218ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00010224 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  85218ms] UIA      FocusChanged            ctl=Button name='Start' class='ToggleButton' proc=explorer(5936)
+[+  85218ms] UIA      FocusChanged            ctl=Pane name='' class='Shell_TrayWnd' proc=explorer(5936)
+[+  85221ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00010224 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  85222ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85226ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85233ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85240ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85241ms] UIA      FocusChanged            ctl=Button name='Start' class='' proc=explorer(5936)
+[+  85390ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x0014083C class='Chrome_WidgetWin_1' title='UI Automation Events Overview - .NET Fra…' proc=msedge(856)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  85487ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x0035084C class='Chrome_RenderWidgetHostHWND' title='Chrome Legacy Window' proc=msedge(856)
+            focus: ctl=Document name='UI Automation Events Overview …' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  85504ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x0014083C class='Chrome_WidgetWin_1' title='UI Automation Events Overview - .NET Fra…' proc=msedge(856)
+            focus: ctl=Document name='UI Automation Events Overview …' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  85521ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85524ms] UIA      FocusChanged            ctl=Document name='UI Automation Events Overview …' class='' proc=msedge(856)
+[+  85530ms] UIA      FocusChanged            ctl=Document name='UI Automation Events Overview …' class='Chrome_RenderWidgetHostHWND' proc=msedge(856)
+[+  85594ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85596ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  85596ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  87571ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  87573ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  87574ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  87679ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  87680ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  87681ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  87781ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  87782ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  87783ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  88049ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  88052ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  88053ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  88054ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  88055ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  90365ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  95416ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  97235ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  97237ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  97384ms] WINEVENT SYSTEM_MENUPOPUPSTART  lat=   0ms hwnd=0x000F05A8 class='Chrome_WidgetWin_1' title='' proc=msedge(856)
+            focus: ctl=Document name='UI Automation Events Overview …' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  97396ms] WINEVENT SYSTEM_MENUSTART       lat=   0ms hwnd=0x000F05A8 class='Chrome_WidgetWin_1' title='' proc=msedge(856)
+            focus: ctl=Document name='UI Automation Events Overview …' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  97406ms] UIA-COM  MenuModeEnd            ctl=? name='?' class='?' proc=?
+[+  97406ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  97407ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  97409ms] UIA-COM  MenuModeEnd            ctl=Pane name='' class='' proc=msedge(856)
+[+  97411ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x000F05A8 class='Chrome_WidgetWin_1' title='' proc=msedge(856)
+            focus: ctl=Document name='UI Automation Events Overview …' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  97416ms] WINEVENT SYSTEM_MENUEND         lat=   0ms hwnd=0x000F05A8 class='Chrome_WidgetWin_1' title='' proc=msedge(856)
+            focus: ctl=Document name='UI Automation Events Overview …' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  97417ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  97417ms] UIA      MenuClosed             ctl=ControlType.Pane name='' class='' proc=msedge(856)
+[+  97418ms] UIA      FocusChanged            ctl=Document name='UI Automation Events Overview …' class='' proc=msedge(856)
+[+  97418ms] UIA      FocusChanged            ctl=Document name='UI Automation Events Overview …' class='Chrome_RenderWidgetHostHWND' proc=msedge(856)
+[+  97418ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  97625ms] WINEVENT SYSTEM_MENUPOPUPSTART  lat=   0ms hwnd=0x0069063E class='Chrome_WidgetWin_1' title='' proc=msedge(856)
+            focus: ctl=Document name='UI Automation Events Overview …' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  97637ms] WINEVENT SYSTEM_MENUSTART       lat=   0ms hwnd=0x0069063E class='Chrome_WidgetWin_1' title='' proc=msedge(856)
+            focus: ctl=Document name='UI Automation Events Overview …' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  97666ms] UIA      MenuOpened             ctl=ControlType.Pane name='' class='Chrome_WidgetWin_1' proc=msedge(856)
+[+  98264ms] UIA-COM  MenuModeEnd            ctl=? name='?' class='?' proc=?
+[+  98265ms] WINEVENT SYSTEM_MENUPOPUPEND    lat=   0ms hwnd=0x0069063E class='Chrome_WidgetWin_1' title='' proc=msedge(856)
+            focus: ctl=Document name='UI Automation Events Overview …' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  98266ms] UIA-COM  MenuModeEnd            ctl=Pane name='' class='' proc=msedge(856)
+[+  98266ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  98268ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+  98272ms] WINEVENT SYSTEM_MENUEND         lat=   0ms hwnd=0x0069063E class='Chrome_WidgetWin_1' title='' proc=msedge(856)
+            focus: ctl=Document name='UI Automation Events Overview …' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+  98276ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  98277ms] UIA      MenuClosed             ctl=? name='?' class='?' proc=?
+[+  98278ms] UIA      MenuClosed             ctl=ControlType.Pane name='' class='' proc=msedge(856)
+[+  98279ms] UIA      FocusChanged            ctl=Document name='UI Automation Events Overview …' class='' proc=msedge(856)
+[+ 110791ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110795ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110795ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110796ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110796ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110796ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x0014083C class='Chrome_WidgetWin_1' title='UI Automation Events Overview - .NET Fra…' proc=msedge(856)
+            focus: ctl=? name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 110796ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110797ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110798ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110798ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110799ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110799ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110799ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110802ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x000200E0 class='Shell_TrayWnd' title='' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+ 110808ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x00010222 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 110812ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x00010224 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 110813ms] UIA      FocusChanged            ctl=? name='?' class='?' proc=?
+[+ 110814ms] UIA      FocusChanged            ctl=Button name='Start' class='ToggleButton' proc=explorer(5936)
+[+ 110814ms] UIA      FocusChanged            ctl=Pane name='' class='Shell_TrayWnd' proc=explorer(5936)
+[+ 110815ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x00010224 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 110819ms] WINEVENT SYSTEM_FOREGROUND      lat=  16ms hwnd=0x000200E0 class='Shell_TrayWnd' title='' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+ 110819ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110824ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110829ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110837ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 110838ms] UIA      FocusChanged            ctl=Button name='Start' class='' proc=explorer(5936)
+[+ 115972ms] WINEVENT OBJECT_SHOW            lat=   0ms hwnd=0x0008068C class='XamlExplorerHostIslandWindow' title='' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: XamlExplorerHostIsland (Task View / Snap Assist — disambiguate by title)
+[+ 115974ms] UIA-COM  Win.WindowOpened       ctl=Window name='' class='XamlExplorerHostIslandWindow' proc=explorer(5936)
+[+ 115974ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 115980ms] WINEVENT OBJECT_FOCUS           lat=  47ms hwnd=0x0008068C class='XamlExplorerHostIslandWindow' title='' proc=explorer(5936)
+            focus: ctl=Pane name='' | parent: ctl=Pane name=''
+            → classify: XamlExplorerHostIsland (Task View / Snap Assist — disambiguate by title)
+[+ 115985ms] WINEVENT OBJECT_FOCUS           lat=  62ms hwnd=0x000506E0 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=explorer(5936)
+            focus: ctl=Pane name='' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 115995ms] WINEVENT OBJECT_FOCUS           lat=  62ms hwnd=0x000206FE class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Pane name='' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 116001ms] WINEVENT SYSTEM_FOREGROUND      lat=  47ms hwnd=0x0008068C class='XamlExplorerHostIslandWindow' title='' proc=explorer(5936)
+            focus: ctl=Pane name='' | parent: ctl=Pane name=''
+            → classify: XamlExplorerHostIsland (Task View / Snap Assist — disambiguate by title)
+[+ 116021ms] UIA      FocusChanged            ctl=Pane name='' class='XamlExplorerHostIslandWindow' proc=explorer(5936)
+[+ 116022ms] UIA      FocusChanged            ctl=Pane name='' class='Windows.UI.Input.InputSite.WindowClass' proc=explorer(5936)
+[+ 118221ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 118224ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x002F0366 class='CASCADIA_HOSTING_WINDOW_CLASS' title='PowerShell' proc=WindowsTerminal(5060)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 118227ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000206FE class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 118228ms] WINEVENT OBJECT_HIDE            lat=   0ms hwnd=0x0008068C class='XamlExplorerHostIslandWindow' title='' proc=explorer(5936)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: XamlExplorerHostIsland (Task View / Snap Assist — disambiguate by title)
+[+ 118242ms] UIA-COM  Win.WindowClosed       ctl=Window name='' class='XamlExplorerHostIslandWindow' proc=explorer(5936)
+[+ 118257ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x002F0366 class='CASCADIA_HOSTING_WINDOW_CLASS' title='PowerShell' proc=WindowsTerminal(5060)
+            focus: ctl=Window name='PowerShell' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 118260ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x00370584 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='PowerShell' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 118263ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x00290826 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='PowerShell' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 118266ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x00290826 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='PowerShell' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 118306ms] UIA      FocusChanged            ctl=Group name='Group | ✳ Plan next steps and …' class='NamedContainerAutomationPeer' proc=explorer(5936)
+[+ 118307ms] UIA      FocusChanged            ctl=Text name='PowerShell' class='TermControl' proc=WindowsTerminal(5060)
+[+ 118308ms] UIA      FocusChanged            ctl=Window name='PowerShell' class='CASCADIA_HOSTING_WINDOW_CLASS' proc=WindowsTerminal(5060)
+[+ 118309ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 118312ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 118314ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 118316ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 118318ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 118318ms] UIA      FocusChanged            ctl=Text name='PowerShell' class='' proc=WindowsTerminal(5060)
+[+ 118325ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 118325ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 118326ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 119139ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 119140ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 119907ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000200E0 class='Shell_TrayWnd' title='' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+ 119913ms] WINEVENT OBJECT_FOCUS           lat=  15ms hwnd=0x000200E0 class='Shell_TrayWnd' title='' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+ 119916ms] WINEVENT OBJECT_FOCUS           lat=  15ms hwnd=0x00010222 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 119916ms] UIA      FocusChanged            ctl=Button name='Start' class='ToggleButton' proc=explorer(5936)
+[+ 119917ms] UIA      FocusChanged            ctl=Pane name='' class='Shell_TrayWnd' proc=explorer(5936)
+[+ 119920ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00010224 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 119924ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 119925ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x00010224 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Button name='Start' | parent: ctl=Pane name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 119927ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 119933ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 119940ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 119941ms] UIA      FocusChanged            ctl=Button name='Start' class='' proc=explorer(5936)
+[+ 120151ms] WINEVENT OBJECT_CREATE          lat=   0ms hwnd=0x0036084C class='Windows.UI.Core.CoreWindow' title='Windows Shell Experience Host' proc=ShellExperienceHost(4920)
+            focus: ctl=Pane name='' | parent: ctl=Pane name=''
+            → classify: CoreWindow (AMBIGUOUS — needs Start/Search/NotifCenter disambiguation)
+[+ 120157ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 120169ms] WINEVENT OBJECT_SHOW            lat=   0ms hwnd=0x0036084C class='Windows.UI.Core.CoreWindow' title='Windows Shell Experience Host' proc=ShellExperienceHost(4920)
+            focus: ctl=Pane name='' | parent: ctl=Pane name=''
+            → classify: CoreWindow (AMBIGUOUS — needs Start/Search/NotifCenter disambiguation)
+[+ 120514ms] UIA-COM  Win.WindowOpened       ctl=Window name='Windows Shell Experience Host' class='Windows.UI.Core.CoreWindow' proc=ShellExperienceHost(4920)
+[+ 120553ms] WINEVENT OBJECT_FOCUS           lat= 125ms hwnd=0x0036084C class='Windows.UI.Core.CoreWindow' title='Windows Shell Experience Host' proc=ShellExperienceHost(4920)
+            focus: ctl=Window name='Windows Shell Experience Host' | parent: ctl=Pane name=''
+            → classify: CoreWindow (AMBIGUOUS — needs Start/Search/NotifCenter disambiguation)
+[+ 120576ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x0036084C class='Windows.UI.Core.CoreWindow' title='Windows Shell Experience Host' proc=ShellExperienceHost(4920)
+            focus: ctl=Window name='Windows Shell Experience Host' | parent: ctl=Pane name=''
+            → classify: CoreWindow (AMBIGUOUS — needs Start/Search/NotifCenter disambiguation)
+[+ 120585ms] UIA-COM  Win.WindowOpened       ctl=Window name='Windows Shell Experience Host' class='Windows.UI.Core.CoreWindow' proc=ShellExperienceHost(4920)
+[+ 120894ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x0036084C class='Windows.UI.Core.CoreWindow' title='Windows Shell Experience Host' proc=ShellExperienceHost(4920)
+            focus: ctl=Button name='Do Not Disturb' | parent: ctl=Group name='Notifications'
+            → classify: CoreWindow (AMBIGUOUS — needs Start/Search/NotifCenter disambiguation)
+[+ 121257ms] UIA      FocusChanged            ctl=Window name='Windows Shell Experience Host' class='Windows.UI.Core.CoreWindow' proc=ShellExperienceHost(4920)
+[+ 121257ms] UIA      FocusChanged            ctl=Button name='Do Not Disturb' class='ToggleButton' proc=ShellExperienceHost(4920)
+[+ 125068ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 130290ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 134595ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C069C class='CASCADIA_HOSTING_WINDOW_CLASS' title='⠐ Plan next steps' proc=WindowsTerminal(5060)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 134613ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 134614ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 134701ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 134702ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 134702ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 134800ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000605EC class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 134806ms] WINEVENT OBJECT_FOCUS           lat= 188ms hwnd=0x000605EC class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 134816ms] WINEVENT OBJECT_FOCUS           lat=  15ms hwnd=0x000905FE class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 134818ms] WINEVENT OBJECT_FOCUS           lat=  15ms hwnd=0x000C069C class='CASCADIA_HOSTING_WINDOW_CLASS' title='⠐ Plan next steps' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 135263ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 138257ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='TermControl' proc=WindowsTerminal(5060)
+[+ 138263ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 138266ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 138271ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 138273ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 138276ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 138277ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='' proc=WindowsTerminal(5060)
+[+ 139002ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000200E0 class='Shell_TrayWnd' title='' proc=explorer(5936)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+ 139005ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00010222 class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=explorer(5936)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 139009ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00010224 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 139013ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x00010224 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 139015ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x00010224 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 139017ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x00010224 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 139019ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x00010224 class='Windows.UI.Input.InputSite.WindowClass' title='' proc=explorer(5936)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 139022ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000200E0 class='Shell_TrayWnd' title='' proc=explorer(5936)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: taskbar (Shell_TrayWnd — usually NONE unless search/taskview)
+[+ 139029ms] UIA      FocusChanged            ctl=Button name='Start' class='ToggleButton' proc=explorer(5936)
+[+ 139032ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 139035ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 139041ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 139047ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 139047ms] UIA      FocusChanged            ctl=Button name='Start' class='' proc=explorer(5936)
+[+ 139048ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 139051ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 139057ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 139063ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 139251ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 139290ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 139332ms] UIA      FocusChanged            ctl=Edit name='Search box' class='' proc=SearchHost(7044)
+[+ 139339ms] WINEVENT OBJECT_FOCUS           lat=  47ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 139361ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 139368ms] UIA-COM  Win.WindowOpened       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(7052)
+[+ 139380ms] ╔═ SC ATTACHED (WindowOpened name='Start' (StartMenuExperienceHost) hwnd=0x000101B0) scope=TreeScope_Subtree → ctl=Window name='Start' class='Windows.UI.Core.CoreWindow'. Watching readiness + redraw [SC + LAYOUT:ok + SCROLL:ok]…
+[+ 139387ms] SC     #1   ChildAdded           +    14ms (Δ    0ms) tid=6 ctl=Window name='Search' rid.len=2
+[+ 139387ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 139480ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 140115ms] WINEVENT SYSTEM_FOREGROUND      lat=  15ms hwnd=0x000C069C class='CASCADIA_HOSTING_WINDOW_CLASS' title='⠐ Plan next steps' proc=WindowsTerminal(5060)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 140137ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000905FE class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 140146ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x000605EC class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 140148ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='TermControl' proc=WindowsTerminal(5060)
+[+ 140148ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x000605EC class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 140154ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000C069C class='CASCADIA_HOSTING_WINDOW_CLASS' title='⠐ Plan next steps' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 140158ms] UIA-COM  Win.WindowClosed       ctl=Window name='Search' class='Windows.UI.Core.CoreWindow' proc=SearchHost(7044)
+[+ 140173ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='' proc=WindowsTerminal(5060)
+[+ 140174ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 140174ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 140175ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 140175ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 140175ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 140216ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 140217ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 140217ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 140290ms] UIA-COM  Win.WindowClosed       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(7052)
+[+ 140291ms] ╚═ SC DETACHED (WindowClosed name='Start') — over 919ms: SC=1, LAYOUT=0, SCROLL=0.
+[+ 142471ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 142495ms] UIA      FocusChanged            ctl=Edit name='Search box' class='' proc=SearchHost(7044)
+[+ 142518ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 142521ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 142560ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='TermControl' proc=WindowsTerminal(5060)
+[+ 142565ms] UIA      FocusChanged            ctl=Window name='⠐ Plan next steps' class='CASCADIA_HOSTING_WINDOW_CLASS' proc=WindowsTerminal(5060)
+[+ 142570ms] WINEVENT SYSTEM_FOREGROUND      lat=  47ms hwnd=0x000C069C class='CASCADIA_HOSTING_WINDOW_CLASS' title='⠐ Plan next steps' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 142572ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 142574ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 142575ms] WINEVENT OBJECT_FOCUS           lat=  32ms hwnd=0x000C069C class='CASCADIA_HOSTING_WINDOW_CLASS' title='⠐ Plan next steps' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 142579ms] WINEVENT OBJECT_FOCUS           lat=  47ms hwnd=0x000905FE class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 142583ms] WINEVENT OBJECT_FOCUS           lat=  47ms hwnd=0x000605EC class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 142587ms] WINEVENT OBJECT_FOCUS           lat=  47ms hwnd=0x000605EC class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 142598ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='' proc=WindowsTerminal(5060)
+[+ 142598ms] UIA-COM  Win.WindowOpened       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(7052)
+[+ 142604ms] ╔═ SC ATTACHED (WindowOpened name='Start' (StartMenuExperienceHost) hwnd=0x000101B0) scope=TreeScope_Subtree → ctl=Window name='Start' class='Windows.UI.Core.CoreWindow'. Watching readiness + redraw [SC + LAYOUT:ok + SCROLL:ok]…
+[+ 142609ms] UIA-COM  Win.WindowOpened       ctl=Window name='Search' class='Windows.UI.Core.CoreWindow' proc=SearchHost(7044)
+[+ 142612ms] UIA-COM  Win.WindowClosed       ctl=Window name='Search' class='Windows.UI.Core.CoreWindow' proc=SearchHost(7044)
+[+ 142618ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 142618ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 142619ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 142619ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 142619ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 142724ms] UIA-COM  Win.WindowClosed       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(7052)
+[+ 142724ms] ╚═ SC DETACHED (WindowClosed name='Start') — over 124ms: SC=0, LAYOUT=0, SCROLL=0.
+[+ 143427ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 143494ms] WINEVENT OBJECT_FOCUS           lat=  31ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 143499ms] UIA      FocusChanged            ctl=Edit name='Search box' class='' proc=SearchHost(7044)
+[+ 143500ms] WINEVENT OBJECT_FOCUS           lat=  78ms hwnd=0x000101BE class='Windows.UI.Core.CoreWindow' title='Search' proc=SearchHost(7044)
+            focus: ctl=Edit name='Search box' | parent: ctl=Window name='Search'
+            → classify: START_MENU / SEARCH (strategy: active-window[-parent])
+[+ 143514ms] UIA-COM  Win.WindowOpened       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(7052)
+[+ 143519ms] ╔═ SC ATTACHED (WindowOpened name='Start' (StartMenuExperienceHost) hwnd=0x000101B0) scope=TreeScope_Subtree → ctl=Window name='Start' class='Windows.UI.Core.CoreWindow'. Watching readiness + redraw [SC + LAYOUT:ok + SCROLL:ok]…
+[+ 143524ms] SC     #1   ChildAdded           +     9ms (Δ    0ms) tid=6 ctl=Window name='Search' rid.len=2
+[+ 143525ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 143525ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 144627ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 144973ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 144973ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 145113ms] WINEVENT SYSTEM_FOREGROUND      lat=   0ms hwnd=0x000C069C class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Plan next steps' proc=WindowsTerminal(5060)
+            focus: ctl=Pane name='' | parent: ctl= name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 145144ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000605EC class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 145158ms] WINEVENT OBJECT_FOCUS           lat=  16ms hwnd=0x000605EC class='Windows.UI.Input.InputSite.WindowClass' title='' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 145162ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000905FE class='Windows.UI.Composition.DesktopWindowContentBridge' title='DesktopWindowXamlSource' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 145166ms] WINEVENT OBJECT_FOCUS           lat=   0ms hwnd=0x000C069C class='CASCADIA_HOSTING_WINDOW_CLASS' title='✳ Plan next steps' proc=WindowsTerminal(5060)
+            focus: ctl=Text name='Command Prompt' | parent: ctl=Custom name=''
+            → classify: NONE / unrecognized (candidate for a new catalog rule)
+[+ 145170ms] UIA-COM  Win.WindowClosed       ctl=Window name='Search' class='Windows.UI.Core.CoreWindow' proc=SearchHost(7044)
+[+ 145179ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='TermControl' proc=WindowsTerminal(5060)
+[+ 145181ms] UIA      FocusChanged            ctl=Window name='✳ Plan next steps' class='CASCADIA_HOSTING_WINDOW_CLASS' proc=WindowsTerminal(5060)
+[+ 145184ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 145188ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 145192ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 145193ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 145196ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 145197ms] UIA      FocusChanged            ctl=Text name='Command Prompt' class='' proc=WindowsTerminal(5060)
+[+ 145266ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 145266ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 145267ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 145324ms] UIA-COM  Win.WindowClosed       ctl=Window name='Start' class='Windows.UI.Core.CoreWindow' proc=StartMenuExperienceHost(7052)
+[+ 145325ms] ╚═ SC DETACHED (WindowClosed name='Start') — over 1810ms: SC=1, LAYOUT=0, SCROLL=0.
+[+ 148636ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 150456ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 155133ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 155164ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
+[+ 175166ms] UIA-COM  Win.WindowClosed       ctl=? name='?' class='?' proc=?
