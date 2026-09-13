@@ -9,12 +9,15 @@ of whether a UIA-driven scroll actually moves the content.
 every element bearing a scroll signal (ScrollPattern / ScrollItemPattern /
 RangeValuePattern / ScrollBar control type), dumps every signal, then **attempts a real
 UIA scroll** (`Scroll(SmallIncrement)`, `SetScrollPercent` fallback, async settle-read),
-records whether `VerticalScrollPercent` actually changed, and **restores** it. Driven
-over already-open windows by handle/process — no focus/hotkey needed (`ElementFromHandle`
-inspects any window; `--uiaproc` walks the UIA desktop root to reach CoreWindow surfaces
-like the Start menu). Raw evidence:
-[`census-2026-09-13.log`](census-2026-09-13.log) (round 1, 6 targets) and
-[`census-2026-09-13-round2.log`](census-2026-09-13-round2.log) (round 2, +5 targets).
+records whether `VerticalScrollPercent` actually changed, and **restores** it. It also tests the **alternative actuation path** — `RangeValuePattern.SetValue` on a
+`ScrollBar` element — for surfaces that expose no ScrollPattern. Driven over already-open
+windows by handle/process — no focus/hotkey needed (`ElementFromHandle` inspects any
+window; `--uiaproc` walks the UIA desktop root to reach CoreWindow surfaces like the Start
+menu; `--holdrange` sets a scrollbar and holds it for visible confirmation). Raw evidence:
+[`census-2026-09-13.log`](census-2026-09-13.log) (round 1, 6 targets),
+[`census-2026-09-13-round2.log`](census-2026-09-13-round2.log) (round 2, +5 targets), and
+[`census-2026-09-13-terminals.log`](census-2026-09-13-terminals.log) (terminal
+RangeValue-actuation + operator visual confirmation).
 
 ## The census (Win11, 2026-09-13, 11 real surfaces)
 
@@ -28,23 +31,24 @@ like the Start menu). Raw evidence:
 | Edge — plain web page | Chromium | ✅ 1 | ✅ `Document`/RootWebArea itself scrolls |
 | Gmail | Chromium web (SPA) | ✅ 1 | ✅ inner `Group ":3"` message list |
 | GitHub Desktop | Electron | ✅ 2 | ✅ `List "Commits"` **and** changed-files `DataGrid` |
-| **VSCode** | Electron | ❌ 0 | ❌ Monaco editor not exposed (only sidebar rows/dead nodes) |
-| **Slack PWA** | Chromium web (SPA) | ❌ 0 | ❌ message list is a JS virtual scroller — no ScrollPattern |
-| **Windows Terminal** | XAML terminal | ❌ 0 | ❌ text area is `Document`/`Custom`, TextPattern only |
+| **Windows Terminal** | XAML terminal | ✅ (RangeValue) | ✅ no ScrollPattern, but `ScrollBar`→`RangeValue.SetValue` **scrolls the buffer** (operator-confirmed visually) |
+| **VSCode** | Electron | ❌ 0 | ❌ Monaco editor not exposed; no ScrollPattern, no scrollbar RangeValue |
+| **Slack PWA** | Chromium web (SPA) | ❌ 0 | ❌ message list is a JS virtual scroller; no ScrollPattern, no scrollbar RangeValue |
 | _Notepad (empty)_ | WinUI / XAML | (0) | _n/a — nothing to scroll; ✅ once it has content_ |
 | _Slack native_ | Electron | — | _N/A — not installed on this machine_ |
 
-**Bottom line: 8 of 11 surfaces expose ≥1 usable, actuable scroll region; 3 fail.**
+**Bottom line: 9 of 11 surfaces have a usable, actuable scroll path (ScrollPattern *or*
+ScrollBar-RangeValue); only 2 fail — VSCode's Monaco editor and Slack's message list.**
 
 ## What the census establishes
 
-1. **Hypothesis CONFIRMED but the failure set is narrow and specific.** ScrollPattern
-   reliably exposes *and* actuates the primary content region across native Win32/WinUI/
-   XAML (Explorer, Start, Settings, Notepad), the classic console, ordinary web pages,
-   and many Electron/web *list* panes (Gmail mail list, GitHub Desktop commits+changes).
-   It fails on exactly three: **VSCode's Monaco editor, Slack's message list, and the
-   Windows Terminal text buffer** — all bespoke, custom-virtualized text/chat/editor
-   surfaces.
+1. **Hypothesis CONFIRMED but the failure set is narrow and specific.** A usable scroll
+   path (ScrollPattern, or ScrollBar+RangeValue) exists across native Win32/WinUI/XAML
+   (Explorer, Start, Settings, Notepad), both console hosts, ordinary web pages, and many
+   Electron/web *list* panes (Gmail mail list, GitHub Desktop commits+changes). Only
+   **two surfaces fail outright: VSCode's Monaco editor and Slack's message list** —
+   bespoke web/canvas virtual scrollers that expose neither ScrollPattern nor a
+   scrollbar with RangeValue.
 
 2. **Virtualization ≠ no-exposure — it depends on the engine.** XAML virtualized lists
    (Start's `AppsList`, Explorer's file list) expose a real `ScrollViewer`/ScrollPattern
@@ -52,13 +56,16 @@ like the Start menu). Raw evidence:
    list is virtualized" does NOT predict failure; "it's a bespoke web/canvas virtualizer"
    does.
 
-3. **Classic conhost exposes ScrollPattern; Windows Terminal does not.** The classic
-   Command Prompt console window (`ConsoleWindowClass`) exposes `ScrollPattern` on its
-   Console Window and actuates it — **contradicting research #57's claim that conhost
-   implements no ScrollPattern.** Windows Terminal (XAML) genuinely exposes nothing on
-   the text area (only a stock ScrollBar with degenerate RangeValue). If a target's
-   console is hosted in Windows Terminal (now the Win11 default), scroll is a
-   false-negative; in classic conhost it is not.
+3. **Both console hosts are scroll-actuable — via different mechanisms.** Classic conhost
+   (`ConsoleWindowClass`) exposes `ScrollPattern` on its Console Window and actuates it —
+   **contradicting research #57's claim that conhost implements no ScrollPattern.** Windows
+   Terminal exposes **no** ScrollPattern on the text area, but its Vertical `ScrollBar`
+   carries a `RangeValuePattern` (`0..N` once there is scrollback; `0/0/0` when empty),
+   and **`RangeValuePattern.SetValue` on it visibly scrolls the buffer** (operator-confirmed
+   with a held actuation: value 26→18.2 scrolled the content up, restored on release).
+   So the earlier "WT is a false-negative" was wrong — it just needs the RangeValue path,
+   not ScrollPattern. **Lesson: the `ScrollBar`+`RangeValue` fallback is a first-class
+   actuation path, not just a structural hint.**
 
 4. **The document root is the scroller only for plain pages.** On a plain web page the
    `Document`/RootWebArea itself is scrollable+actuable. In SPAs (Gmail, Slack) the root
@@ -92,17 +99,26 @@ targetable content region is the conjunction of:
 Every true region cleared this (viewSize 0.5 / 8.1 / 10.8 / 12.5 / 16.1 / 35.7 / 48.8%);
 every artifact — buttons, tree-rows, 2×2 groups, offscreen nodes — was rejected.
 
+**Plus a fallback path** where no ScrollPattern container exists: a **`ScrollBar`
+control-type element whose `RangeValuePattern` has `max>min`** — actuate with
+`RangeValue.SetValue`. This is what covers Windows Terminal (and would cover any classic
+scrollbar-driven surface). Requires reading the sibling/target content to know it's the
+right scrollbar, but it works.
+
 ## Implication for the go/no-go (#60)
 
 - **UIA scroll is viable for a large, well-defined subset** — native shell UI, ordinary
-  lists, plain web pages, and many Electron list panes — but only via the multi-factor
-  heuristic above plus re-scan/settle, NOT the naive `*Scrollable` flag.
-- **It structurally misses one class:** bespoke virtualized text surfaces — **code
-  editors (Monaco), chat virtual-lists (Slack), and terminal buffers hosted in Windows
-  Terminal.** Whether that gap is acceptable is the #60 decision. If not, a non-UIA
-  fallback (injected wheel at a rect) is a *separate effort* (ruled out of scope for #54).
-- Net: the earlier "≈50/50" read was pessimistic — with the full 11-surface census it's
-  **~3/4 exposed**, and the misses are a coherent, predictable category rather than random.
+  lists, plain web pages, both console hosts, and many Electron list panes — reached via
+  **two actuation paths**: ScrollPattern (primary) and ScrollBar+RangeValue (fallback,
+  e.g. Windows Terminal). Requires the multi-factor selection heuristic + re-scan/settle,
+  NOT the naive `*Scrollable` flag.
+- **It structurally misses exactly one class:** bespoke web/canvas virtual scrollers that
+  expose neither path — **code editors (Monaco/VSCode) and SPA chat virtual-lists (Slack)**
+  (verified: both have `ScrollBar-controltype=0`, so no RangeValue rescue). Whether that
+  gap is acceptable is the #60 decision. If not, a non-UIA fallback (injected wheel at a
+  rect) is a *separate effort* (ruled out of scope for #54).
+- Net: **9 of 11 surfaces actuable (~80%)**, and the 2 misses are a coherent, predictable
+  category — not random. Materially more positive than the first 6-app pass implied.
 
 ## Reproduce
 

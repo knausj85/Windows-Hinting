@@ -246,8 +246,46 @@ internal static class Program
                 else Log("usage: --hwnd <hex, e.g. 0x1234>");
                 break;
             case "--foreground": CaptureWindow(GetForegroundWindow(), "--foreground"); break;
-            default: Log($"unknown one-shot mode '{mode}' (use --proc <name> | --hwnd <hex> | --foreground)"); break;
+            case "--holdrange":
+                if (TryParseHwnd(arg, out IntPtr hh))
+                    HoldRange(hh, args.Length > 2 && int.TryParse(args[2], out int ms) ? ms : 5000);
+                else Log("usage: --holdrange <hex> [ms]");
+                break;
+            default: Log($"unknown one-shot mode '{mode}' (use --proc | --uiaproc | --hwnd | --foreground | --holdrange)"); break;
         }
+    }
+
+    // Visible-confirmation actuation: set the window's first ScrollBar RangeValue to
+    // ~70% of range, HOLD (no restore) for `ms` so the operator can watch whether the
+    // content actually scrolls, then restore. Answers "does RangeValue.SetValue really
+    // scroll it?" for surfaces (e.g. Windows Terminal) that expose no ScrollPattern.
+    private static void HoldRange(IntPtr hwnd, int ms)
+    {
+        try
+        {
+            var winEl = _com.ElementFromHandle(hwnd);
+            var cond = _com.CreatePropertyCondition(UIA_ControlTypePropertyId, UIA_ScrollBarControlTypeId);
+            var bars = winEl.FindAll(UIA.TreeScope.TreeScope_Subtree, cond);
+            for (int i = 0; i < (bars?.Length ?? 0); i++)
+            {
+                var bar = bars!.GetElement(i);
+                var rv = bar.GetCurrentPattern(UIA_RangeValuePatternId) as UIA.IUIAutomationRangeValuePattern;
+                if (rv is null) continue;
+                double min = rv.CurrentMinimum, max = rv.CurrentMaximum, before = rv.CurrentValue;
+                if (!(max > min)) { Log($"HOLD: scrollbar #{i} has no usable range ({min}..{max}) — skipping"); continue; }
+                double target = min + (max - min) * 0.7;
+                Log($"HOLD: scrollbar '{SafeProp(() => bar.CurrentName)}' range {min}..{max}, before={before}. " +
+                    $"Setting to {target:F1} and holding {ms}ms — WATCH THE TERMINAL now…");
+                rv.SetValue(target);
+                Thread.Sleep(ms);
+                double held = before; try { held = rv.CurrentValue; } catch { }
+                Log($"HOLD: value during hold read back as {held:F1}. Restoring to {before}.");
+                rv.SetValue(before);
+                return;
+            }
+            Log("HOLD: no ScrollBar with a usable RangeValue found in this window.");
+        }
+        catch (Exception ex) { Log($"!! HoldRange threw: {ex.GetType().Name}: {ex.Message}"); }
     }
 
     // Census every visible, reasonably-sized top-level window belonging to a named
@@ -407,7 +445,7 @@ internal static class Program
             Log($"  scroll-signal candidates in subtree: {n}   (FindAll {sw.ElapsedMilliseconds}ms)");
             Log($"  signals: ScrollPattern={tally.ScrollPattern} (of those, *Scrollable=True: {tally.ScrollPatternScrollable}, " +
                 $"UIA-scroll MOVED: {tally.GroundTruthMoved}) · ScrollBar-controltype={tally.ScrollBar} · " +
-                $"RangeValue={tally.RangeValue} · weak ScrollItem-only={weak.Count}");
+                $"RangeValue={tally.RangeValue} (scrollbar RangeValue ACTUABLE: {tally.RangeValueMovers}) · weak ScrollItem-only={weak.Count}");
             Log($"  ★ REAL on-screen actuable scrollers (on-screen · viewSize<60% · moved proportionally · non-degenerate): {tally.RealMovers}" +
                 "  ← the number the go/no-go keys on");
             if (n == 0)
@@ -432,8 +470,11 @@ internal static class Program
 
     private sealed class Tally
     {
-        public int ScrollPattern, ScrollPatternScrollable, GroundTruthMoved, ScrollBar, RangeValue, RealMovers;
+        public int ScrollPattern, ScrollPatternScrollable, GroundTruthMoved, ScrollBar, RangeValue, RealMovers, RangeValueMovers;
     }
+
+    private static string Fmt(double d) =>
+        double.IsNaN(d) ? "?" : d.ToString("F1", CultureInfo.InvariantCulture);
 
     private static void DumpCandidate(
         int seq, int idx, UIA.IUIAutomationElement el, UIA.tagRECT winRect,
@@ -509,13 +550,25 @@ internal static class Program
             full.Add("         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)");
 
         // ---- RangeValuePattern (weak/fallback: a ScrollBar exposes this) ----
+        // This is the alternative actuation path where ScrollPattern is absent — e.g.
+        // Windows Terminal's Vertical ScrollBar. When max>min it is a real scroll signal;
+        // test whether RangeValue.SetValue moves it (and restore).
         if (rv is not null)
         {
             tally.RangeValue++;
-            string val = SafeProp(() => rv.CurrentValue.ToString("F1", CultureInfo.InvariantCulture));
-            string min = SafeProp(() => rv.CurrentMinimum.ToString("F1", CultureInfo.InvariantCulture));
-            string max = SafeProp(() => rv.CurrentMaximum.ToString("F1", CultureInfo.InvariantCulture));
-            full.Add($"         RangeValuePattern: value={val} min={min} max={max} (scroll-signal only if max>min AND this is a scrollbar)");
+            double rvMin = double.NaN, rvMax = double.NaN, rvVal = double.NaN;
+            try { rvMin = rv.CurrentMinimum; } catch { }
+            try { rvMax = rv.CurrentMaximum; } catch { }
+            try { rvVal = rv.CurrentValue; } catch { }
+            full.Add($"         RangeValuePattern: value={Fmt(rvVal)} min={Fmt(rvMin)} max={Fmt(rvMax)} (scroll-signal only if max>min AND this is a scrollbar)");
+            bool usableRange = rvMax > rvMin && !double.IsNaN(rvMax) && !double.IsNaN(rvMin);
+            if (usableRange && isScrollBar)
+            {
+                var (rvMoved, rvText) = GroundTruthRangeValue(rv, rvVal, rvMin, rvMax);
+                if (rvMoved) tally.RangeValueMovers++;
+                full.Add($"         GROUND-TRUTH (RangeValue.SetValue): {rvText}"
+                    + (rvMoved ? "  ⟵ scrollbar RangeValue is ACTUABLE (alt path; scrolls sibling content — confirm visually)" : ""));
+            }
         }
 
         if (isScrollBar)
@@ -597,6 +650,34 @@ internal static class Program
             Thread.Sleep(100);
         }
         return v;
+    }
+
+    // Alternative actuation: does setting the RangeValue (e.g. a terminal's Vertical
+    // ScrollBar) actually move it? Attempt a ~25%-of-range step, settle-read, restore.
+    private static (bool moved, string text) GroundTruthRangeValue(
+        UIA.IUIAutomationRangeValuePattern rv, double before, double min, double max)
+    {
+        double eps = Math.Max(0.01, (max - min) * 0.001);
+        double step = (max - min) * 0.25;
+        double target = before + step <= max ? before + step : before - step;
+        double after = before;
+        bool moved = false;
+        string how = "SetValue";
+        try
+        {
+            rv.SetValue(target);
+            for (int i = 0; i < 6; i++)
+            {
+                try { after = rv.CurrentValue; } catch { }
+                if (Math.Abs(after - before) > eps) { moved = true; break; }
+                Thread.Sleep(100);
+            }
+        }
+        catch (Exception ex) { how = $"SetValue threw ({ex.GetType().Name})"; }
+        try { rv.SetValue(before); } catch { }
+        return (moved,
+            moved ? $"MOVED via {how}: value {Fmt(before)} → {Fmt(after)} (of {Fmt(min)}..{Fmt(max)}, restored)"
+                  : $"NO-MOVE: value stayed {Fmt(before)} ({how})");
     }
 
     // ---- helpers -----------------------------------------------------------

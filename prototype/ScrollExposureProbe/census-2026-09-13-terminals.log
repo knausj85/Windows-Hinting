@@ -1,0 +1,40 @@
+──── one-shot [--hwnd 0xA09C8] @ 2026-09-13 15:48:50 ────
+
+════════ CAPTURE #1  [--hwnd 0xA09C8] ════════
+  proc=WindowsTerminal(13856)  hwnd=0x000A09C8  windowClass='CASCADIA_HOSTING_WINDOW_CLASS'  windowFramework=Win32
+  title='Test'
+  scroll-signal candidates in subtree: 14   (FindAll 78ms)
+  signals: ScrollPattern=1 (of those, *Scrollable=True: 0, UIA-scroll MOVED: 0) · ScrollBar-controltype=1 · RangeValue=1 (scrollbar RangeValue ACTUABLE: 1) · weak ScrollItem-only=12
+  ★ REAL on-screen actuable scrollers (on-screen · viewSize<60% · moved proportionally · non-degenerate): 0  ← the number the go/no-go keys on
+  [1.1] ctl=List name='' autoId='TabListView' fw=XAML rect=(-9,142 252x32) [on-screen]
+         provider='[pid:13856,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=False hScrollable=False | vViewSize=100.0 hViewSize=100.0 | vPct=-1.0 hPct=-1.0
+         GROUND-TRUTH: n/a — vPct=-1 (NoScroll sentinel: this axis reports non-scrollable)
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.9] ctl=ScrollBar name='Vertical' autoId='ScrollBar' fw=XAML rect=(1147,174 16x571) [on-screen]
+         provider='[pid:13856,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: ABSENT
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+         RangeValuePattern: value=26.0 min=0.0 max=26.0 (scroll-signal only if max>min AND this is a scrollbar)
+         GROUND-TRUTH (RangeValue.SetValue): MOVED via SetValue: value 26.0 → 19.5 (of 0.0..26.0, restored)  ⟵ scrollbar RangeValue is ACTUABLE (alt path; scrolls sibling content — confirm visually)
+         ControlType=ScrollBar: structural hint that a sibling/ancestor is scrollable (no IScrollProvider of its own)
+  ── weak (ScrollItem-only, no container signal) × 12: ──
+     · [1.0] ctl=Tab name='' autoId='TabView' rect=(-11,142 317x32)
+     · [1.2] ctl=TabItem name='Test' autoId='' rect=(-7,142 248x32)
+     · [1.3] ctl=Image name='' autoId='' rect=(7,150 16x16)
+     · [1.4] ctl=Text name='Test' autoId='HeaderTextBlock' rect=(33,148 27x20)
+     · [1.5] ctl=Button name='Close Tab' autoId='CloseButton' rect=(201,146 32x24)
+     · [1.6] ctl=SplitButton name='New Tab' autoId='NewTabButton' rect=(244,146 63x24)
+     · [1.7] ctl=Custom name='' autoId='' rect=(-11,174 1173x571)
+     · [1.8] ctl=Text name='Windows PowerShell' autoId='' rect=(-11,174 1173x571)
+     · [1.10] ctl=Button name='Vertical Small Decrease' autoId='VerticalSmallDecrease' rect=(1147,174 16x16)
+     · [1.11] ctl=Button name='Vertical Large Decrease' autoId='VerticalLargeDecrease' rect=(1147,190 16x188)
+     · [1.12] ctl=Button name='Vertical Large Increase' autoId='VerticalLargeIncrease' rect=(1147,666 16x63)
+     · [1.13] ctl=Button name='Vertical Small Increase' autoId='VerticalSmallIncrease' rect=(1147,729 16x16)
+  ↳ REALITY (operator — which of the above ACTUALLY scroll, and what did you scroll?): ____________
+════════ /CAPTURE #1  (78ms total) ════════
+
+──── VISUAL CONFIRMATION (operator, 2026-09-13) ────
+held --holdrange 0xA09C8: scrollbar 'Vertical' 0..26, set 26→18.2, held 6s, restored.
+OPERATOR CONFIRMED: the terminal buffer visibly scrolled up during the hold and snapped back.
+⇒ Windows Terminal scroll IS actuable via ScrollBar RangeValuePattern.SetValue (no ScrollPattern).
