@@ -94,15 +94,24 @@ internal static class Program
     private static IntPtr _ownConsoleHwnd;
 
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
         try { Console.OutputEncoding = Encoding.UTF8; } catch { /* redirected stdout */ }
+
+        // One-shot headless mode (append to the log so an orchestrator can drive many
+        // captures across separate process launches into one census file):
+        //   --proc <name>   census every visible top-level window of that process
+        //   --hwnd <hex>    census one window by handle
+        //   --foreground    census the current foreground window
+        bool oneShot = args.Length > 0;
         string logPath = Path.Combine(Environment.CurrentDirectory, "scroll-exposure-probe.log");
-        _file = new StreamWriter(logPath, append: false) { AutoFlush = true };
+        _file = new StreamWriter(logPath, append: oneShot) { AutoFlush = true };
         _ownConsoleHwnd = GetForegroundWindow(); // console is foreground at launch
 
         try { _com = new UIA.CUIAutomation(); }
         catch (Exception ex) { Log($"!! FATAL: could not create CUIAutomation: {ex.GetType().Name}: {ex.Message}"); return; }
+
+        if (oneShot) { RunOneShot(args); return; }
 
         PrintBanner(logPath);
 
@@ -121,8 +130,10 @@ internal static class Program
             + (hk ? "" : "  — registration FAILED; use the 3-second 'cap' fallback instead."));
         Log("──────────────────────────────────────────────────────────────────────");
         Log("READY. Focus a scrollable region in a target app, then press Ctrl+Alt+S.");
-        Log("Commands (type + Enter):  cap = capture foreground 3s from now  |  auto = toggle");
-        Log("foreground auto-capture  |  <any text> = drop a MARK divider  |  Ctrl+C = quit.");
+        Log("Commands (type + Enter):  cap = capture foreground 3s from now  |");
+        Log("  capfg = capture foreground NOW  |  capproc <name> = census a process's windows");
+        Log("  (no focus needed)  |  caphwnd <hex> = census one window  |  auto = toggle");
+        Log("  foreground auto-capture  |  <any text> = MARK divider  |  Ctrl+C = quit.");
         Log("──────────────────────────────────────────────────────────────────────");
 
         var marker = new Thread(MarkerLoop) { IsBackground = true };
@@ -167,8 +178,10 @@ internal static class Program
         {
             string? line = Console.ReadLine();
             if (line is null) return;
-            string cmd = line.Trim().ToLowerInvariant();
-            switch (cmd)
+            string raw = line.Trim();
+            string cmd = raw.ToLowerInvariant();
+            string arg = raw.Contains(' ') ? raw[(raw.IndexOf(' ') + 1)..].Trim() : "";
+            switch (cmd.Split(' ')[0])
             {
                 case "auto":
                     _autoCapture = !_autoCapture;
@@ -184,11 +197,90 @@ internal static class Program
                     t.SetApartmentState(ApartmentState.STA);
                     t.Start();
                     break;
+                case "capfg":
+                    RunSta(() => CaptureWindow(GetForegroundWindow(), "capfg"));
+                    break;
+                case "capproc":
+                    if (arg.Length == 0) { Log("usage: capproc <process-name>"); break; }
+                    RunSta(() => CaptureByProcess(arg));
+                    break;
+                case "caphwnd":
+                    if (!TryParseHwnd(arg, out IntPtr h)) { Log("usage: caphwnd <hex, e.g. 0x1234>"); break; }
+                    RunSta(() => CaptureWindow(h, $"caphwnd {arg}"));
+                    break;
                 default:
                     Log($"════════════ MARK: {line} ════════════");
                     break;
             }
         }
+    }
+
+    // ---- headless drivers --------------------------------------------------
+    // Run a capture on a fresh STA thread (UIA COM prefers STA) and block until done,
+    // so interactive commands and the one-shot driver serialize cleanly.
+    private static void RunSta(Action a)
+    {
+        Exception? err = null;
+        var t = new Thread(() => { try { a(); } catch (Exception ex) { err = ex; } }) { IsBackground = true };
+        t.SetApartmentState(ApartmentState.STA);
+        t.Start();
+        t.Join();
+        if (err is not null) Log($"!! capture threw: {err.GetType().Name}: {err.Message}");
+    }
+
+    private static void RunOneShot(string[] args)
+    {
+        string mode = args[0].ToLowerInvariant();
+        string arg = args.Length > 1 ? args[1] : "";
+        Log($"──── one-shot [{string.Join(' ', args)}] @ {DateStamp()} ────");
+        switch (mode)
+        {
+            case "--proc": CaptureByProcess(arg); break;
+            case "--hwnd":
+                if (TryParseHwnd(arg, out IntPtr h)) CaptureWindow(h, $"--hwnd {arg}");
+                else Log("usage: --hwnd <hex, e.g. 0x1234>");
+                break;
+            case "--foreground": CaptureWindow(GetForegroundWindow(), "--foreground"); break;
+            default: Log($"unknown one-shot mode '{mode}' (use --proc <name> | --hwnd <hex> | --foreground)"); break;
+        }
+    }
+
+    // Census every visible, titled top-level window belonging to a named process.
+    // No focus / foreground needed — ElementFromHandle inspects any window.
+    private static void CaptureByProcess(string procName)
+    {
+        string want = procName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            ? procName[..^4] : procName;
+        int hits = 0;
+        EnumWindows((hwnd, _) =>
+        {
+            if (!IsWindowVisible(hwnd)) return true;
+            GetWindowThreadProcessId(hwnd, out uint pid);
+            string pn;
+            try { pn = Process.GetProcessById((int)pid).ProcessName; } catch { return true; }
+            if (!pn.Equals(want, StringComparison.OrdinalIgnoreCase)) return true;
+            if (GetText(hwnd).Length == 0) return true; // skip untitled helper windows
+            hits++;
+            CaptureWindow(hwnd, $"capproc {procName}");
+            return true;
+        }, IntPtr.Zero);
+        if (hits == 0) Log($"capproc {procName}: no visible titled top-level window found for that process.");
+    }
+
+    private static bool TryParseHwnd(string s, out IntPtr hwnd)
+    {
+        hwnd = IntPtr.Zero;
+        s = s.Trim();
+        if (s.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) s = s[2..];
+        if (long.TryParse(s, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long v))
+        { hwnd = new IntPtr(v); return hwnd != IntPtr.Zero; }
+        return false;
+    }
+
+    private static string DateStamp()
+    {
+        try { return DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture); }
+        catch { return "?"; }
     }
 
     // ---- foreground auto-capture -------------------------------------------
@@ -238,6 +330,7 @@ internal static class Program
             catch (Exception ex) { Log($"!! CAPTURE #{seq}: FindAll failed: {ex.GetType().Name}: {ex.Message}"); return; }
 
             int n = found?.Length ?? 0;
+            UIA.tagRECT winRect; try { winRect = winEl.CurrentBoundingRectangle; } catch { winRect = default; }
 
             // Single pass: dump each candidate into a buffer and tally by signal, so we
             // can print a signal summary up top. Weak ScrollItem-only nodes (XAML/Blink
@@ -250,7 +343,7 @@ internal static class Program
             {
                 UIA.IUIAutomationElement el;
                 try { el = found!.GetElement(i); } catch { continue; }
-                DumpCandidate(seq, i, el, tally, full, weak);
+                DumpCandidate(seq, i, el, winRect, tally, full, weak);
             }
 
             Log("");
@@ -261,6 +354,8 @@ internal static class Program
             Log($"  signals: ScrollPattern={tally.ScrollPattern} (of those, *Scrollable=True: {tally.ScrollPatternScrollable}, " +
                 $"UIA-scroll MOVED: {tally.GroundTruthMoved}) · ScrollBar-controltype={tally.ScrollBar} · " +
                 $"RangeValue={tally.RangeValue} · weak ScrollItem-only={weak.Count}");
+            Log($"  ★ REAL on-screen actuable scrollers (on-screen · viewSize<60% · moved proportionally · non-degenerate): {tally.RealMovers}" +
+                "  ← the number the go/no-go keys on");
             if (n == 0)
                 Log("  → NO scroll signals anywhere in this window's UIA subtree. " +
                     "If the operator can visibly scroll it, this is a FALSE-NEGATIVE (canvas/virtual/terminal).");
@@ -283,11 +378,12 @@ internal static class Program
 
     private sealed class Tally
     {
-        public int ScrollPattern, ScrollPatternScrollable, GroundTruthMoved, ScrollBar, RangeValue;
+        public int ScrollPattern, ScrollPatternScrollable, GroundTruthMoved, ScrollBar, RangeValue, RealMovers;
     }
 
     private static void DumpCandidate(
-        int seq, int idx, UIA.IUIAutomationElement el, Tally tally, List<string> full, List<string> weak)
+        int seq, int idx, UIA.IUIAutomationElement el, UIA.tagRECT winRect,
+        Tally tally, List<string> full, List<string> weak)
     {
         int ctlId = 0;
         try { ctlId = el.CurrentControlType; } catch { }
@@ -295,7 +391,10 @@ internal static class Program
         string name = Trunc(SafeProp(() => el.CurrentName), 34);
         string autoId = Trunc(SafeProp(() => el.CurrentAutomationId), 24);
         string fw = SafeProp(() => el.CurrentFrameworkId);
-        string rect = RectStr(el);
+        UIA.tagRECT er; try { er = el.CurrentBoundingRectangle; } catch { er = default; }
+        bool onScreen = RectOnScreen(er, winRect);
+        bool sized = (er.right - er.left) >= 60 && (er.bottom - er.top) >= 60; // real pane, not a 2x2 micro-scroller
+        string rect = $"({er.left},{er.top} {er.right - er.left}x{er.bottom - er.top})";
 
         UIA.IUIAutomationScrollPattern? sp = null;
         try { sp = el.GetCurrentPattern(UIA_ScrollPatternId) as UIA.IUIAutomationScrollPattern; } catch { }
@@ -313,7 +412,7 @@ internal static class Program
         }
 
         string provider = Trunc(PropStr(el, UIA_ProviderDescriptionPropertyId), 60);
-        full.Add($"  [{seq}.{idx}] ctl={ctl} name='{name}' autoId='{autoId}' fw={fw} rect={rect}");
+        full.Add($"  [{seq}.{idx}] ctl={ctl} name='{name}' autoId='{autoId}' fw={fw} rect={rect} {(onScreen ? "[on-screen]" : "[OFF-SCREEN]")}");
         if (provider.Length > 0) full.Add($"         provider='{provider}'");
 
         // ---- ScrollPattern (the authoritative signal) ----
@@ -328,9 +427,23 @@ internal static class Program
             string hPct = PropStr(el, UIA_ScrollHorizontalScrollPercentPropertyId);
             if (vScroll == "True" || hScroll == "True") tally.ScrollPatternScrollable++;
             full.Add($"         ScrollPattern: vScrollable={vScroll} hScrollable={hScroll} | vViewSize={vView} hViewSize={hView} | vPct={vPct} hPct={hPct}");
-            string gt = GroundTruthScroll(sp);
-            if (gt.StartsWith("MOVED")) tally.GroundTruthMoved++;
-            full.Add($"         GROUND-TRUTH: {gt}");
+            var (moved, degenerate, gtText) = GroundTruthScroll(sp);
+            if (moved) tally.GroundTruthMoved++;
+            // A real *content* region has content substantially larger than its viewport,
+            // i.e. a low ViewSize. Barely-overflowing controls (buttons at ~98%) and virtual
+            // list-rows (~80%) report scrollable + actuate but are NOT scroll targets — gate
+            // them out by ViewSize. Real regions seen: 0.5 / 8.1 / 10.8 / 35.7%.
+            double vViewNum = ParseD(vView);
+            bool substantial = !double.IsNaN(vViewNum) && vViewNum < 60.0;
+            bool realMover = moved && !degenerate && onScreen && substantial && sized;
+            if (realMover) tally.RealMovers++;
+            string tag = realMover ? "  ⟵ REAL on-screen actuable scroller"
+                : (moved && degenerate) ? "  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]"
+                : (moved && !onScreen) ? "  [moved but OFF-SCREEN — not a usable target]"
+                : (moved && !sized) ? "  [tiny rect (<60px) — micro-scroller, not a content region]"
+                : (moved && !substantial) ? "  [viewSize≥60% — barely-overflowing control/row, not a content region]"
+                : "";
+            full.Add($"         GROUND-TRUTH: {gtText}{tag}");
         }
         else
         {
@@ -359,24 +472,29 @@ internal static class Program
     }
 
     // Objectively test whether a UIA scroll moves the content, then restore.
-    private static string GroundTruthScroll(UIA.IUIAutomationScrollPattern sp)
+    // Returns (moved, degenerate, text). "degenerate" = one small increment slammed
+    // across ~the whole range (a micro/virtual scroller whose scroll range is trivial),
+    // which on Chromium/Electron is the dominant false-useful case.
+    private static (bool moved, bool degenerate, string text) GroundTruthScroll(UIA.IUIAutomationScrollPattern sp)
     {
         double before;
         try { before = sp.CurrentVerticalScrollPercent; }
-        catch (Exception ex) { return $"could not read VerticalScrollPercent: {ex.GetType().Name}"; }
+        catch (Exception ex) { return (false, false, $"could not read VerticalScrollPercent: {ex.GetType().Name}"); }
 
         if (before <= UiaScrollPatternNoScroll)
-            return $"n/a — vPct={before:F0} (NoScroll sentinel: this axis reports non-scrollable)";
+            return (false, false, $"n/a — vPct={before:F0} (NoScroll sentinel: this axis reports non-scrollable)");
 
         double after = before;
         bool moved = false;
         string how = "";
 
-        // 1) relative small increment (least disruptive)
+        // 1) relative small increment (least disruptive). Chromium/Electron UIA is
+        // cross-process + async, so poll the percent back with a settle window rather
+        // than reading once immediately (which under-reports real moves).
         try
         {
             sp.Scroll(UIA.ScrollAmount.ScrollAmount_NoAmount, UIA.ScrollAmount.ScrollAmount_SmallIncrement);
-            after = sp.CurrentVerticalScrollPercent;
+            after = SettleRead(sp, before);
             if (Math.Abs(after - before) > 0.01) { moved = true; how = "Scroll(SmallIncrement)"; }
         }
         catch { /* try absolute next */ }
@@ -388,7 +506,7 @@ internal static class Program
             try
             {
                 sp.SetScrollPercent(UiaScrollPatternNoScroll, target);
-                after = sp.CurrentVerticalScrollPercent;
+                after = SettleRead(sp, before);
                 if (Math.Abs(after - before) > 0.01) { moved = true; how = "SetScrollPercent"; }
             }
             catch (Exception ex) { how = $"both attempts threw ({ex.GetType().Name})"; }
@@ -397,9 +515,34 @@ internal static class Program
         // restore
         try { sp.SetScrollPercent(UiaScrollPatternNoScroll, before); } catch { }
 
-        return moved
-            ? $"MOVED via {how}: vPct {before:F1} → {after:F1}  (restored)"
-            : $"NO-MOVE: vPct stayed {before:F1} despite the attempt{(how.Length > 0 ? " (" + how + ")" : "")}";
+        bool degenerate = moved && Math.Abs(after - before) > 50
+            && (after <= 0.1 || after >= 99.9);
+        string text = moved
+            ? $"MOVED via {how}: vPct {before:F3} → {after:F3}  (restored)"
+            : $"NO-MOVE: vPct stayed {before:F3} despite the attempt{(how.Length > 0 ? " (" + how + ")" : "")}";
+        return (moved, degenerate, text);
+    }
+
+    // Element rect has positive area and intersects the window rect (i.e. actually visible).
+    private static bool RectOnScreen(UIA.tagRECT e, UIA.tagRECT w)
+    {
+        if (e.right <= e.left || e.bottom <= e.top) return false;      // zero/negative area
+        if (w.right <= w.left || w.bottom <= w.top) return e.left > -10000 && e.top > -10000; // no win rect: fall back to "not parked off-screen"
+        return e.left < w.right && e.right > w.left && e.top < w.bottom && e.bottom > w.top;
+    }
+
+    // Poll VerticalScrollPercent up to ~600ms, returning as soon as it changes — needed
+    // because async (Chromium/Electron) providers don't commit a scroll synchronously.
+    private static double SettleRead(UIA.IUIAutomationScrollPattern sp, double before)
+    {
+        double v = before;
+        for (int i = 0; i < 6; i++)
+        {
+            try { v = sp.CurrentVerticalScrollPercent; } catch { }
+            if (Math.Abs(v - before) > 0.01) return v;
+            Thread.Sleep(100);
+        }
+        return v;
     }
 
     // ---- helpers -----------------------------------------------------------
@@ -407,6 +550,9 @@ internal static class Program
     {
         try { return f() ?? ""; } catch { return "?"; }
     }
+
+    private static double ParseD(string s) =>
+        double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : double.NaN;
 
     private static string PropStr(UIA.IUIAutomationElement el, int propId)
     {
@@ -417,16 +563,6 @@ internal static class Program
             if (v is double d) return d.ToString("F1", CultureInfo.InvariantCulture);
             if (v is bool b) return b ? "True" : "False";
             return v.ToString() ?? "?";
-        }
-        catch { return "?"; }
-    }
-
-    private static string RectStr(UIA.IUIAutomationElement el)
-    {
-        try
-        {
-            UIA.tagRECT r = el.CurrentBoundingRectangle;
-            return $"({r.left},{r.top} {r.right - r.left}x{r.bottom - r.top})";
         }
         catch { return "?"; }
     }
@@ -522,4 +658,12 @@ internal static class Program
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
+
+    private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
 }
