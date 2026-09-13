@@ -204,6 +204,10 @@ internal static class Program
                     if (arg.Length == 0) { Log("usage: capproc <process-name>"); break; }
                     RunSta(() => CaptureByProcess(arg));
                     break;
+                case "capuia":
+                    if (arg.Length == 0) { Log("usage: capuia <process-name> (UIA-root walk; reaches CoreWindows like Start)"); break; }
+                    RunSta(() => CaptureByUiaProcess(arg));
+                    break;
                 case "caphwnd":
                     if (!TryParseHwnd(arg, out IntPtr h)) { Log("usage: caphwnd <hex, e.g. 0x1234>"); break; }
                     RunSta(() => CaptureWindow(h, $"caphwnd {arg}"));
@@ -236,6 +240,7 @@ internal static class Program
         switch (mode)
         {
             case "--proc": CaptureByProcess(arg); break;
+            case "--uiaproc": CaptureByUiaProcess(arg); break;
             case "--hwnd":
                 if (TryParseHwnd(arg, out IntPtr h)) CaptureWindow(h, $"--hwnd {arg}");
                 else Log("usage: --hwnd <hex, e.g. 0x1234>");
@@ -245,8 +250,11 @@ internal static class Program
         }
     }
 
-    // Census every visible, titled top-level window belonging to a named process.
-    // No focus / foreground needed — ElementFromHandle inspects any window.
+    // Census every visible, reasonably-sized top-level window belonging to a named
+    // process. No focus / foreground needed — ElementFromHandle inspects any window.
+    // Filter by SIZE (>=200x200) not title, so untitled content surfaces like the Start
+    // menu's StartMenuExperienceHost CoreWindow are captured while tiny helper windows
+    // are skipped.
     private static void CaptureByProcess(string procName)
     {
         string want = procName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
@@ -259,12 +267,51 @@ internal static class Program
             string pn;
             try { pn = Process.GetProcessById((int)pid).ProcessName; } catch { return true; }
             if (!pn.Equals(want, StringComparison.OrdinalIgnoreCase)) return true;
-            if (GetText(hwnd).Length == 0) return true; // skip untitled helper windows
+            if (!GetWindowRect(hwnd, out RECT r) || (r.right - r.left) < 200 || (r.bottom - r.top) < 200)
+                return true; // skip tiny helper windows (title-agnostic)
             hits++;
             CaptureWindow(hwnd, $"capproc {procName}");
             return true;
         }, IntPtr.Zero);
-        if (hits == 0) Log($"capproc {procName}: no visible titled top-level window found for that process.");
+        if (hits == 0) Log($"capproc {procName}: no visible window >=200x200 found for that process.");
+    }
+
+    // Census a process's windows by walking the UIA DESKTOP ROOT's children rather than
+    // EnumWindows — reaches Windows.UI.Core.CoreWindow surfaces (Start menu, some shell
+    // UI) that are not enumerable/reachable as normal top-level HWNDs.
+    private static void CaptureByUiaProcess(string procName)
+    {
+        string want = procName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            ? procName[..^4] : procName;
+        int hits = 0;
+        try
+        {
+            var root = _com.GetRootElement();
+            var walker = _com.ControlViewWalker;
+            var child = walker.GetFirstChildElement(root);
+            while (child is not null)
+            {
+                string pn = "";
+                try { pn = SafeProcName(child.CurrentProcessId); } catch { }
+                // SafeProcName returns "name(pid)"; compare on the name part.
+                string nameOnly = pn.Contains('(') ? pn[..pn.IndexOf('(')] : pn;
+                if (nameOnly.Equals(want, StringComparison.OrdinalIgnoreCase))
+                {
+                    hits++;
+                    string cls = SafeProp(() => child.CurrentClassName);
+                    CaptureElement(child, "uia-root-child", cls, $"uiaproc {procName}");
+                }
+                try { child = walker.GetNextSiblingElement(child); } catch { break; }
+            }
+        }
+        catch (Exception ex) { Log($"!! uiaproc {procName} walk threw: {ex.GetType().Name}: {ex.Message}"); }
+        if (hits == 0) Log($"uiaproc {procName}: no top-level UIA element found for that process (is it open?).");
+    }
+
+    private static string SafeProcName(int pid)
+    {
+        try { return $"{Process.GetProcessById(pid).ProcessName}({pid})"; }
+        catch { return $"pid{pid}"; }
     }
 
     private static bool TryParseHwnd(string s, out IntPtr hwnd)
@@ -303,17 +350,24 @@ internal static class Program
     // ---- the census --------------------------------------------------------
     private static void CaptureWindow(IntPtr hwnd, string trigger)
     {
+        if (hwnd == IntPtr.Zero) { Log($"!! CAPTURE: no window (hwnd=0)"); return; }
+        UIA.IUIAutomationElement winEl;
+        try { winEl = _com.ElementFromHandle(hwnd); }
+        catch (Exception ex) { Log($"!! CAPTURE: ElementFromHandle failed: {ex.GetType().Name}: {ex.Message}"); return; }
+        CaptureElement(winEl, $"hwnd=0x{hwnd.ToInt64():X8}", GetClass(hwnd), trigger);
+    }
+
+    // Census any UIA element's subtree (works for CoreWindow-hosted surfaces like the
+    // Start menu that ElementFromHandle/EnumWindows can't reach — reached via the UIA
+    // desktop-root walk in CaptureByUiaProcess instead).
+    private static void CaptureElement(UIA.IUIAutomationElement winEl, string handleLabel, string cls, string trigger)
+    {
         var sw = Stopwatch.StartNew();
         int seq = ++_captureSeq;
         try
         {
-            if (hwnd == IntPtr.Zero) { Log($"!! CAPTURE #{seq}: no foreground window"); return; }
-            string proc = ProcName(hwnd), title = GetText(hwnd), cls = GetClass(hwnd);
-
-            UIA.IUIAutomationElement winEl;
-            try { winEl = _com.ElementFromHandle(hwnd); }
-            catch (Exception ex) { Log($"!! CAPTURE #{seq}: ElementFromHandle failed: {ex.GetType().Name}: {ex.Message}"); return; }
-
+            string proc = SafeProp(() => SafeProcName(winEl.CurrentProcessId));
+            string title = SafeProp(() => winEl.CurrentName);
             string winFw = SafeProp(() => winEl.CurrentFrameworkId);
 
             // Server-side OR condition: any element bearing a scroll signal.
@@ -348,7 +402,7 @@ internal static class Program
 
             Log("");
             Log($"════════ CAPTURE #{seq}  [{trigger}] ════════");
-            Log($"  proc={proc}  hwnd=0x{hwnd.ToInt64():X8}  windowClass='{cls}'  windowFramework={winFw}");
+            Log($"  proc={proc}  {handleLabel}  windowClass='{cls}'  windowFramework={winFw}");
             Log($"  title='{Trunc(title, 60)}'");
             Log($"  scroll-signal candidates in subtree: {n}   (FindAll {sw.ElapsedMilliseconds}ms)");
             Log($"  signals: ScrollPattern={tally.ScrollPattern} (of those, *Scrollable=True: {tally.ScrollPatternScrollable}, " +
@@ -666,4 +720,10 @@ internal static class Program
 
     [DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT { public int left, top, right, bottom; }
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 }
