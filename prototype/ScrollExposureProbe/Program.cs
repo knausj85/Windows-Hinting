@@ -246,12 +246,24 @@ internal static class Program
                 else Log("usage: --hwnd <hex, e.g. 0x1234>");
                 break;
             case "--foreground": CaptureWindow(GetForegroundWindow(), "--foreground"); break;
+            case "--reach":
+                // Diagnostic: is childHwnd's element reachable by walking parents up to topHwnd's?
+                if (args.Length > 2 && TryParseHwnd(args[1], out IntPtr topH) && TryParseHwnd(args[2], out IntPtr chH))
+                    ReachTest(topH, chH);
+                else Log("usage: --reach <topHwndHex> <childHwndHex>");
+                break;
             case "--holdrange":
                 if (TryParseHwnd(arg, out IntPtr hh))
-                    HoldRange(hh, args.Length > 2 && int.TryParse(args[2], out int ms) ? ms : 5000);
-                else Log("usage: --holdrange <hex> [ms]");
+                    HoldRange(hh, args.Length > 2 && int.TryParse(args[2], out int ms) ? ms : 5000,
+                        args.Length > 3 ? args[3] : "");
+                else Log("usage: --holdrange <hex> [ms] [autoIdSubstring]");
                 break;
-            default: Log($"unknown one-shot mode '{mode}' (use --proc | --uiaproc | --hwnd | --foreground | --holdrange)"); break;
+            case "--holdall":
+                if (TryParseHwnd(arg, out IntPtr ha))
+                    HoldAllRanges(ha, args.Length > 2 && int.TryParse(args[2], out int mse) ? mse : 4000);
+                else Log("usage: --holdall <hex> [msEach]");
+                break;
+            default: Log($"unknown one-shot mode '{mode}' (use --proc | --uiaproc | --hwnd | --foreground | --holdrange | --holdall)"); break;
         }
     }
 
@@ -259,7 +271,7 @@ internal static class Program
     // ~70% of range, HOLD (no restore) for `ms` so the operator can watch whether the
     // content actually scrolls, then restore. Answers "does RangeValue.SetValue really
     // scroll it?" for surfaces (e.g. Windows Terminal) that expose no ScrollPattern.
-    private static void HoldRange(IntPtr hwnd, int ms)
+    private static void HoldRange(IntPtr hwnd, int ms, string autoIdMatch)
     {
         try
         {
@@ -269,13 +281,15 @@ internal static class Program
             for (int i = 0; i < (bars?.Length ?? 0); i++)
             {
                 var bar = bars!.GetElement(i);
+                string aid = SafeProp(() => bar.CurrentAutomationId);
+                if (autoIdMatch.Length > 0 && !aid.Contains(autoIdMatch, StringComparison.OrdinalIgnoreCase)) continue;
                 var rv = bar.GetCurrentPattern(UIA_RangeValuePatternId) as UIA.IUIAutomationRangeValuePattern;
                 if (rv is null) continue;
                 double min = rv.CurrentMinimum, max = rv.CurrentMaximum, before = rv.CurrentValue;
-                if (!(max > min)) { Log($"HOLD: scrollbar #{i} has no usable range ({min}..{max}) — skipping"); continue; }
+                if (!(max > min)) { Log($"HOLD: scrollbar #{i} '{aid}' has no usable range ({min}..{max}) — skipping"); continue; }
                 double target = min + (max - min) * 0.7;
-                Log($"HOLD: scrollbar '{SafeProp(() => bar.CurrentName)}' range {min}..{max}, before={before}. " +
-                    $"Setting to {target:F1} and holding {ms}ms — WATCH THE TERMINAL now…");
+                Log($"HOLD: scrollbar autoId='{aid}' range {min}..{max}, before={before}. " +
+                    $"Setting to {target:F1} and holding {ms}ms — WATCH THE WINDOW now…");
                 rv.SetValue(target);
                 Thread.Sleep(ms);
                 double held = before; try { held = rv.CurrentValue; } catch { }
@@ -283,9 +297,82 @@ internal static class Program
                 rv.SetValue(before);
                 return;
             }
-            Log("HOLD: no ScrollBar with a usable RangeValue found in this window.");
+            Log($"HOLD: no ScrollBar{(autoIdMatch.Length > 0 ? $" matching autoId '{autoIdMatch}'" : "")} with a usable RangeValue found.");
         }
         catch (Exception ex) { Log($"!! HoldRange threw: {ex.GetType().Name}: {ex.Message}"); }
+    }
+
+    // Actuate EVERY scroller in the window in sequence — set to ~70%, held `msEach`, then
+    // restored — so the operator can watch each pane move one at a time. Covers BOTH
+    // mechanisms: ScrollBar+RangeValue (e.g. VS editor) AND ScrollPattern panes (e.g. VS
+    // Solution Explorer, list views). ScrollBars actuate regardless of size (they're thin);
+    // ScrollPattern panes are gated to on-screen + ≥60×60 so a Chromium page's swarm of
+    // micro/offscreen scrollers doesn't turn this into hundreds of holds.
+    private static void HoldAllRanges(IntPtr hwnd, int msEach)
+    {
+        try
+        {
+            var winEl = _com.ElementFromHandle(hwnd);
+            UIA.tagRECT winRect; try { winRect = winEl.CurrentBoundingRectangle; } catch { winRect = default; }
+            var cond = _com.CreateOrCondition(
+                _com.CreatePropertyCondition(UIA_IsScrollPatternAvailablePropertyId, true),
+                _com.CreatePropertyCondition(UIA_ControlTypePropertyId, UIA_ScrollBarControlTypeId));
+            var els = winEl.FindAll(UIA.TreeScope.TreeScope_Subtree, cond);
+            int total = els?.Length ?? 0;
+            Log($"HOLDALL: {total} scroll-capable element(s) found. Holding each usable one {msEach}ms in sequence…");
+            int held = 0;
+            for (int i = 0; i < total; i++)
+            {
+                var el = els!.GetElement(i);
+                string aid = SafeProp(() => el.CurrentAutomationId);
+                string nm = SafeProp(() => el.CurrentName);
+                int ctlId = 0; try { ctlId = el.CurrentControlType; } catch { }
+                UIA.tagRECT r; try { r = el.CurrentBoundingRectangle; } catch { r = default; }
+                int w = r.right - r.left, h = r.bottom - r.top;
+                string orient = w > h ? "HORIZONTAL" : "VERTICAL";
+                string label = $"#{i} '{aid}' {ControlTypeName(ctlId)} {orient} rect=({r.left},{r.top} {w}x{h}) name='{Trunc(nm, 24)}'";
+
+                // ScrollBar → RangeValue.SetValue (actuate regardless of thin size).
+                if (ctlId == UIA_ScrollBarControlTypeId)
+                {
+                    var rv = el.GetCurrentPattern(UIA_RangeValuePatternId) as UIA.IUIAutomationRangeValuePattern;
+                    if (rv is null) { Log($"HOLDALL {label}: ScrollBar w/o RangeValue — skip"); continue; }
+                    double min = rv.CurrentMinimum, max = rv.CurrentMaximum, before = rv.CurrentValue;
+                    if (!(max > min)) { Log($"HOLDALL {label}: range {min:F1}..{max:F1} (no overflow) — skip"); continue; }
+                    double target = min + (max - min) * 0.7;
+                    held++;
+                    Log($"HOLDALL {label} [ScrollBar/RangeValue]: {min:F1}..{max:F1}, {before:F1}→{target:F1}, hold {msEach}ms — WATCH the {orient} scrollbar…");
+                    try { rv.SetValue(target); Thread.Sleep(msEach); double now = before; try { now = rv.CurrentValue; } catch { } Log($"   read-back={now:F1}. Restoring {before:F1}."); rv.SetValue(before); }
+                    catch (Exception ex) { Log($"   SetValue threw: {ex.GetType().Name}"); }
+                    Thread.Sleep(900);
+                    continue;
+                }
+
+                // ScrollPattern pane → SetScrollPercent (gated to on-screen, real-size panes).
+                var sp = el.GetCurrentPattern(UIA_ScrollPatternId) as UIA.IUIAutomationScrollPattern;
+                if (sp is null) { Log($"HOLDALL {label}: no ScrollPattern — skip"); continue; }
+                double vPct = ReadAxis(sp, 'V'), hPct = ReadAxis(sp, 'H');
+                char axis = vPct > UiaScrollPatternNoScroll ? 'V' : (hPct > UiaScrollPatternNoScroll ? 'H' : '-');
+                if (axis == '-') { Log($"HOLDALL {label}: ScrollPattern present but neither axis scrollable — skip"); continue; }
+                if (!RectOnScreen(r, winRect) || w < 60 || h < 60) { Log($"HOLDALL {label}: off-screen or <60px — skip"); continue; }
+                double b = axis == 'V' ? vPct : hPct;
+                double tgt = b < 50 ? 85 : 15;
+                held++;
+                Log($"HOLDALL {label} [ScrollPattern {axis}]: pct {b:F1}→{tgt:F1}, hold {msEach}ms — WATCH this pane…");
+                try
+                {
+                    if (axis == 'V') sp.SetScrollPercent(UiaScrollPatternNoScroll, tgt); else sp.SetScrollPercent(tgt, UiaScrollPatternNoScroll);
+                    Thread.Sleep(msEach);
+                    double now = ReadAxis(sp, axis);
+                    Log($"   read-back={now:F1}. Restoring {b:F1}.");
+                    if (axis == 'V') sp.SetScrollPercent(UiaScrollPatternNoScroll, b); else sp.SetScrollPercent(b, UiaScrollPatternNoScroll);
+                }
+                catch (Exception ex) { Log($"   SetScrollPercent threw: {ex.GetType().Name}"); }
+                Thread.Sleep(900);
+            }
+            Log($"HOLDALL: done — actuated {held} of {total} scroll-capable element(s) (rest skipped: no overflow / off-screen / too small).");
+        }
+        catch (Exception ex) { Log($"!! HoldAllRanges threw: {ex.GetType().Name}: {ex.Message}"); }
     }
 
     // Census every visible, reasonably-sized top-level window belonging to a named
@@ -393,6 +480,87 @@ internal static class Program
         try { winEl = _com.ElementFromHandle(hwnd); }
         catch (Exception ex) { Log($"!! CAPTURE: ElementFromHandle failed: {ex.GetType().Name}: {ex.Message}"); return; }
         CaptureElement(winEl, $"hwnd=0x{hwnd.ToInt64():X8}", GetClass(hwnd), trigger);
+        DescendChildFragments(hwnd, winEl); // hosted panes (HwndTerminal, XAML islands) live in separate UIA fragments
+    }
+
+    // A hosted child control (VS's HwndTerminal, XAML islands, some embedded browsers) roots
+    // its own UIA fragment that FindAll(Subtree) from the top window CANNOT reach — the parent
+    // chain stops at the host boundary. Walk child HWNDs; for each that roots a SEPARATE
+    // fragment (walking parents never reaches the top element), census it too. Nested children
+    // of an already-captured fragment are skipped.
+    private static void DescendChildFragments(IntPtr topHwnd, UIA.IUIAutomationElement topEl)
+    {
+        var captured = new List<IntPtr>();
+        int found = 0;
+        try
+        {
+            EnumChildWindows(topHwnd, (h, _) =>
+            {
+                if (found >= 25) return false; // safety bound
+                if (!IsWindowVisible(h)) return true;
+                if (!GetWindowRect(h, out RECT r) || (r.right - r.left) < 100 || (r.bottom - r.top) < 100) return true;
+                foreach (var c in captured) { if (IsChild(c, h)) return true; } // inside a fragment we already took
+                UIA.IUIAutomationElement el;
+                try { el = _com.ElementFromHandle(h); } catch { return true; }
+                if (el is null) return true;
+                if (Same(el, topEl)) return true;              // same element as the window
+                if (!IsSeparateFragment(el, topEl)) return true; // reachable from the top → already covered
+                captured.Add(h); found++;
+                string cls = GetClass(h);
+                CaptureElement(el, $"CHILD-FRAGMENT hwnd=0x{h.ToInt64():X8} class='{cls}'", cls, "child-descent");
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch (Exception ex) { Log($"!! DescendChildFragments threw: {ex.GetType().Name}: {ex.Message}"); }
+        if (found > 0)
+            Log($"  ⟹ child-descent: captured {found} separate UIA fragment(s) the top-level subtree could not reach.");
+    }
+
+    // Fragment-boundary test: walk parents up from childEl; if we reach the top window element
+    // it's the same fragment (already covered); if the chain ends first, it's a separate fragment.
+    private static bool IsSeparateFragment(UIA.IUIAutomationElement childEl, UIA.IUIAutomationElement topEl)
+    {
+        try
+        {
+            var walker = _com.ControlViewWalker;
+            var cur = childEl;
+            for (int i = 0; i < 80 && cur is not null; i++)
+            {
+                if (Same(cur, topEl)) return false;
+                cur = walker.GetParentElement(cur);
+            }
+            return true;
+        }
+        catch { return false; }
+    }
+
+    // UIA's own element-equality — robust where RuntimeId retrieval is flaky.
+    private static bool Same(UIA.IUIAutomationElement a, UIA.IUIAutomationElement b)
+    {
+        try { return _com.CompareElements(a, b) != 0; } catch { return false; }
+    }
+
+    private static void ReachTest(IntPtr topHwnd, IntPtr childHwnd)
+    {
+        try
+        {
+            var topEl = _com.ElementFromHandle(topHwnd);
+            var childEl = _com.ElementFromHandle(childHwnd);
+            Log($"REACH: top=0x{topHwnd.ToInt64():X8} ('{SafeProp(() => topEl.CurrentName)}') " +
+                $"child=0x{childHwnd.ToInt64():X8} ('{SafeProp(() => childEl.CurrentName)}' class='{GetClass(childHwnd)}')");
+            var walker = _com.ControlViewWalker;
+            var cur = childEl;
+            for (int i = 0; i < 80 && cur is not null; i++)
+            {
+                string cn = SafeProp(() => cur.CurrentName);
+                int ct = 0; try { ct = cur.CurrentControlType; } catch { }
+                Log($"   step {i}: ctl={ControlTypeName(ct)} name='{Trunc(cn, 30)}'{(Same(cur, topEl) ? "  ← IS TOP (reachable, same fragment)" : "")}");
+                if (Same(cur, topEl)) { Log($"REACH: reachable in {i} steps → SAME fragment."); return; }
+                cur = walker.GetParentElement(cur);
+            }
+            Log("REACH: parent chain ENDED without reaching top → SEPARATE fragment.");
+        }
+        catch (Exception ex) { Log($"!! ReachTest threw: {ex.GetType().Name}: {ex.Message}"); }
     }
 
     // Census any UIA element's subtree (works for CoreWindow-hosted surfaces like the
@@ -522,14 +690,14 @@ internal static class Program
             string hPct = PropStr(el, UIA_ScrollHorizontalScrollPercentPropertyId);
             if (vScroll == "True" || hScroll == "True") tally.ScrollPatternScrollable++;
             full.Add($"         ScrollPattern: vScrollable={vScroll} hScrollable={hScroll} | vViewSize={vView} hViewSize={hView} | vPct={vPct} hPct={hPct}");
-            var (moved, degenerate, gtText) = GroundTruthScroll(sp);
+            var (moved, degenerate, axis, gtText) = GroundTruthScroll(sp);
             if (moved) tally.GroundTruthMoved++;
             // A real *content* region has content substantially larger than its viewport,
-            // i.e. a low ViewSize. Barely-overflowing controls (buttons at ~98%) and virtual
-            // list-rows (~80%) report scrollable + actuate but are NOT scroll targets — gate
-            // them out by ViewSize. Real regions seen: 0.5 / 8.1 / 10.8 / 35.7%.
-            double vViewNum = ParseD(vView);
-            bool substantial = !double.IsNaN(vViewNum) && vViewNum < 60.0;
+            // i.e. a low ViewSize — on the axis that actually moved (vertical OR horizontal).
+            // Barely-overflowing controls (~98%) and virtual list-rows (~80%) report scrollable
+            // + actuate but are NOT scroll targets — gate them out by ViewSize.
+            double viewNum = ParseD(axis == 'H' ? hView : vView);
+            bool substantial = !double.IsNaN(viewNum) && viewNum < 60.0;
             bool realMover = moved && !degenerate && onScreen && substantial && sized;
             if (realMover) tally.RealMovers++;
             string tag = realMover ? "  ⟵ REAL on-screen actuable scroller"
@@ -578,56 +746,64 @@ internal static class Program
         }
     }
 
-    // Objectively test whether a UIA scroll moves the content, then restore.
-    // Returns (moved, degenerate, text). "degenerate" = one small increment slammed
-    // across ~the whole range (a micro/virtual scroller whose scroll range is trivial),
-    // which on Chromium/Electron is the dominant false-useful case.
-    private static (bool moved, bool degenerate, string text) GroundTruthScroll(UIA.IUIAutomationScrollPattern sp)
+    // Objectively test whether a UIA scroll moves the content, then restore. Tries the
+    // VERTICAL axis first, then HORIZONTAL if vertical is non-scrollable / didn't move —
+    // so horizontal-only scrollers (wide code blocks, timelines) are covered too.
+    // Returns (moved, degenerate, axis, text). axis ∈ {'V','H','-'}. "degenerate" = one
+    // small increment slammed across ~the whole range (a micro/virtual scroller).
+    private static (bool moved, bool degenerate, char axis, string text) GroundTruthScroll(UIA.IUIAutomationScrollPattern sp)
     {
-        double before;
-        try { before = sp.CurrentVerticalScrollPercent; }
-        catch (Exception ex) { return (false, false, $"could not read VerticalScrollPercent: {ex.GetType().Name}"); }
+        double vBefore = ReadAxis(sp, 'V'), hBefore = ReadAxis(sp, 'H');
+        if (vBefore > UiaScrollPatternNoScroll)
+        {
+            var r = TryAxis(sp, 'V', vBefore);
+            if (r.moved) return r;
+            if (hBefore > UiaScrollPatternNoScroll) { var rh = TryAxis(sp, 'H', hBefore); if (rh.moved) return rh; }
+            return r; // report the vertical NO-MOVE
+        }
+        if (hBefore > UiaScrollPatternNoScroll)
+            return TryAxis(sp, 'H', hBefore);
+        return (false, false, '-', $"n/a — vPct={vBefore:F0} hPct={hBefore:F0} (NoScroll: neither axis scrollable)");
+    }
 
-        if (before <= UiaScrollPatternNoScroll)
-            return (false, false, $"n/a — vPct={before:F0} (NoScroll sentinel: this axis reports non-scrollable)");
-
-        double after = before;
-        bool moved = false;
-        string how = "";
-
-        // 1) relative small increment (least disruptive). Chromium/Electron UIA is
-        // cross-process + async, so poll the percent back with a settle window rather
-        // than reading once immediately (which under-reports real moves).
+    private static (bool moved, bool degenerate, char axis, string text) TryAxis(
+        UIA.IUIAutomationScrollPattern sp, char axis, double before)
+    {
+        double after = before; bool moved = false; string how = "";
         try
         {
-            sp.Scroll(UIA.ScrollAmount.ScrollAmount_NoAmount, UIA.ScrollAmount.ScrollAmount_SmallIncrement);
-            after = SettleRead(sp, before);
+            if (axis == 'V') sp.Scroll(UIA.ScrollAmount.ScrollAmount_NoAmount, UIA.ScrollAmount.ScrollAmount_SmallIncrement);
+            else sp.Scroll(UIA.ScrollAmount.ScrollAmount_SmallIncrement, UIA.ScrollAmount.ScrollAmount_NoAmount);
+            after = SettleRead(sp, axis, before);
             if (Math.Abs(after - before) > 0.01) { moved = true; how = "Scroll(SmallIncrement)"; }
         }
-        catch { /* try absolute next */ }
-
-        // 2) absolute SetScrollPercent toward the far end
+        catch { }
         if (!moved)
         {
             double target = before < 50 ? Math.Min(100, before + 25) : Math.Max(0, before - 25);
             try
             {
-                sp.SetScrollPercent(UiaScrollPatternNoScroll, target);
-                after = SettleRead(sp, before);
+                if (axis == 'V') sp.SetScrollPercent(UiaScrollPatternNoScroll, target);
+                else sp.SetScrollPercent(target, UiaScrollPatternNoScroll);
+                after = SettleRead(sp, axis, before);
                 if (Math.Abs(after - before) > 0.01) { moved = true; how = "SetScrollPercent"; }
             }
             catch (Exception ex) { how = $"both attempts threw ({ex.GetType().Name})"; }
         }
-
         // restore
-        try { sp.SetScrollPercent(UiaScrollPatternNoScroll, before); } catch { }
+        try { if (axis == 'V') sp.SetScrollPercent(UiaScrollPatternNoScroll, before); else sp.SetScrollPercent(before, UiaScrollPatternNoScroll); } catch { }
 
-        bool degenerate = moved && Math.Abs(after - before) > 50
-            && (after <= 0.1 || after >= 99.9);
+        bool degenerate = moved && Math.Abs(after - before) > 50 && (after <= 0.1 || after >= 99.9);
         string text = moved
-            ? $"MOVED via {how}: vPct {before:F3} → {after:F3}  (restored)"
-            : $"NO-MOVE: vPct stayed {before:F3} despite the attempt{(how.Length > 0 ? " (" + how + ")" : "")}";
-        return (moved, degenerate, text);
+            ? $"MOVED ({axis}) via {how}: pct {before:F3} → {after:F3}  (restored)"
+            : $"NO-MOVE ({axis}): stayed {before:F3} despite the attempt{(how.Length > 0 ? " (" + how + ")" : "")}";
+        return (moved, degenerate, axis, text);
+    }
+
+    private static double ReadAxis(UIA.IUIAutomationScrollPattern sp, char axis)
+    {
+        try { return axis == 'V' ? sp.CurrentVerticalScrollPercent : sp.CurrentHorizontalScrollPercent; }
+        catch { return UiaScrollPatternNoScroll; }
     }
 
     // Element rect has positive area and intersects the window rect (i.e. actually visible).
@@ -638,14 +814,14 @@ internal static class Program
         return e.left < w.right && e.right > w.left && e.top < w.bottom && e.bottom > w.top;
     }
 
-    // Poll VerticalScrollPercent up to ~600ms, returning as soon as it changes — needed
+    // Poll the axis's ScrollPercent up to ~600ms, returning as soon as it changes — needed
     // because async (Chromium/Electron) providers don't commit a scroll synchronously.
-    private static double SettleRead(UIA.IUIAutomationScrollPattern sp, double before)
+    private static double SettleRead(UIA.IUIAutomationScrollPattern sp, char axis, double before)
     {
         double v = before;
         for (int i = 0; i < 6; i++)
         {
-            try { v = sp.CurrentVerticalScrollPercent; } catch { }
+            v = ReadAxis(sp, axis);
             if (Math.Abs(v - before) > 0.01) return v;
             Thread.Sleep(100);
         }
@@ -807,4 +983,10 @@ internal static class Program
 
     [DllImport("user32.dll")]
     private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
 }

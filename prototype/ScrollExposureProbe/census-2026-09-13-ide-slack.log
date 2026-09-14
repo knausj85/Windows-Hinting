@@ -1,0 +1,721 @@
+──── one-shot [--hwnd 0x13F0634] @ 2026-09-13 18:49:36 ────
+
+════════ CAPTURE #1  [--hwnd 0x13F0634] ════════
+  proc=Slack(16692)  hwnd=0x013F0634  windowClass='Chrome_WidgetWin_1'  windowFramework=Win32
+  title='news (Channel) - Talon - Slack'
+  scroll-signal candidates in subtree: 217   (FindAll 1052ms)
+  signals: ScrollPattern=3 (of those, *Scrollable=True: 2, UIA-scroll MOVED: 2) · ScrollBar-controltype=0 · RangeValue=1 (scrollbar RangeValue ACTUABLE: 0) · weak ScrollItem-only=214
+  ★ REAL on-screen actuable scrollers (on-screen · viewSize<60% · moved proportionally · non-degenerate): 0  ← the number the go/no-go keys on
+  [1.12] ctl=Document name='news (Channel) - Talon - Slack' autoId='RootWebArea' fw=Chrome rect=(2,0 1188x964) [on-screen]
+         provider='[pid:16692,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=False hScrollable=False | vViewSize=100.0 hViewSize=100.0 | vPct=-1.0 hPct=-1.0
+         GROUND-TRUTH: n/a — vPct=-1 hPct=-1 (NoScroll: neither axis scrollable)
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.129] ctl=Slider name='Sidebar width' autoId='' fw=Chrome rect=(88,49 2x2) [on-screen]
+         provider='[pid:16692,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=True | vViewSize=5.3 hViewSize=2.9 | vPct=0.0 hPct=0.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+         RangeValuePattern: value=210.0 min=0.0 max=450.0 (scroll-signal only if max>min AND this is a scrollbar)
+  [1.212] ctl=Text name='' autoId='' fw=Chrome rect=(-1,962 2x2) [on-screen]
+         provider='[pid:16692,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=True | vViewSize=1.9 hViewSize=0.9 | vPct=0.0 hPct=0.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  ── weak (ScrollItem-only, no container signal) × 214: ──
+     · [1.0] ctl=Window name='news (Channel) - Talon - Slack' autoId='' rect=(-6,0 1201x970)
+     · [1.1] ctl=Pane name='news (Channel) - Talon - Slack' autoId='' rect=(2,0 1188x964)
+     · [1.2] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.3] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.4] ctl=Pane name='' autoId='' rect=(1018,2 172x48)
+     · [1.5] ctl=Button name='Minimize' autoId='' rect=(1018,2 57x48)
+     · [1.6] ctl=Button name='Maximize' autoId='' rect=(1074,2 58x48)
+     · [1.7] ctl=Button name='Close' autoId='' rect=(1132,2 58x48)
+     · [1.8] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.9] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.10] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.11] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.13] ctl=Group name='' autoId='' rect=(2,0 1188x964)
+     · [1.14] ctl=Group name='' autoId='' rect=(2,0 1188x964)
+     · [1.15] ctl=Pane name='  ' autoId='' rect=(0,-2 2x2)
+     · [1.16] ctl=ToolBar name='History Navigation' autoId='' rect=(2,0 1188x50)
+     · [1.17] ctl=Button name='Slack' autoId='' rect=(33,9 33x33)
+     · [1.18] ctl=Button name='Back in history' autoId='' rect=(228,9 33x33)
+     · [1.19] ctl=Button name='Forward in history' autoId='' rect=(268,9 33x33)
+     · [1.20] ctl=Button name='Show history' autoId='' rect=(308,9 33x33)
+     · [1.21] ctl=Button name='Search' autoId='' rect=(352,8 379x35)
+     · [1.22] ctl=Button name='Chat with Slackbot AI' autoId='' rect=(740,8 36x35)
+     · [1.23] ctl=Button name='Help' autoId='' rect=(974,9 33x33)
+     · [1.24] ctl=Pane name='Talon' autoId='' rect=(2,50 1188x914)
+     · [1.25] ctl=Group name='' autoId='' rect=(23,60 46x52)
+     · [1.26] ctl=Button name='Switch workspaces… (Talon) ' autoId='' rect=(23,60 46x45)
+     · [1.27] ctl=Tab name='Talon' autoId='' rect=(13,127 66x510)
+     · [1.28] ctl=TabItem name='Home' autoId='home' rect=(13,127 66x85)
+     · [1.29] ctl=TabItem name='DMs' autoId='dms' rect=(13,212 66x85)
+     · [1.30] ctl=TabItem name='Activity' autoId='activity-inbox' rect=(13,297 66x85)
+     · [1.31] ctl=TabItem name='Files' autoId='unified-files' rect=(13,382 66x85)
+     · [1.32] ctl=TabItem name='Later' autoId='later' rect=(13,467 66x85)
+     · [1.33] ctl=TabItem name='More…' autoId='browse' rect=(13,552 66x85)
+     · [1.34] ctl=Pane name='Home' autoId='' rect=(89,50 1095x909)
+     · [1.35] ctl=Group name='Home' autoId='' rect=(89,50 263x909)
+     · [1.36] ctl=ToolBar name='Actions' autoId='' rect=(89,50 263x62)
+     · [1.37] ctl=Button name='Talon Actions' autoId='' rect=(99,61 103x41)
+     · [1.38] ctl=Button name='Manage my sidebar' autoId='' rect=(264,62 35x36)
+     · [1.39] ctl=Button name='New message' autoId='' rect=(307,62 35x36)
+     · [1.40] ctl=Group name='' autoId='' rect=(99,111 243x41)
+     · [1.41] ctl=Edit name='Channel or user name' autoId='' rect=(125,119 191x20)
+     · [1.42] ctl=Tree name='Channels and direct messages' autoId='' rect=(89,-611 263x1571)
+     · [1.43] ctl=TreeItem name='Slackbot' autoId='Pslackbot-ai' rect=(89,-604 263x36)
+     · [1.44] ctl=Group name='' autoId='' rect=(99,-604 243x36)
+     · [1.45] ctl=TreeItem name='Unreads' autoId='Punreads' rect=(89,-569 263x36)
+     · [1.46] ctl=Group name='' autoId='' rect=(99,-569 243x36)
+     · [1.47] ctl=TreeItem name='Threads' autoId='Vall_threads' rect=(89,-534 263x36)
+     · [1.48] ctl=Group name='' autoId='' rect=(99,-534 243x36)
+     · [1.49] ctl=TreeItem name='Huddles' autoId='Pbrowse-huddles' rect=(89,-499 263x36)
+     · [1.50] ctl=Group name='' autoId='' rect=(99,-499 243x36)
+     · [1.51] ctl=TreeItem name='Drafts & sent 9' autoId='Pdrafts' rect=(89,-464 263x36)
+     · [1.52] ctl=Group name='' autoId='' rect=(99,-464 243x36)
+     · [1.53] ctl=TreeItem name='Directories' autoId='unified_directory' rect=(89,-429 263x36)
+     · [1.54] ctl=Group name='' autoId='' rect=(99,-429 243x36)
+     · [1.55] ctl=Group name='' autoId='pagesDivider' rect=(89,-394 263x31)
+     · [1.56] ctl=TreeItem name='Starred' autoId='sectionHeading-L0658UY7Q…' rect=(89,-364 263x36)
+     · [1.57] ctl=Group name='' autoId='' rect=(89,-329 263x141)
+     · [1.58] ctl=TreeItem name='' autoId='G9YTMSZ2T' rect=(89,-329 263x36)
+     · [1.59] ctl=Group name='' autoId='' rect=(99,-329 243x36)
+     · [1.60] ctl=TreeItem name='' autoId='CJ2EE3LEB' rect=(89,-294 263x36)
+     · [1.61] ctl=Group name='' autoId='' rect=(99,-294 243x36)
+     · [1.62] ctl=TreeItem name='' autoId='G8J6HDR6C' rect=(89,-259 263x36)
+     · [1.63] ctl=Group name='' autoId='' rect=(99,-259 243x36)
+     · [1.64] ctl=TreeItem name='' autoId='C03316CBQET' rect=(89,-224 263x36)
+     · [1.65] ctl=Group name='' autoId='' rect=(99,-224 243x36)
+     · [1.66] ctl=TreeItem name='Channels' autoId='sectionHeading-L064PLT4R…' rect=(89,-176 263x36)
+     · [1.67] ctl=Group name='' autoId='' rect=(89,-141 263x911)
+     · [1.68] ctl=TreeItem name='' autoId='C9RJK4BM1' rect=(89,-141 263x36)
+     · [1.69] ctl=Group name='' autoId='' rect=(99,-141 243x36)
+     · [1.70] ctl=TreeItem name='' autoId='C03D396DBJQ' rect=(89,-106 263x36)
+     · [1.71] ctl=Group name='' autoId='' rect=(99,-106 243x36)
+     · [1.72] ctl=TreeItem name='' autoId='C01CB382BB5' rect=(89,-71 263x36)
+     · [1.73] ctl=Group name='' autoId='' rect=(99,-71 243x36)
+     · [1.74] ctl=TreeItem name='' autoId='C01U9MS5PBK' rect=(89,-36 263x36)
+     · [1.75] ctl=Group name='' autoId='' rect=(99,-36 243x36)
+     · [1.76] ctl=TreeItem name='' autoId='C04KTMNSGLD' rect=(89,-1 263x36)
+     · [1.77] ctl=Group name='' autoId='' rect=(99,-1 243x36)
+     · [1.78] ctl=TreeItem name='' autoId='C026KPTJE6T' rect=(89,34 263x36)
+     · [1.79] ctl=Group name='' autoId='' rect=(99,34 243x36)
+     · [1.80] ctl=TreeItem name='' autoId='C01QEDFH60J' rect=(89,69 263x36)
+     · [1.81] ctl=Group name='' autoId='' rect=(99,69 243x36)
+     · [1.82] ctl=TreeItem name='' autoId='C03DN7M6KG8' rect=(89,104 263x36)
+     · [1.83] ctl=Group name='' autoId='' rect=(99,104 243x36)
+     · [1.84] ctl=TreeItem name='' autoId='C7EK6PR8B' rect=(89,139 263x36)
+     · [1.85] ctl=Group name='' autoId='' rect=(99,139 243x36)
+     · [1.86] ctl=TreeItem name='' autoId='CD3JP2MJP' rect=(89,174 263x36)
+     · [1.87] ctl=Group name='' autoId='' rect=(99,174 243x36)
+     · [1.88] ctl=TreeItem name='' autoId='CE4JEDHC4' rect=(89,209 263x36)
+     · [1.89] ctl=Group name='' autoId='' rect=(99,209 243x36)
+     · [1.90] ctl=TreeItem name='' autoId='C7ENXA7C4' rect=(89,244 263x36)
+     · [1.91] ctl=Group name='' autoId='' rect=(99,244 243x36)
+     · [1.92] ctl=TreeItem name='' autoId='CARRXTUN4' rect=(89,279 263x36)
+     · [1.93] ctl=Group name='' autoId='' rect=(99,279 243x36)
+     · [1.94] ctl=TreeItem name='' autoId='C7EK0P3R9' rect=(89,314 263x36)
+     · [1.95] ctl=Group name='' autoId='' rect=(99,314 243x36)
+     · [1.96] ctl=TreeItem name='' autoId='CAN5QLPT8' rect=(89,349 263x36)
+     · [1.97] ctl=Group name='' autoId='' rect=(99,349 243x36)
+     · [1.98] ctl=TreeItem name='' autoId='C9LG499EE' rect=(89,384 263x36)
+     · [1.99] ctl=Group name='' autoId='' rect=(99,384 243x36)
+     · [1.100] ctl=TreeItem name='' autoId='C01GN0Y4WMC' rect=(89,419 263x36)
+     · [1.101] ctl=Group name='' autoId='' rect=(99,419 243x36)
+     · [1.102] ctl=TreeItem name='' autoId='CJG2B6T2A' rect=(89,454 263x36)
+     · [1.103] ctl=Group name='' autoId='' rect=(99,454 243x36)
+     · [1.104] ctl=TreeItem name='' autoId='C7ERD5Q5T' rect=(89,489 263x36)
+     · [1.105] ctl=Group name='' autoId='' rect=(99,489 243x36)
+     · [1.106] ctl=TreeItem name='' autoId='C9LG0U0UQ' rect=(89,524 263x36)
+     · [1.107] ctl=Group name='' autoId='' rect=(99,524 243x36)
+     · [1.108] ctl=TreeItem name='' autoId='C9LFDNBAQ' rect=(89,559 263x36)
+     · [1.109] ctl=Group name='' autoId='' rect=(99,559 243x36)
+     · [1.110] ctl=TreeItem name='' autoId='CKYAFAADA' rect=(89,594 263x36)
+     · [1.111] ctl=Group name='' autoId='' rect=(99,594 243x36)
+     · [1.112] ctl=TreeItem name='' autoId='CKYQCTEF2' rect=(89,629 263x36)
+     · [1.113] ctl=Group name='' autoId='' rect=(99,629 243x36)
+     · [1.114] ctl=TreeItem name='' autoId='C9MHQ4AGP' rect=(89,664 263x36)
+     · [1.115] ctl=Group name='' autoId='' rect=(99,664 243x36)
+     · [1.116] ctl=TreeItem name='' autoId='C9MBPTXD4' rect=(89,699 263x36)
+     · [1.117] ctl=Group name='' autoId='' rect=(99,699 243x36)
+     · [1.118] ctl=TreeItem name='' autoId='CKYAFHP9S' rect=(89,734 263x36)
+     · [1.119] ctl=Group name='' autoId='' rect=(99,734 243x36)
+     · [1.120] ctl=TreeItem name='Direct Messages' autoId='sectionHeading-L064YPHGQ…' rect=(89,782 263x36)
+     · [1.121] ctl=Group name='' autoId='' rect=(89,817 263x36)
+     · [1.122] ctl=TreeItem name='' autoId='D06FJUMDQEL' rect=(89,817 263x36)
+     · [1.123] ctl=Group name='' autoId='' rect=(99,817 243x36)
+     · [1.124] ctl=Image name='' autoId='' rect=(118,823 2x2)
+     · [1.125] ctl=Image name='Away' autoId='' rect=(130,833 16x16)
+     · [1.126] ctl=TreeItem name='Agents & apps' autoId='sectionHeading-L064W7961…' rect=(89,864 263x36)
+     · [1.127] ctl=Group name='' autoId='' rect=(0,0 0x0)
+     · [1.128] ctl=Group name='' autoId='' rect=(342,538 10x417)
+     · [1.130] ctl=Group name='Channel news' autoId='' rect=(352,50 833x909)
+     · [1.131] ctl=ToolBar name='Primary view actions' autoId='' rect=(352,50 833x62)
+     · [1.132] ctl=Button name='Star channel' autoId='' rect=(374,64 35x36)
+     · [1.133] ctl=Button name='Channel details for #news' autoId='' rect=(414,63 120x36)
+     · [1.134] ctl=Button name='View all 7,878 members. Includes a…' autoId='' rect=(910,63 131x36)
+     · [1.135] ctl=Button name='Edit notifications' autoId='' rect=(1048,63 36x36)
+     · [1.136] ctl=Button name='Search in channel' autoId='' rect=(1092,63 35x36)
+     · [1.137] ctl=Button name='More channel actions' autoId='' rect=(1134,63 35x36)
+     · [1.138] ctl=Tab name='#news views' autoId='' rect=(372,111 798x48)
+     · [1.139] ctl=TabItem name='Messages' autoId='channel' rect=(372,111 116x48)
+     · [1.140] ctl=TabItem name='Beta Change Log' autoId='Ct08PXTAJ1UH' rect=(492,111 167x48)
+     · [1.141] ctl=Group name='' autoId='' rect=(492,111 167x48)
+     · [1.142] ctl=TabItem name='Files & links' autoId='files' rect=(664,111 132x48)
+     · [1.143] ctl=Group name='' autoId='' rect=(664,111 132x48)
+     · [1.144] ctl=TabItem name='Pins' autoId='bookmarks' rect=(800,111 76x48)
+     · [1.145] ctl=Group name='' autoId='' rect=(800,111 76x48)
+     · [1.146] ctl=Text name='Canvas' autoId='' rect=(350,51 60x23)
+     · [1.147] ctl=Text name='List' autoId='' rect=(350,51 30x23)
+     · [1.148] ctl=Text name='Folder' autoId='' rect=(350,51 53x23)
+     · [1.149] ctl=List name='news (channel, read only)' autoId='' rect=(350,886 2x2)
+     · [1.150] ctl=ListItem name='news@aegis created this channel on…' autoId='message-list_0000000000.…' rect=(352,-55 833x337)
+     · [1.151] ctl=Text name='news' autoId='' rect=(377,55 783x43)
+     · [1.152] ctl=Hyperlink name='@aegis' autoId='' rect=(377,110 73x29)
+     · [1.153] ctl=Text name=' created this channel on October 6…' autoId='' rect=(377,111 767x60)
+     · [1.154] ctl=Text name='news' autoId='' rect=(438,144 52x27)
+     · [1.155] ctl=Text name=' channel.' autoId='' rect=(490,144 87x27)
+     · [1.156] ctl=Text name=' ' autoId='' rect=(576,144 6x27)
+     · [1.157] ctl=Text name='This channel is for workspace-wide…' autoId='' rect=(377,144 738x60)
+     · [1.158] ctl=Text name=' ' autoId='' rect=(846,177 6x27)
+     · [1.159] ctl=Text name='(' autoId='' rect=(851,177 7x27)
+     · [1.160] ctl=Button name='edit channel description' autoId='' rect=(857,174 152x34)
+     · [1.161] ctl=Text name=')' autoId='' rect=(1008,177 7x27)
+     · [1.162] ctl=Button name='Add People to Channel' autoId='' rect=(377,227 219x36)
+     · [1.163] ctl=ListItem name='From August 29th, 2025 and older' autoId='message-list_17564472000…' rect=(352,282 833x12)
+     · [1.164] ctl=Button name='Jump to date' autoId='' rect=(624,299 288x36)
+     · [1.165] ctl=ListItem name='' autoId='message-list_17564472000…' rect=(352,293 833x51)
+     · [1.166] ctl=ListItem name='aegis  1:58 PM
+I wanted to re-post…' autoId='message-list_1750967917.…' rect=(352,343 833x66)
+     · [1.167] ctl=Document name='' autoId='' rect=(352,343 833x66)
+     · [1.168] ctl=Button name='aegis' autoId='' rect=(432,348 44x28)
+     · [1.169] ctl=Image name='talon emoji' autoId='' rect=(480,352 21x21)
+     · [1.170] ctl=Text name='  ' autoId='' rect=(500,350 10x23)
+     · [1.171] ctl=Hyperlink name='Jun 26th, 2025 at 1:58:37 PM' autoId='' rect=(509,354 57x19)
+     · [1.172] ctl=Text name='
+' autoId='' rect=(0,0 0x0)
+     · [1.173] ctl=Text name='I wanted to re-post this, it's the…' autoId='' rect=(432,378 726x51)
+     · [1.174] ctl=Text name='…' autoId='' rect=(899,405 15x23)
+     · [1.175] ctl=ListItem name='aegis  10:08 AM
+for those on mac, …' autoId='message-list_1751731693.…' rect=(352,408 833x66)
+     · [1.176] ctl=Document name='' autoId='' rect=(352,408 833x66)
+     · [1.177] ctl=Button name='aegis' autoId='' rect=(432,413 44x28)
+     · [1.178] ctl=Image name='talon emoji' autoId='' rect=(480,417 21x21)
+     · [1.179] ctl=Text name='  ' autoId='' rect=(500,415 10x23)
+     · [1.180] ctl=Hyperlink name='Jul 5th, 2025 at 10:08:13 AM' autoId='' rect=(509,419 67x19)
+     · [1.181] ctl=Text name='
+' autoId='' rect=(0,0 0x0)
+     · [1.182] ctl=Text name='for those on mac, the beta now sup…' autoId='' rect=(432,443 655x23)
+     · [1.183] ctl=Text name='…' autoId='' rect=(1086,443 15x23)
+     · [1.184] ctl=ListItem name='Preview of a locked message older …' autoId='message-list_1756511432.…' rect=(352,473 833x66)
+     · [1.185] ctl=Document name='' autoId='' rect=(352,473 833x66)
+     · [1.186] ctl=Button name='aegis' autoId='' rect=(432,478 44x28)
+     · [1.187] ctl=Image name='talon emoji' autoId='' rect=(480,482 21x21)
+     · [1.188] ctl=Text name='  ' autoId='' rect=(500,480 10x23)
+     · [1.189] ctl=Hyperlink name='Aug 29th, 2025 at 5:50:32 PM' autoId='' rect=(509,484 57x19)
+     · [1.190] ctl=Text name='
+' autoId='' rect=(0,0 0x0)
+     · [1.191] ctl=Text name='3rd gen mouse control algorithm ju…' autoId='' rect=(432,508 722x51)
+     · [1.192] ctl=ListItem name='View messages and files older than…' autoId='message-list_limitedHist…' rect=(352,538 833x228)
+     · [1.193] ctl=Text name='View messages and files older than…' autoId='' rect=(393,576 359x23)
+     · [1.194] ctl=Image name='Pro feature' autoId='' rect=(761,579 39x21)
+     · [1.195] ctl=Text name='Messages and files on the free ver…' autoId='' rect=(393,604 740x51)
+     · [1.196] ctl=Hyperlink name='Learn more' autoId='' rect=(759,631 95x23)
+     · [1.197] ctl=Hyperlink name='Compare Plans' autoId='' rect=(393,674 155x46)
+     · [1.198] ctl=ListItem name='No recent messages' autoId='message-list_noRecentMsg…' rect=(352,765 833x93)
+     · [1.199] ctl=Text name='No recent messages' autoId='' rect=(696,781 144x20)
+     · [1.200] ctl=ListItem name='' autoId='message-list_bottomSpace…' rect=(352,857 833x31)
+     · [1.201] ctl=Group name='' autoId='' rect=(1169,298 10x578)
+     · [1.202] ctl=Group name='' autoId='' rect=(352,877 833x53)
+     · [1.203] ctl=Text name='Only certain people can post in th…' autoId='' rect=(568,893 319x20)
+     · [1.204] ctl=Hyperlink name='Learn more' autoId='' rect=(887,893 81x20)
+     · [1.205] ctl=ToolBar name='Control strip' autoId='' rect=(2,759 88x205)
+     · [1.206] ctl=Button name='Create new' autoId='' rect=(23,759 46x45)
+     · [1.207] ctl=Button name='Turn on focus mode' autoId='' rect=(23,824 46x45)
+     · [1.208] ctl=Button name='User: knausj' autoId='' rect=(23,889 46x45)
+     · [1.209] ctl=Image name='' autoId='' rect=(22,888 2x2)
+     · [1.210] ctl=Image name='Away' autoId='' rect=(50,917 26x25)
+     · [1.211] ctl=Group name='' autoId='' rect=(0,963 2x2)
+     · [1.213] ctl=Text name='loading' autoId='' rect=(-1,938 60x23)
+     · [1.214] ctl=Group name='' autoId='' rect=(-1,962 2x2)
+     · [1.215] ctl=Group name='' autoId='rbd-announcement-0' rect=(0,963 2x2)
+     · [1.216] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+  ↳ REALITY (operator — which of the above ACTUALLY scroll, and what did you scroll?): ____________
+════════ /CAPTURE #1  (1055ms total) ════════
+──── one-shot [--hwnd 0x7A072C] @ 2026-09-13 18:49:37 ────
+
+════════ CAPTURE #1  [--hwnd 0x7A072C] ════════
+  proc=Code(12252)  hwnd=0x007A072C  windowClass='Chrome_WidgetWin_1'  windowFramework=Win32
+  title='operating_system.py - user'
+  scroll-signal candidates in subtree: 269   (FindAll 16624ms)
+  signals: ScrollPattern=34 (of those, *Scrollable=True: 33, UIA-scroll MOVED: 33) · ScrollBar-controltype=0 · RangeValue=0 (scrollbar RangeValue ACTUABLE: 0) · weak ScrollItem-only=228
+  ★ REAL on-screen actuable scrollers (on-screen · viewSize<60% · moved proportionally · non-degenerate): 0  ← the number the go/no-go keys on
+  [1.12] ctl=Document name='operating_system.py - user' autoId='RootWebArea' fw=Chrome rect=(2,0 1188x964) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=False hScrollable=False | vViewSize=100.0 hViewSize=100.0 | vPct=-1.0 hPct=-1.0
+         GROUND-TRUTH: n/a — vPct=-1 hPct=-1 (NoScroll: neither axis scrollable)
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.18] ctl=MenuBar name='' autoId='' fw=Chrome rect=(45,0 271x44) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=False hScrollable=True | vViewSize=100.0 hViewSize=53.9 | vPct=-1.0 hPct=0.0
+         GROUND-TRUTH: MOVED (H) via Scroll(SmallIncrement): pct 0.000 → 21.598  (restored)  [tiny rect (<60px) — micro-scroller, not a content region]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.40] ctl=? name='?' autoId='?' fw=? rect=(0,0 0x0) [OFF-SCREEN]
+         provider='?'
+         ScrollPattern: ABSENT
+  [1.42] ctl=? name='?' autoId='?' fw=? rect=(0,0 0x0) [OFF-SCREEN]
+         provider='?'
+         ScrollPattern: ABSENT
+  [1.44] ctl=? name='?' autoId='?' fw=? rect=(0,0 0x0) [OFF-SCREEN]
+         provider='?'
+         ScrollPattern: ABSENT
+  [1.92] ctl=TreeItem name='help' autoId='list_id_1_113' fw=Chrome rect=(68,95 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=30.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via SetScrollPercent: pct 0.000 → 28.571  (restored)  [tiny rect (<60px) — micro-scroller, not a content region]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.94] ctl=TreeItem name='hinting' autoId='list_id_1_114' fw=Chrome rect=(68,122 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.96] ctl=TreeItem name='homophones' autoId='list_id_1_115' fw=Chrome rect=(68,150 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.98] ctl=TreeItem name='keys' autoId='list_id_1_116' fw=Chrome rect=(68,177 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.100] ctl=TreeItem name='launcher' autoId='list_id_1_117' fw=Chrome rect=(68,205 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.102] ctl=TreeItem name='menu_choose' autoId='list_id_1_118' fw=Chrome rect=(68,232 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.104] ctl=TreeItem name='modes' autoId='list_id_1_119' fw=Chrome rect=(68,260 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.106] ctl=TreeItem name='mouse_grid' autoId='list_id_1_120' fw=Chrome rect=(68,287 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.108] ctl=TreeItem name='navigation' autoId='list_id_1_121' fw=Chrome rect=(68,315 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.110] ctl=TreeItem name='numbers' autoId='list_id_1_122' fw=Chrome rect=(68,342 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.112] ctl=TreeItem name='operating_system' autoId='list_id_1_123' fw=Chrome rect=(68,370 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.114] ctl=TreeItem name='mac' autoId='list_id_1_124' fw=Chrome rect=(68,397 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.116] ctl=TreeItem name='windows' autoId='list_id_1_125' fw=Chrome rect=(68,425 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.118] ctl=TreeItem name='data_classes' autoId='list_id_1_126' fw=Chrome rect=(68,452 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.120] ctl=TreeItem name='accessibility.py' autoId='list_id_1_127' fw=Chrome rect=(68,480 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.122] ctl=TreeItem name='app_user_model_id.py' autoId='list_id_1_128' fw=Chrome rect=(68,507 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.124] ctl=TreeItem name='snippet.py' autoId='list_id_1_129' fw=Chrome rect=(68,535 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.126] ctl=TreeItem name='snippet.talon' autoId='list_id_1_130' fw=Chrome rect=(68,562 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.128] ctl=TreeItem name='taskbar_popup.talon' autoId='list_id_1_131' fw=Chrome rect=(68,590 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.130] ctl=TreeItem name='taskbar.py' autoId='list_id_1_132' fw=Chrome rect=(68,617 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.132] ctl=TreeItem name='taskbar.talon' autoId='list_id_1_133' fw=Chrome rect=(68,645 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.134] ctl=TreeItem name='windows_known_applications.py' autoId='list_id_1_134' fw=Chrome rect=(68,672 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.136] ctl=TreeItem name='windows_known_paths.py' autoId='list_id_1_135' fw=Chrome rect=(68,700 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.138] ctl=TreeItem name='windows.py' autoId='list_id_1_136' fw=Chrome rect=(68,727 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.140] ctl=TreeItem name='windows.talon' autoId='list_id_1_137' fw=Chrome rect=(68,755 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.142] ctl=TreeItem name='operating_system.py' autoId='list_id_1_138' fw=Chrome rect=(68,782 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.144] ctl=TreeItem name='operating_system.talon' autoId='list_id_1_139' fw=Chrome rect=(68,810 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.146] ctl=TreeItem name='user_directories.talon-list' autoId='list_id_1_140' fw=Chrome rect=(68,837 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=80.0 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.148] ctl=TreeItem name='screens' autoId='list_id_1_141' fw=Chrome rect=(68,865 222x28) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=70.2 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.151] ctl=? name='?' autoId='?' fw=? rect=(0,0 0x0) [OFF-SCREEN]
+         provider='?'
+         ScrollPattern: ABSENT
+  [1.152] ctl=? name='?' autoId='?' fw=? rect=(0,0 0x0) [OFF-SCREEN]
+         provider='?'
+         ScrollPattern: ABSENT
+  [1.153] ctl=? name='?' autoId='?' fw=? rect=(0,0 0x0) [OFF-SCREEN]
+         provider='?'
+         ScrollPattern: ABSENT
+  [1.154] ctl=? name='?' autoId='?' fw=? rect=(0,0 0x0) [OFF-SCREEN]
+         provider='?'
+         ScrollPattern: ABSENT
+  [1.160] ctl=Tab name='' autoId='' fw=Chrome rect=(305,45 759x41) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=False hScrollable=True | vViewSize=100.0 hViewSize=40.7 | vPct=-1.0 hPct=77.7
+         GROUND-TRUTH: MOVED (H) via SetScrollPercent: pct 77.652 → 52.641  (restored)  [tiny rect (<60px) — micro-scroller, not a content region]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.225] ctl=Edit name='operating_system.py, preview' autoId='' fw=Chrome rect=(388,804 713x24) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=True | vViewSize=0.7 hViewSize=74.1 | vPct=19.9 hPct=0.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 19.870 → 21.312  (restored)  [tiny rect (<60px) — micro-scroller, not a content region]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  [1.227] ctl=StatusBar name='' autoId='workbench.parts.statusba…' fw=Chrome rect=(2,929 1188x36) [on-screen]
+         provider='[pid:12252,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=False | vViewSize=38.2 hViewSize=100.0 | vPct=0.0 hPct=-1.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 86.957  (restored)  [tiny rect (<60px) — micro-scroller, not a content region]
+         ScrollItemPattern: present (element can be scrolled into view; NOT proof its container is scrollable)
+  ── weak (ScrollItem-only, no container signal) × 228: ──
+     · [1.0] ctl=Window name='operating_system.py - user' autoId='' rect=(-6,0 1201x970)
+     · [1.1] ctl=Pane name='operating_system.py - user' autoId='' rect=(2,0 1188x964)
+     · [1.2] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.3] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.4] ctl=Pane name='' autoId='' rect=(1018,2 172x42)
+     · [1.5] ctl=Button name='Minimize' autoId='' rect=(1018,2 57x42)
+     · [1.6] ctl=Button name='Maximize' autoId='' rect=(1074,2 58x42)
+     · [1.7] ctl=Button name='Close' autoId='' rect=(1132,2 58x42)
+     · [1.8] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.9] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.10] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.11] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.13] ctl=Group name='' autoId='' rect=(2,0 1188x964)
+     · [1.14] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+     · [1.15] ctl=Group name='' autoId='' rect=(2,41 1188x6)
+     · [1.16] ctl=Group name='' autoId='' rect=(2,41 1188x6)
+     · [1.17] ctl=Group name='' autoId='' rect=(2,926 1188x6)
+     · [1.19] ctl=MenuItem name='File' autoId='' rect=(-5,0 45x44)
+     · [1.20] ctl=MenuItem name='Edit' autoId='' rect=(40,0 48x44)
+     · [1.21] ctl=MenuItem name='Selection' autoId='' rect=(87,0 86x44)
+     · [1.22] ctl=MenuItem name='More' autoId='' rect=(172,0 48x44)
+     · [1.23] ctl=ToolBar name='' autoId='' rect=(328,7 517x30)
+     · [1.24] ctl=Button name='Go Back (Alt+LeftArrow)' autoId='' rect=(328,8 28x28)
+     · [1.25] ctl=Button name='Go Forward (Alt+RightArrow)' autoId='' rect=(360,8 28x28)
+     · [1.26] ctl=ToolBar name='Agent Status' autoId='' rect=(393,7 452x30)
+     · [1.27] ctl=Button name='Open Quick Access' autoId='' rect=(394,8 338x28)
+     · [1.28] ctl=Button name=' 1' autoId='' rect=(731,8 49x28)
+     · [1.29] ctl=Group name='' autoId='' rect=(779,8 64x28)
+     · [1.30] ctl=Button name='Toggle Chat' autoId='' rect=(779,8 42x28)
+     · [1.31] ctl=Button name='Toggle Chat' autoId='' rect=(787,8 28x28)
+     · [1.32] ctl=Group name='' autoId='' rect=(822,8 20x28)
+     · [1.33] ctl=Group name='' autoId='' rect=(822,8 20x28)
+     · [1.34] ctl=Button name='More Actions' autoId='' rect=(819,8 23x31)
+     · [1.35] ctl=ToolBar name='' autoId='' rect=(857,8 30x28)
+     · [1.36] ctl=Button name='Open in Agents Window (Ctrl+Shift+…' autoId='' rect=(857,8 30x28)
+     · [1.37] ctl=ToolBar name='Title actions' autoId='' rect=(887,0 125x44)
+     · [1.38] ctl=Button name='Customize Layout...' autoId='' rect=(887,8 28x28)
+     · [1.39] ctl=Button name='Toggle Primary Side Bar (Ctrl+B)' autoId='' rect=(919,8 28x28)
+     · [1.41] ctl=Button name='Toggle Panel (Ctrl+J)' autoId='' rect=(952,8 28x28)
+     · [1.43] ctl=Button name='Toggle Secondary Side Bar (Ctrl+Al…' autoId='' rect=(984,8 28x28)
+     · [1.45] ctl=Group name='' autoId='' rect=(62,44 5x886)
+     · [1.46] ctl=Group name='' autoId='' rect=(297,44 5x886)
+     · [1.47] ctl=Group name='' autoId='' rect=(1189,44 5x886)
+     · [1.48] ctl=Tab name='Active View Switcher' autoId='' rect=(11,49 46x705)
+     · [1.49] ctl=TabItem name='Explorer (Ctrl+Shift+E)' autoId='' rect=(11,49 46x45)
+     · [1.50] ctl=Group name='Explorer (Ctrl+Shift+E)' autoId='' rect=(11,49 46x45)
+     · [1.51] ctl=TabItem name='Search (Ctrl+Shift+F)' autoId='' rect=(11,104 46x45)
+     · [1.52] ctl=Group name='Search (Ctrl+Shift+F)' autoId='' rect=(11,104 46x45)
+     · [1.53] ctl=TabItem name='Source Control (Ctrl+Shift+G) - 29…' autoId='' rect=(11,159 46x45)
+     · [1.54] ctl=Group name='Source Control (Ctrl+Shift+G) - 29…' autoId='' rect=(11,159 46x45)
+     · [1.55] ctl=Group name='Source Control (Ctrl+Shift+G) - 29…' autoId='' rect=(11,159 46x45)
+     · [1.56] ctl=TabItem name='Extensions (Ctrl+Shift+X)' autoId='' rect=(11,214 46x45)
+     · [1.57] ctl=Group name='Extensions (Ctrl+Shift+X)' autoId='' rect=(11,214 46x45)
+     · [1.58] ctl=TabItem name='Remote Explorer' autoId='' rect=(11,269 46x45)
+     · [1.59] ctl=Group name='Remote Explorer' autoId='' rect=(11,269 46x45)
+     · [1.60] ctl=TabItem name='Run and Debug (Ctrl+Shift+D)' autoId='' rect=(11,324 46x45)
+     · [1.61] ctl=Group name='Run and Debug (Ctrl+Shift+D)' autoId='' rect=(11,324 46x45)
+     · [1.62] ctl=TabItem name='Testing' autoId='' rect=(11,379 46x45)
+     · [1.63] ctl=Group name='Testing' autoId='' rect=(11,379 46x45)
+     · [1.64] ctl=TabItem name='Python' autoId='' rect=(11,434 46x45)
+     · [1.65] ctl=Group name='Python' autoId='' rect=(11,434 46x45)
+     · [1.66] ctl=TabItem name='Cursorless' autoId='' rect=(11,489 46x45)
+     · [1.67] ctl=Group name='Cursorless' autoId='' rect=(11,489 46x45)
+     · [1.68] ctl=TabItem name='File Tree' autoId='' rect=(11,544 46x45)
+     · [1.69] ctl=Group name='File Tree' autoId='' rect=(11,544 46x45)
+     · [1.70] ctl=TabItem name='Compare Folders' autoId='' rect=(11,599 46x45)
+     · [1.71] ctl=Group name='Compare Folders' autoId='' rect=(11,599 46x45)
+     · [1.72] ctl=TabItem name='Parallels Desktop' autoId='' rect=(11,654 46x45)
+     · [1.73] ctl=Group name='Parallels Desktop' autoId='' rect=(11,654 46x45)
+     · [1.74] ctl=TabItem name='GitHub Actions' autoId='' rect=(11,709 46x45)
+     · [1.75] ctl=Group name='GitHub Actions' autoId='' rect=(11,709 46x45)
+     · [1.76] ctl=ToolBar name='Manage' autoId='' rect=(11,819 46x100)
+     · [1.77] ctl=Button name='Accounts' autoId='' rect=(11,819 46x45)
+     · [1.78] ctl=Group name='Accounts' autoId='' rect=(11,819 46x45)
+     · [1.79] ctl=Button name='Manage' autoId='' rect=(11,874 46x45)
+     · [1.80] ctl=Group name='Manage' autoId='' rect=(11,874 46x45)
+     · [1.81] ctl=Text name='' autoId='' rect=(19,881 31x30)
+     · [1.82] ctl=Text name='Explorer' autoId='' rect=(78,45 139x41)
+     · [1.83] ctl=ToolBar name='Explorer actions' autoId='' rect=(221,45 70x41)
+     · [1.84] ctl=Group name='' autoId='' rect=(263,51 28x28)
+     · [1.85] ctl=Group name='' autoId='' rect=(263,51 28x28)
+     · [1.86] ctl=Button name='Views and More Actions...' autoId='' rect=(263,51 28x28)
+     · [1.87] ctl=ToolBar name='' autoId='' rect=(0,0 0x0)
+     · [1.88] ctl=Group name='' autoId='' rect=(63,879 232x5)
+     · [1.89] ctl=Button name='Explorer Section: user' autoId='' rect=(68,85 222x36)
+     · [1.90] ctl=Text name='Explorer Section: user' autoId='' rect=(98,85 29x36)
+     · [1.91] ctl=Tree name='Files Explorer' autoId='' rect=(63,120 232x762)
+     · [1.93] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(125,93 164x28)
+     · [1.95] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(125,115 164x28)
+     · [1.97] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(125,143 164x28)
+     · [1.99] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(125,170 164x28)
+     · [1.101] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(125,198 164x28)
+     · [1.103] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(125,225 164x28)
+     · [1.105] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(125,253 164x28)
+     · [1.107] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(125,280 164x28)
+     · [1.109] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(125,308 164x28)
+     · [1.111] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(125,335 164x28)
+     · [1.113] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(125,363 164x28)
+     · [1.115] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(135,390 154x28)
+     · [1.117] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(135,418 154x28)
+     · [1.119] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(145,445 144x28)
+     · [1.121] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(118,473 172x28)
+     · [1.123] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(118,500 172x28)
+     · [1.125] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(118,528 172x28)
+     · [1.127] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(118,555 172x28)
+     · [1.129] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(118,583 172x28)
+     · [1.131] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(118,610 172x28)
+     · [1.133] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(118,638 172x28)
+     · [1.135] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(118,665 172x28)
+     · [1.137] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(118,693 172x28)
+     · [1.139] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(118,720 172x28)
+     · [1.141] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(118,748 172x28)
+     · [1.143] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(108,775 182x28)
+     · [1.145] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(108,803 182x28)
+     · [1.147] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(108,830 182x28)
+     · [1.149] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(125,858 164x28)
+     · [1.150] ctl=Group name='' autoId='' rect=(63,120 232x56)
+     · [1.155] ctl=Button name='Tabs Section' autoId='' rect=(68,881 222x35)
+     · [1.156] ctl=Text name='Tabs' autoId='' rect=(98,881 31x35)
+     · [1.157] ctl=Group name='' autoId='' rect=(297,926 893x6)
+     · [1.158] ctl=Group name='' autoId='workbench.parts.editor' rect=(302,44 883x880)
+     · [1.159] ctl=Group name='' autoId='' rect=(303,45 880x68)
+     · [1.161] ctl=TabItem name='windows_hinting.py' autoId='' rect=(-278,45 230x41)
+     · [1.162] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(-271,50 188x31)
+     · [1.163] ctl=ToolBar name='Tab actions' autoId='' rect=(-81,51 31x29)
+     · [1.164] ctl=Button name='Close (Ctrl+F4)' autoId='' rect=(-79,52 26x26)
+     · [1.165] ctl=TabItem name='scratch.py' autoId='' rect=(-49,45 161x41)
+     · [1.166] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(-41,50 119x31)
+     · [1.167] ctl=ToolBar name='Tab actions' autoId='' rect=(80,51 31x29)
+     · [1.168] ctl=Button name='Close (Ctrl+F4)' autoId='' rect=(82,52 26x26)
+     · [1.169] ctl=TabItem name='modes_dragon.talon' autoId='' rect=(112,45 218x41)
+     · [1.170] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(120,50 175x31)
+     · [1.171] ctl=ToolBar name='Tab actions' autoId='' rect=(297,51 31x29)
+     · [1.172] ctl=Button name='Close (Ctrl+F4)' autoId='' rect=(299,52 26x26)
+     · [1.173] ctl=TabItem name='stream_deck.py' autoId='' rect=(329,45 181x41)
+     · [1.174] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(337,50 138x31)
+     · [1.175] ctl=ToolBar name='Tab actions' autoId='' rect=(477,51 31x29)
+     · [1.176] ctl=Button name='Close (Ctrl+F4)' autoId='' rect=(479,52 26x26)
+     · [1.177] ctl=TabItem name='taskbar.py' autoId='' rect=(509,45 163x41)
+     · [1.178] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(517,50 120x31)
+     · [1.179] ctl=ToolBar name='Tab actions' autoId='' rect=(639,51 31x29)
+     · [1.180] ctl=Button name='Close (Ctrl+F4)' autoId='' rect=(641,52 26x26)
+     · [1.181] ctl=TabItem name='stream_deck_1.talon' autoId='' rect=(671,45 216x41)
+     · [1.182] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(679,50 173x31)
+     · [1.183] ctl=ToolBar name='Tab actions' autoId='' rect=(854,51 31x29)
+     · [1.184] ctl=Button name='Close (Ctrl+F4)' autoId='' rect=(856,52 26x26)
+     · [1.185] ctl=TabItem name='accessibility.py' autoId='' rect=(886,45 219x41)
+     · [1.186] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(894,50 177x31)
+     · [1.187] ctl=ToolBar name='Tab actions' autoId='' rect=(1072,51 31x29)
+     · [1.188] ctl=Button name='Close (Ctrl+F4)' autoId='' rect=(1075,52 26x26)
+     · [1.189] ctl=TabItem name='operating_system.py, preview' autoId='' rect=(1105,45 237x41)
+     · [1.190] ctl=Group name='operating_system.py' autoId='' rect=(1112,50 195x31)
+     · [1.191] ctl=ToolBar name='Tab actions' autoId='' rect=(1309,51 31x29)
+     · [1.192] ctl=Button name='Close (Ctrl+F4)' autoId='' rect=(1311,52 26x26)
+     · [1.193] ctl=ToolBar name='Editor actions' autoId='' rect=(1069,50 109x31)
+     · [1.194] ctl=Group name='' autoId='' rect=(1069,51 28x28)
+     · [1.195] ctl=Button name='Run Python File' autoId='' rect=(1069,51 28x28)
+     · [1.196] ctl=Group name='' autoId='' rect=(1096,51 17x28)
+     · [1.197] ctl=Group name='' autoId='' rect=(1096,51 17x28)
+     · [1.198] ctl=Button name='Run or Debug...' autoId='' rect=(1093,51 20x28)
+     · [1.199] ctl=Button name='Split Editor Right (Ctrl+\) [Alt] …' autoId='' rect=(1118,51 28x28)
+     · [1.200] ctl=Group name='' autoId='' rect=(1150,51 28x28)
+     · [1.201] ctl=Group name='' autoId='' rect=(1150,51 28x28)
+     · [1.202] ctl=Button name='More Actions...' autoId='' rect=(1150,51 28x28)
+     · [1.203] ctl=Text name='' autoId='' rect=(1154,55 21x21)
+     · [1.204] ctl=List name='' autoId='' rect=(303,85 880x28)
+     · [1.205] ctl=ListItem name='community' autoId='' rect=(303,85 121x28)
+     · [1.206] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(323,85 81x28)
+     · [1.207] ctl=Text name='community' autoId='' rect=(323,88 81x22)
+     · [1.208] ctl=Text name='' autoId='' rect=(403,89 21x20)
+     · [1.209] ctl=ListItem name='core' autoId='' rect=(423,85 52x28)
+     · [1.210] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(423,85 32x28)
+     · [1.211] ctl=Text name='core' autoId='' rect=(423,88 32x22)
+     · [1.212] ctl=Text name='' autoId='' rect=(454,89 21x20)
+     · [1.213] ctl=ListItem name='operating_system' autoId='' rect=(474,85 147x28)
+     · [1.214] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(474,85 127x28)
+     · [1.215] ctl=Text name='operating_system' autoId='' rect=(474,88 127x22)
+     · [1.216] ctl=Text name='' autoId='' rect=(601,89 20x20)
+     · [1.217] ctl=ListItem name='operating_system.py' autoId='' rect=(621,85 195x28)
+     · [1.218] ctl=Group name='C:\Users\knausj\AppData\Roaming\ta…' autoId='' rect=(621,85 175x28)
+     · [1.219] ctl=Text name='' autoId='' rect=(621,86 25x25)
+     · [1.220] ctl=Text name='operating_system.py' autoId='' rect=(648,88 148x22)
+     · [1.221] ctl=Text name='' autoId='' rect=(795,89 21x20)
+     · [1.222] ctl=ListItem name='…' autoId='' rect=(815,85 22x28)
+     · [1.223] ctl=Group name='operating_system.py, preview' autoId='' rect=(303,112 880x811)
+     · [1.224] ctl=Text name='' autoId='' rect=(303,112 880x811)
+     · [1.226] ctl=Text name='from talon import Context, Module,…' autoId='' rect=(388,116 963x3488)
+     · [1.228] ctl=Group name='remote' autoId='status.host' rect=(9,881 38x31)
+     · [1.229] ctl=Button name='remote' autoId='' rect=(14,881 33x31)
+     · [1.230] ctl=Group name='community (Git)' autoId='status.scm.provider' rect=(47,881 113x31)
+     · [1.231] ctl=Button name='community (Git)' autoId='' rect=(53,881 107x31)
+     · [1.232] ctl=Group name='community (Git) - knausj-personal-…' autoId='status.scm.0' rect=(159,881 262x31)
+     · [1.233] ctl=Button name='community (Git) - knausj-personal-…' autoId='' rect=(159,881 262x31)
+     · [1.234] ctl=Group name='community (Git) - Synchronize Chan…' autoId='status.scm.1' rect=(420,881 35x31)
+     · [1.235] ctl=Button name='community (Git) - Synchronize Chan…' autoId='' rect=(420,881 28x31)
+     · [1.236] ctl=Group name='Errors: 26, Warnings: 26, Infos: 4…' autoId='status.problems' rect=(454,881 150x31)
+     · [1.237] ctl=Button name='Errors: 26, Warnings: 26, Infos: 4…' autoId='' rect=(457,881 142x31)
+     · [1.238] ctl=Group name='Notifications' autoId='status.notifications' rect=(1144,881 38x31)
+     · [1.239] ctl=Button name='Notifications' autoId='' rect=(1144,881 35x31)
+     · [1.240] ctl=Group name='checklist Pylint: 0.00/10, Pylint:…' autoId='ms-python.pylint.pylint.…' rect=(1007,881 138x31)
+     · [1.241] ctl=Button name='checklist Pylint: 0.00/10, Pylint:…' autoId='' rect=(1010,881 131x31)
+     · [1.242] ctl=Group name='cursorless-icon Cursorless' autoId='pokey.cursorless' rect=(895,881 112x31)
+     · [1.243] ctl=Button name='cursorless-icon Cursorless' autoId='' rect=(899,881 105x31)
+     · [1.244] ctl=Group name='Python 3.12 (ARM64), c:\Users\knau…' autoId='ms-python.vscode-python-…' rect=(735,881 160x31)
+     · [1.245] ctl=Button name='Python 3.12 (ARM64), c:\Users\knau…' autoId='' rect=(739,881 153x31)
+     · [1.246] ctl=Group name='Copilot status' autoId='chat.statusBarEntry' rect=(695,881 41x31)
+     · [1.247] ctl=Button name='Copilot status' autoId='' rect=(699,881 33x31)
+     · [1.248] ctl=Group name='Python' autoId='status.editor.mode' rect=(635,881 61x31)
+     · [1.249] ctl=Button name='Python' autoId='' rect=(635,881 55x31)
+     · [1.250] ctl=Group name='Editor Language Status: Auto-Impor…' autoId='status.languageStatus' rect=(1148,911 34x31)
+     · [1.251] ctl=Button name='Editor Language Status: Auto-Impor…' autoId='' rect=(1154,911 28x31)
+     · [1.252] ctl=Group name='CRLF' autoId='status.editor.eol' rect=(1095,911 53x31)
+     · [1.253] ctl=Button name='CRLF' autoId='' rect=(1099,911 46x31)
+     · [1.254] ctl=Group name='UTF-8' autoId='status.editor.encoding' rect=(1036,911 60x31)
+     · [1.255] ctl=Button name='UTF-8' autoId='' rect=(1039,911 53x31)
+     · [1.256] ctl=Group name='Spaces: 4' autoId='status.editor.indentatio…' rect=(955,911 82x31)
+     · [1.257] ctl=Button name='Spaces: 4' autoId='' rect=(958,911 74x31)
+     · [1.258] ctl=Group name='Ln 30, Col 33' autoId='status.editor.selection' rect=(849,911 106x31)
+     · [1.259] ctl=Button name='Ln 30, Col 33' autoId='' rect=(853,911 98x31)
+     · [1.260] ctl=Group name='Screen Reader Optimized' autoId='status.editor.screenRead…' rect=(662,911 188x31)
+     · [1.261] ctl=Button name='Screen Reader Optimized' autoId='' rect=(662,911 188x31)
+     · [1.262] ctl=Group name='git-commit Jeff Knaus (3 years ago…' autoId='vscode.git.git.blame' rect=(982,941 200x31)
+     · [1.263] ctl=Button name='git-commit Jeff Knaus (3 years ago…' autoId='' rect=(986,941 193x31)
+     · [1.264] ctl=Text name='' autoId='' rect=(2,0 1188x964)
+     · [1.265] ctl=Text name='' autoId='' rect=(2,0 1188x964)
+     · [1.266] ctl=Group name='' autoId='' rect=(2,0 1188x964)
+     · [1.267] ctl=Group name='' autoId='' rect=(2,0 1188x964)
+     · [1.268] ctl=Pane name='' autoId='' rect=(2,0 1188x964)
+  ↳ REALITY (operator — which of the above ACTUALLY scroll, and what did you scroll?): ____________
+════════ /CAPTURE #1  (16626ms total) ════════
+──── one-shot [--hwnd 0x141057E] @ 2026-09-13 18:49:54 ────
+
+════════ CAPTURE #1  [--hwnd 0x141057E] ════════
+  proc=devenv(15132)  hwnd=0x0141057E  windowClass='HwndWrapper[DefaultDomain;;5384d462-79ba-4a1e-a771-f899e60a9e8e]'  windowFramework=WPF
+  title='ClicklessMouse - NullCoreEngine.cs - Microsoft Visual Studio…'
+  scroll-signal candidates in subtree: 11   (FindAll 700ms)
+  signals: ScrollPattern=3 (of those, *Scrollable=True: 1, UIA-scroll MOVED: 1) · ScrollBar-controltype=3 · RangeValue=3 (scrollbar RangeValue ACTUABLE: 2) · weak ScrollItem-only=5
+  ★ REAL on-screen actuable scrollers (on-screen · viewSize<60% · moved proportionally · non-degenerate): 0  ← the number the go/no-go keys on
+  [1.0] ctl=ScrollBar name='' autoId='scrollbar' fw=WPF rect=(1531,634 17x271) [on-screen]
+         provider='[pid:15132,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: ABSENT
+         RangeValuePattern: value=15.0 min=0.0 max=15.0 (scroll-signal only if max>min AND this is a scrollbar)
+         GROUND-TRUTH (RangeValue.SetValue): MOVED via SetValue: value 15.0 → 11.2 (of 0.0..15.0, restored)  ⟵ scrollbar RangeValue is ACTUABLE (alt path; scrolls sibling content — confirm visually)
+         ControlType=ScrollBar: structural hint that a sibling/ancestor is scrollable (no IScrollProvider of its own)
+  [1.3] ctl=ScrollBar name='' autoId='WpfEditorUIVerticalScrol…' fw=WPF rect=(1529,115 19x432) [on-screen]
+         provider='[pid:15132,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: ABSENT
+         RangeValuePattern: value=0.5 min=0.5 max=33.7 (scroll-signal only if max>min AND this is a scrollbar)
+         GROUND-TRUTH (RangeValue.SetValue): MOVED via SetValue: value 0.5 → 8.8 (of 0.5..33.7, restored)  ⟵ scrollbar RangeValue is ACTUABLE (alt path; scrolls sibling content — confirm visually)
+         ControlType=ScrollBar: structural hint that a sibling/ancestor is scrollable (no IScrollProvider of its own)
+  [1.4] ctl=Edit name='Zoom Value' autoId='PART_EditableTextBox' fw=WPF rect=(40,550 50x19) [on-screen]
+         provider='[pid:15132,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=False hScrollable=False | vViewSize=100.0 hViewSize=100.0 | vPct=-1.0 hPct=-1.0
+         GROUND-TRUTH: n/a — vPct=-1 hPct=-1 (NoScroll: neither axis scrollable)
+  [1.5] ctl=ScrollBar name='' autoId='WpfEditorUIHorizontalScr…' fw=WPF rect=(344,552 1002x16) [on-screen]
+         provider='[pid:15132,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: ABSENT
+         RangeValuePattern: value=0.0 min=0.0 max=0.0 (scroll-signal only if max>min AND this is a scrollbar)
+         ControlType=ScrollBar: structural hint that a sibling/ancestor is scrollable (no IScrollProvider of its own)
+  [1.6] ctl=Edit name='Search Solution Explorer (Ctrl+;)' autoId='PART_SearchBox' fw=WPF rect=(1560,124 260x29) [on-screen]
+         provider='[pid:15132,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=False hScrollable=False | vViewSize=100.0 hViewSize=100.0 | vPct=-1.0 hPct=-1.0
+         GROUND-TRUTH: n/a — vPct=-1 hPct=-1 (NoScroll: neither axis scrollable)
+  [1.7] ctl=Tree name='Solution Explorer' autoId='SolutionExplorer' fw=WPF rect=(1556,154 315x751) [on-screen]
+         provider='[pid:15132,providerId:0x0 Main(parent link):Unidentified Pro…'
+         ScrollPattern: vScrollable=True hScrollable=True | vViewSize=96.8 hViewSize=90.8 | vPct=0.0 hPct=0.0
+         GROUND-TRUTH: MOVED (V) via Scroll(SmallIncrement): pct 0.000 → 100.000  (restored)  [degenerate range: 1 increment spans ~full range — micro/virtual/offscreen, not real content]
+  ── weak (ScrollItem-only, no container signal) × 5: ──
+     · [1.1] ctl=ListItem name='Debug' autoId='' rect=(0,0 0x0)
+     · [1.2] ctl=ListItem name='Any CPU' autoId='' rect=(0,0 0x0)
+     · [1.8] ctl=TreeItem name='Solution 'ClicklessMouse' ‎' autoId='' rect=(1559,157 322x24)
+     · [1.9] ctl=TreeItem name='src' autoId='' rect=(1559,181 322x24)
+     · [1.10] ctl=TreeItem name='ClicklessMouse' autoId='' rect=(1559,205 322x24)
+  ↳ REALITY (operator — which of the above ACTUALLY scroll, and what did you scroll?): ____________
+════════ /CAPTURE #1  (700ms total) ════════
