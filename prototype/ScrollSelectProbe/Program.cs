@@ -321,20 +321,48 @@ internal static class Program
 
     private static void ScrollViaPattern(Region r, int dx, int dy, bool page)
     {
-        var lg = page;
-        if (dy != 0 && r.VScroll)
+        char axis = (dy != 0 && r.VScroll) ? 'V' : (dx != 0 && r.HScroll) ? 'H' : '\0';
+        if (axis == '\0') { WheelFallback(r.Rect, dx, dy, page); return; } // axis not scrollable → wheel
+        int sign = axis == 'V' ? dy : dx;                                  // -1 up/left, +1 down/right
+        double before = ReadPct(r.Sp!, axis);
+        var small = sign < 0 ? UIA.ScrollAmount.ScrollAmount_SmallDecrement : UIA.ScrollAmount.ScrollAmount_SmallIncrement;
+        var large = sign < 0 ? UIA.ScrollAmount.ScrollAmount_LargeDecrement : UIA.ScrollAmount.ScrollAmount_LargeIncrement;
+
+        // Escalation ladder — stop at the first rung that actually moves the percent.
+        // (1) SmallIncrement: correct + gentle for lists/docs. (2) LargeIncrement: some
+        // panes' SmallIncrement is a no-op but Large works — confirmed in Accessibility
+        // Insights on PowerPoint's slide-thumbnail pane. (3) SetScrollPercent by a visible
+        // delta. (4) injected wheel. A huge list moves on rung 1 (a hair) and never escalates.
+        if (!page) { TryScroll(r.Sp!, axis, small); if (MovedSince(r.Sp!, axis, before)) return; }
+        TryScroll(r.Sp!, axis, large); if (MovedSince(r.Sp!, axis, before)) return;
+        if (before > NoScroll)
         {
-            var v = dy < 0 ? (lg ? UIA.ScrollAmount.ScrollAmount_LargeDecrement : UIA.ScrollAmount.ScrollAmount_SmallDecrement)
-                           : (lg ? UIA.ScrollAmount.ScrollAmount_LargeIncrement : UIA.ScrollAmount.ScrollAmount_SmallIncrement);
-            r.Sp!.Scroll(UIA.ScrollAmount.ScrollAmount_NoAmount, v);
+            double target = Math.Max(0, Math.Min(100, before + sign * (page ? 40.0 : 12.0)));
+            try { if (axis == 'V') r.Sp!.SetScrollPercent(NoScroll, target); else r.Sp!.SetScrollPercent(target, NoScroll); } catch { }
+            if (MovedSince(r.Sp!, axis, before)) return;
         }
-        else if (dx != 0 && r.HScroll)
+        WheelFallback(r.Rect, dx, dy, page);
+    }
+
+    private static void TryScroll(UIA.IUIAutomationScrollPattern sp, char axis, UIA.ScrollAmount amt)
+    {
+        try { if (axis == 'V') sp.Scroll(UIA.ScrollAmount.ScrollAmount_NoAmount, amt); else sp.Scroll(amt, UIA.ScrollAmount.ScrollAmount_NoAmount); } catch { }
+    }
+
+    private static double ReadPct(UIA.IUIAutomationScrollPattern sp, char axis)
+    { try { return axis == 'V' ? sp.CurrentVerticalScrollPercent : sp.CurrentHorizontalScrollPercent; } catch { return NoScroll; } }
+
+    // Did the percent change at all since `before`? Poll briefly (Chromium commits async).
+    private static bool MovedSince(UIA.IUIAutomationScrollPattern sp, char axis, double before)
+    {
+        if (before <= NoScroll) return false; // unreadable → treat as not-moved so we escalate
+        for (int i = 0; i < 4; i++)
         {
-            var hAmt = dx < 0 ? (lg ? UIA.ScrollAmount.ScrollAmount_LargeDecrement : UIA.ScrollAmount.ScrollAmount_SmallDecrement)
-                              : (lg ? UIA.ScrollAmount.ScrollAmount_LargeIncrement : UIA.ScrollAmount.ScrollAmount_SmallIncrement);
-            r.Sp!.Scroll(hAmt, UIA.ScrollAmount.ScrollAmount_NoAmount);
+            double now = ReadPct(sp, axis);
+            if (now > NoScroll && Math.Abs(now - before) > 0.0001) return true;
+            System.Threading.Thread.Sleep(60);
         }
-        else { WheelFallback(r.Rect, dx, dy, page); } // axis not scrollable → wheel
+        return false;
     }
 
     private static void ScrollViaRange(Region r, int dx, int dy, bool page)

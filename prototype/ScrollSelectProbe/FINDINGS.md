@@ -30,6 +30,7 @@ Keys: `0`=window · `1-9`=region · `H/J`=up/down · `K/L`=left/right · `PgUp/P
 | **File Explorer** | nav **Tree** + file **List** (ScrollPattern) | `ScrollPattern.Scroll` | ✅ (dead sibling scrollbar suppressed) |
 | **Settings** | content **Pane** (ScrollPattern) | `ScrollPattern.Scroll` | ✅ |
 | **Gmail / ChatGPT** | message/conversation group (ScrollPattern) | `ScrollPattern.Scroll` | ✅ |
+| **PowerPoint** | slide surface + thumbnail pane (ScrollPattern) | `ScrollPattern` (thumbnail pane needed `LargeIncrement`) | ✅ (see escalation ladder below) |
 | **VS Code (Monaco)** | 0 regions (no UIA signal) | **default-window injected wheel** | ✅ editor scrolls via fallback |
 | **Slack (PWA)** | 0 regions (Blink virtual list) | **default-window injected wheel** | ✅ message list scrolls via fallback |
 
@@ -51,6 +52,12 @@ regression → **GO**.
   (SetValue moves the value but not the content, e.g. Explorer nav scrollbar, the bar beside
   the VS terminal). Scrollbars with **no** content region beside them are **kept** (VS
   editor case — the scrollbar is the only handle).
+- **Actuation escalation ladder.** Some panes' `Scroll(SmallIncrement)` is a silent no-op
+  even though the pane *is* scrollable (PowerPoint's slide-thumbnail pane — operator
+  confirmed `LargeIncrement` works in Accessibility Insights). So actuation now escalates,
+  stopping at the first rung that actually moves the percent: `SmallIncrement` →
+  `LargeIncrement` → `SetScrollPercent(±delta)` → injected wheel. Huge lists move on rung 1
+  (a hair) and never escalate, so line-scrolling stays gentle where it works.
 - **Warm-up retry.** Electron/Chromium builds its a11y tree lazily after a UIA client
   attaches (#59); a cold first query returns 0 regions, so detection retries a few times.
 - **Z-order.** The overlay must be shown *off* the WM_HOTKEY handler (deferred to a timer)
