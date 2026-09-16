@@ -260,12 +260,15 @@ internal static class Program
             double vView = GetDbl(el, UIA_ScrollVerticalViewSizePropertyId), hView = GetDbl(el, UIA_ScrollHorizontalViewSizePropertyId);
             bool vOver = vS && vView < 99.5, hOver = hS && hView < 99.5; // scrollable & overflows at all
             if (!(vOver || hOver)) continue;
-            if (w < 60 || h < 60) continue;                 // not a micro-scroller
-            // Discriminate real scroll CONTAINERS (Tree/List/etc.) from junk that merely
-            // reports scrollable (buttons ~98%, virtual rows ~80%) by control type — this is
-            // what lets a barely-overflowing but legit Tree (VS Solution Explorer, viewSize
-            // ~96%) through while still rejecting the clutter the viewSize gate used to catch.
-            if (!IsScrollContainer(ctl)) continue;
+            if (Math.Max(w, h) < 60) continue;              // long-dimension gate (Monaco editor is 637x24 — thin but long)
+            // Accept a real scroll CONTAINER by type (List/Tree/etc.), OR any element with STRONG overflow
+            // (the viewport shows a small fraction of content). Strong overflow catches heavily-scrollable
+            // NON-containers that Chromium exposes oddly — e.g. the VS Code / Monaco editor shows up as an
+            // `Edit` with viewSize v=9 — while still rejecting barely-overflowing junk (buttons ~98) and
+            // virtual rows (TreeItems ~80). Container-type keeps lightly-overflowing legit panes (Tree ~96)
+            // that a strong-overflow test alone would miss.
+            bool strongOverflow = (vOver && vView < 50) || (hOver && hView < 50);
+            if (!IsScrollContainer(ctl) && !strongOverflow) continue;
             list.Add(new Region { Rect = r, Sp = sp, VScroll = vOver, HScroll = hOver, PathLabel = $"ScrollPattern {(vOver ? "V" : "")}{(hOver ? "H" : "")} {ControlTypeName(ctl)} (viewSize v={vView:F0} h={hView:F0})" });
         }
     }
