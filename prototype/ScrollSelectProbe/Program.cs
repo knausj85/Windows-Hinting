@@ -86,7 +86,7 @@ internal static class Program
         Console.WriteLine(ok
             ? "ScrollSelectProbe ready. Focus a target app, press Ctrl+Alt+S to toggle scroll mode."
             : "!! Ctrl+Alt+S hotkey registration FAILED — use --target <hwndHex> or the 3s fallback.");
-        Console.WriteLine("Keys in scroll mode: 0=window · 1-9=region · H/J=up/down · K/L=left/right · PgUp/PgDn=page · Home/End=top/bottom · Esc=exit");
+        Console.WriteLine("Keys in scroll mode: 0=window · 1-9=region · H/J=up/down · K/L=left/right · PgUp/PgDn=page · Home/End=top/bottom · [/]=debounce∓ · U=uwp-probe · Esc=exit");
 
         // --target <hex>: enter scroll mode on that window ~700ms after the loop starts
         // (no hotkey needed — for smoke-testing / targeting a specific window).
@@ -242,12 +242,15 @@ internal static class Program
 
             if (ctl == UIA_ScrollBarControlTypeId)
             {
+                // Detect by control type + geometry, NOT by RangeValue min<max: the range is unreliable
+                // (Windows Terminal reports 0..0 despite real scrollback). A sizable on-screen ScrollBar
+                // signals a scrollable area; we actuate via the wheel (RangeValue isn't trusted anyway).
+                int barLong = Math.Max(w, h);
+                if (barLong < 40) continue; // ignore tiny/degenerate bars
                 var rv = Get<UIA.IUIAutomationRangeValuePattern>(el, UIA_RangeValuePatternId);
-                if (rv is null) continue;
-                double mn = Try(() => rv.CurrentMinimum), mx = Try(() => rv.CurrentMaximum);
-                if (!(mx > mn)) continue; // no overflow
-                bool vBar = (r.bottom - r.top) >= (r.right - r.left); // tall = vertical, wide = horizontal
-                list.Add(new Region { Rect = r, Rv = rv, VScroll = vBar, HScroll = !vBar, PathLabel = $"ScrollBar {(vBar ? "V" : "H")} RangeValue ({mn:F0}..{mx:F0})" });
+                double mn = rv is null ? 0 : Try(() => rv.CurrentMinimum), mx = rv is null ? 0 : Try(() => rv.CurrentMaximum);
+                bool vBar = h >= w; // tall = vertical, wide = horizontal
+                list.Add(new Region { Rect = r, Rv = rv, VScroll = vBar, HScroll = !vBar, PathLabel = $"ScrollBar {(vBar ? "V" : "H")} ({mn:F0}..{mx:F0})" });
                 continue;
             }
 
@@ -299,6 +302,10 @@ internal static class Program
             case 0x22: PostWork(() => Scroll(0, +1, true)); return true;    // PageDown
             case 0x24: PostWork(() => Jump(false)); return true;           // Home → ToStart (top)
             case 0x23: PostWork(() => Jump(true)); return true;            // End  → ToEnd (bottom)
+            case 0x55: PostWork(UwpWheelProbe); return true;               // U — UWP wheel-family probe
+            case 0x44: PostWork(DumpScan); return true;                    // D — verbose detection dump
+            case 0xDB: _debounceMs = Math.Max(0, _debounceMs - 10); Console.WriteLine($"[DBG] debounce = {_debounceMs}ms"); return true;   // [
+            case 0xDD: _debounceMs = Math.Min(400, _debounceMs + 10); Console.WriteLine($"[DBG] debounce = {_debounceMs}ms"); return true; // ]
             default: return false;
         }
     }
@@ -309,33 +316,20 @@ internal static class Program
 
     private static bool Dir(int dx, int dy, int vk)
     {
-        // Axis handling for a selected region. UIA axis metadata is CORRECT for native apps but a LIE for
-        // Chromium (Gmail's folder list reports H-scroll only yet scrolls V via wheel). So when the requested
-        // axis isn't UIA-supported, instead of no-op'ing, send a WHEEL at the region in that axis — Chromium
-        // honours it. Caveat: on a native V-only tree this can cross-axis-bubble to a parent (the earlier VS
-        // bug) — the real answer is a per-app profile (ticket E). Experiment for #69/E.
+        // No axis-gate: the directional keypress is authoritative intent, honored via the wheel regardless of
+        // what UIA claims (Chromium lies about the axis). Region = debounced cursor-borrow + SendInput wheel
+        // (reaches WPF/UWP/Chromium); window = SendInput wheel (focus-routed).
         int ai = _activeIndex;
-        if (ai >= 0 && ai < _regions.Count)
-        {
-            var r = _regions[ai];
-            bool axisUnsupported = (dy != 0 && !r.VScroll) || (dx != 0 && !r.HScroll);
-            if (axisUnsupported)
-            {
-                Console.WriteLine($"[DBG] region[{r.Number}] axis not in UIA (V={r.VScroll} H={r.HScroll}) → wheel-in-requested-axis at region");
-                PostWork(() => WheelFallback(r.Rect, dx, dy, false));
-                return true;
-            }
-        }
         if (_dirDown.Add(vk))
         {
-            // NEW press → TAP: one discrete unit (velocity NOT engaged). Region = precise one-line
-            // UIA step (exact — fixes Solution-Explorer over-scroll); window = one calibrated wheel step.
-            if (ai >= 0) PostWork(() => Scroll(dx, dy, false));
-            else SendInput(1, new[] { WheelInput(dy != 0 ? -Math.Sign(dy) * TAP_WHEEL : Math.Sign(dx) * TAP_WHEEL, dx != 0) }, Marshal.SizeOf<INPUT>());
+            // NEW press → TAP: one wheel notch.
+            if (ai >= 0) PostWork(() => BorrowWheelTap(dx, dy));   // region: borrow → debounce → wheel → restore
+            else SendInput(1, new[] { WheelInput(dy != 0 ? -Math.Sign(dy) * TAP_WHEEL : Math.Sign(dx) * TAP_WHEEL, dx != 0) }, Marshal.SizeOf<INPUT>()); // window
         }
         else
         {
-            // AUTO-REPEAT (key held past the OS repeat delay) → HOLD: engage the velocity fling.
+            // AUTO-REPEAT (key held past the OS repeat delay) → HOLD: engage the velocity fling
+            // (window = SendInput; region = debounced-park + SendInput wheel, in the velocity loop).
             if (dy != 0) _heldY = dy;
             if (dx != 0) _heldX = dx;
         }
@@ -441,31 +435,25 @@ internal static class Program
                 _vX = Step(_vX, _heldX, dt);
 
                 int ai = _activeIndex;
-                bool parkThisFrame = false;
+                bool parkActive = false;
                 if (ai < 0)
                 {
                     // WINDOW: continuous sub-notch wheel via SendInput (real pipeline → app inertia = glide).
                     EmitInputWheel(dt);
                 }
-                else if (ai < _regions.Count && _regions[ai].Sp is not null)
-                {
-                    // PANE (ScrollPattern): UIA increments at rate |v| — reliable + cursor-free (works on UWP/WinUI).
-                    _carryY += Math.Abs(_vY) * dt;
-                    _carryX += Math.Abs(_vX) * dt;
-                    if (_carryY >= 1) { _carryY -= (int)_carryY; int sy = Math.Sign(_vY); if (sy != 0) PostWork(() => RegionStep(0, sy)); }
-                    if (_carryX >= 1) { _carryX -= (int)_carryX; int sx = Math.Sign(_vX); if (sx != 0) PostWork(() => RegionStep(sx, 0)); }
-                }
                 else if (ai < _regions.Count)
                 {
-                    // SCROLLBAR-ONLY (VS editor, WPF): no cursor-free actuator (RangeValue is thumb-only; a
-                    // SendMessage wheel is cursor-hit-tested by WPF). PARK the cursor into the content beside
-                    // the bar for the fling's duration and drive SendInput wheel → REAL inertia (#2 experiment).
-                    parkThisFrame = _heldY != 0 || _heldX != 0 || Math.Abs(_vY) > 0.001 || Math.Abs(_vX) > 0.001;
-                    if (parkThisFrame) EnsureParked(_regions[ai]);
-                    if (_parkSettle > 0) _parkSettle--;       // hold wheels off until hover has registered
-                    else EmitInputWheel(dt);
+                    // REGION (DEBOUNCED PARK): borrow the cursor into the region ONCE, wait _debounceMs for the
+                    // hover-enter to register, then drive SendInput wheel (real pipeline → inertia) for the hold;
+                    // restore the cursor once the fling is spent. SendInput reaches WPF/UWP/Chromium alike.
+                    parkActive = _heldY != 0 || _heldX != 0 || Math.Abs(_vY) > 0.001 || Math.Abs(_vX) > 0.001;
+                    if (parkActive)
+                    {
+                        EnsureParked(_regions[ai]);
+                        if (Environment.TickCount64 - _parkAt >= _debounceMs) EmitInputWheel(dt);
+                    }
                 }
-                if (_parked && !parkThisFrame) Unpark(); // fling spent / target changed → restore cursor once
+                if (_parked && !parkActive) Unpark(); // fling spent / target changed → restore cursor once
 
                 Thread.Sleep(15);
             }
@@ -484,22 +472,43 @@ internal static class Program
         if (dX != 0) SendInput(1, new[] { WheelInput(dX, true) }, Marshal.SizeOf<INPUT>());
     }
 
-    // Park-for-duration (#2): save the cursor once and move it into the content beside the bar, so the
-    // SendInput wheel hover-routes to the editor; restore it once when the fling is spent.
+    // Debounced park: borrow the cursor into the region (pane center, or content-beside-bar for a scrollbar)
+    // via a real-pipeline move so a hover-enter is generated, and record the time. Callers hold wheels off
+    // until _debounceMs has elapsed, so the wheel lands after the target knows the cursor is over it.
+    private static volatile int _debounceMs = 40; // tunable live with [ and ] (VMs want more)
     private static POINT _parkOrig;
     private static volatile bool _parked;
-    private static int _parkSettle; // frames to let hover register before wheeling (park→wheel race fix)
+    private static long _parkAt;
     private static void EnsureParked(Region r)
     {
         if (_parked) return;
-        RECT t = ContentBesideBar(r.Rect);
+        RECT t = r.Sp is not null ? r.Rect : ContentBesideBar(r.Rect);
         GetCursorPos(out _parkOrig);
-        int cx = (t.left + t.right) / 2, cy = (t.top + t.bottom) / 2;
-        // Real-pipeline move (NOT SetCursorPos) so a hover-enter is generated before the wheel arrives —
-        // otherwise the first wheels land before the editor knows the cursor is over it and get dropped.
-        SendInput(1, new[] { AbsMoveInput(cx, cy) }, Marshal.SizeOf<INPUT>());
-        _parkSettle = 3; // ~45ms for hover to settle (esp. under a VM)
+        SendInput(1, new[] { AbsMoveInput((t.left + t.right) / 2, (t.top + t.bottom) / 2) }, Marshal.SizeOf<INPUT>());
+        _parkAt = Environment.TickCount64;
         _parked = true;
+    }
+
+    // Region TAP: borrow the cursor → debounce → one wheel notch → debounce → restore. All on the worker
+    // thread, so the Sleeps never block the hook. Honors the requested direction regardless of UIA axis.
+    private static void BorrowWheelTap(int dx, int dy)
+    {
+        int ai = _activeIndex;
+        if (ai < 0 || ai >= _regions.Count) return;
+        var r = _regions[ai];
+        RECT t = r.Sp is not null ? r.Rect : ContentBesideBar(r.Rect);
+        GetCursorPos(out POINT orig);
+        int tx = (t.left + t.right) / 2, ty = (t.top + t.bottom) / 2;
+        try
+        {
+            SendInput(1, new[] { AbsMoveInput(tx, ty) }, Marshal.SizeOf<INPUT>());
+            Thread.Sleep(_debounceMs);
+            GetCursorPos(out POINT chk); // did the park move actually stick to the region point?
+            Console.WriteLine($"[DBG] borrow: target=({tx},{ty}) cursor-after-move=({chk.x},{chk.y}) match={(Math.Abs(chk.x - tx) < 3 && Math.Abs(chk.y - ty) < 3)}");
+            SendInput(1, new[] { WheelInput(dy != 0 ? -Math.Sign(dy) * TAP_WHEEL : Math.Sign(dx) * TAP_WHEEL, dx != 0) }, Marshal.SizeOf<INPUT>());
+            Thread.Sleep(_debounceMs);
+        }
+        finally { SendInput(1, new[] { AbsMoveInput(orig.x, orig.y) }, Marshal.SizeOf<INPUT>()); }
     }
     private static void Unpark()
     {
@@ -527,23 +536,105 @@ internal static class Program
         return MouseInput(new MOUSEINPUT { dx = ax, dy = ay, dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK });
     }
 
-    // One reliable region increment (NO verify → fast, safe on the worker at cadence). Pane →
-    // UIA ScrollPattern increment (reaches UWP/WinUI, where a SendMessage wheel does not);
-    // scrollbar-only → SendMessage wheel at the content beside the bar (WPF editors).
+    // ALWAYS-WHEEL experiment: one cadenced SendMessage wheel at the region content point — pane center
+    // for a ScrollPattern region, content-beside-bar for a scrollbar region. No UIA increments.
     private static void RegionStep(int dx, int dy)
     {
         int ai = _activeIndex;
         if (ai < 0 || ai >= _regions.Count) return;
         var r = _regions[ai];
-        if (r.Sp is not null)
+        WheelFallback(r.Sp is not null ? r.Rect : ContentBesideBar(r.Rect), dx, dy, false);
+    }
+
+    // Definitively test whether ANY wheel-family message scrolls a UWP surface. Logs the window
+    // hierarchy at the target point, finds the hosted CoreWindow, and blasts WM_MOUSEWHEEL and
+    // WM_POINTERWHEEL (down) at the point-hwnd, the CoreWindow, and the top window. Press 'U' in
+    // Settings and watch whether the content moves on any of them.
+    private static void UwpWheelProbe()
+    {
+        int cx, cy, ai = _activeIndex;
+        if (ai >= 0 && ai < _regions.Count) { var rr = _regions[ai].Rect; cx = (rr.left + rr.right) / 2; cy = (rr.top + rr.bottom) / 2; }
+        else { RECT wr = GetWinRectHwnd(_targetHwnd); cx = (wr.left + wr.right) / 2; cy = (wr.top + wr.bottom) / 2; }
+
+        IntPtr hit = WindowFromPoint(new POINT { x = cx, y = cy });
+        Console.WriteLine($"[UWP] === probe at ({cx},{cy}) — target=0x{_targetHwnd.ToInt64():X} '{ClassOf(_targetHwnd)}' ===");
+        Console.WriteLine($"[UWP] WindowFromPoint = 0x{hit.ToInt64():X} '{ClassOf(hit)}'");
+        for (IntPtr a = hit, i = IntPtr.Zero; a != IntPtr.Zero && i.ToInt32() < 6; i = (IntPtr)(i.ToInt32() + 1), a = GetParent(a))
+            Console.WriteLine($"[UWP]   ancestor 0x{a.ToInt64():X} '{ClassOf(a)}'");
+        IntPtr core = FindDescendantByClass(_targetHwnd, "Windows.UI.Core.CoreWindow");
+        Console.WriteLine($"[UWP] CoreWindow = 0x{core.ToInt64():X}");
+
+        IntPtr lp = (IntPtr)((cy << 16) | (cx & 0xFFFF));
+        int delta = -120;
+        foreach (var (name, h) in new (string, IntPtr)[] { ("point", hit), ("core", core), ("top", _targetHwnd) })
         {
-            char axis = (dy != 0 && r.VScroll) ? 'V' : (dx != 0 && r.HScroll) ? 'H' : '\0';
-            if (axis == '\0') return;
-            int sign = axis == 'V' ? dy : dx;
-            var amt = sign < 0 ? UIA.ScrollAmount.ScrollAmount_SmallDecrement : UIA.ScrollAmount.ScrollAmount_SmallIncrement;
-            TryScroll(r.Sp!, axis, amt);
+            if (h == IntPtr.Zero) { Console.WriteLine($"[UWP] {name}: (null)"); continue; }
+            IntPtr mw = SendMessage(h, WM_MOUSEWHEEL, (IntPtr)(delta << 16), lp);
+            IntPtr pw = SendMessage(h, WM_POINTERWHEEL, (IntPtr)((delta << 16) | 1), lp); // HIWORD=delta, LOWORD=pointerId
+            Console.WriteLine($"[UWP] {name} 0x{h.ToInt64():X} '{ClassOf(h)}': WM_MOUSEWHEEL→{mw.ToInt64()}  WM_POINTERWHEEL→{pw.ToInt64()}");
         }
-        else WheelFallback(ContentBesideBar(r.Rect), dx, dy, false);
+        Console.WriteLine($"[UWP] === did the content move on ANY line above? ===");
+    }
+
+    // Verbose scan dump: shows exactly what our OrCondition FindAll surfaces on the target window's
+    // subtree and each visible child-HWND fragment — to see whether Terminal's ScrollBar is missed by
+    // the tree walk (a fragment boundary) or found-but-filtered (e.g. RangeValue min==max).
+    private static void DumpScan()
+    {
+        IntPtr hwnd = _targetHwnd;
+        Console.WriteLine($"[SCAN] target 0x{hwnd.ToInt64():X} '{ClassOf(hwnd)}' '{Title(hwnd)}'");
+        UIA.IUIAutomationElement winEl;
+        try { winEl = _com.ElementFromHandle(hwnd); } catch (Exception ex) { Console.WriteLine($"[SCAN] ElementFromHandle failed: {ex.Message}"); return; }
+        DumpFindAll("window-subtree", winEl);
+        try
+        {
+            EnumChildWindows(hwnd, (h, _) =>
+            {
+                if (!IsWindowVisible(h) || !GetWindowRect(h, out RECT r)) return true;
+                int w = r.right - r.left, ht = r.bottom - r.top;
+                Console.WriteLine($"[SCAN] child 0x{h.ToInt64():X} '{ClassOf(h)}' {w}x{ht}");
+                if (w < 40 || ht < 40) return true;
+                UIA.IUIAutomationElement el; try { el = _com.ElementFromHandle(h); } catch { return true; }
+                if (el is not null) DumpFindAll($"  child-0x{h.ToInt64():X}", el);
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch (Exception ex) { Console.WriteLine($"[SCAN] child enum threw: {ex.Message}"); }
+        Console.WriteLine($"[SCAN] === end ===");
+    }
+
+    private static void DumpFindAll(string label, UIA.IUIAutomationElement root)
+    {
+        UIA.IUIAutomationCondition cond = _com.CreateOrCondition(
+            _com.CreatePropertyCondition(UIA_IsScrollPatternAvailablePropertyId, true),
+            _com.CreatePropertyCondition(UIA_ControlTypePropertyId, UIA_ScrollBarControlTypeId));
+        UIA.IUIAutomationElementArray found;
+        try { found = root.FindAll(UIA.TreeScope.TreeScope_Subtree, cond); }
+        catch (Exception ex) { Console.WriteLine($"[SCAN] {label}: FindAll threw {ex.Message}"); return; }
+        int n = found?.Length ?? 0;
+        Console.WriteLine($"[SCAN] {label}: {n} scroll-candidate(s)");
+        for (int i = 0; i < n; i++)
+        {
+            UIA.IUIAutomationElement el; try { el = found!.GetElement(i); } catch { continue; }
+            int ctl = 0; try { ctl = el.CurrentControlType; } catch { }
+            RECT r = GetRect(el);
+            string nm = ""; try { nm = el.CurrentName ?? ""; } catch { }
+            var rv = Get<UIA.IUIAutomationRangeValuePattern>(el, UIA_RangeValuePatternId);
+            var sp = Get<UIA.IUIAutomationScrollPattern>(el, UIA_ScrollPatternId);
+            string rvs = rv is null ? "" : $" RV[{Try(() => rv.CurrentMinimum):F0}..{Try(() => rv.CurrentMaximum):F0}]";
+            string sps = sp is null ? "" : $" SP(v={GetDbl(el, UIA_ScrollVerticalViewSizePropertyId):F0} h={GetDbl(el, UIA_ScrollHorizontalViewSizePropertyId):F0})";
+            Console.WriteLine($"[SCAN]   [{i}] {ControlTypeName(ctl)} '{nm}' ({r.left},{r.top} {r.right - r.left}x{r.bottom - r.top}){rvs}{sps}");
+        }
+    }
+
+    private static string ClassOf(IntPtr h)
+    { var sb = new System.Text.StringBuilder(128); try { GetClassName(h, sb, sb.Capacity); } catch { } return sb.ToString(); }
+
+    private static IntPtr FindDescendantByClass(IntPtr parent, string cls)
+    {
+        IntPtr found = IntPtr.Zero;
+        try { EnumChildWindows(parent, (h, _) => { if (ClassOf(h) == cls) { found = h; return false; } return true; }, IntPtr.Zero); } catch { }
+        return found;
     }
 
     private static void SendWheel(int delta, bool horizontal)
@@ -590,17 +681,10 @@ internal static class Program
             if (_activeIndex >= 0)
             {
                 var r = _regions[_activeIndex];
-                if (r.Sp is not null) { ScrollViaPattern(r, dx, dy, page); return; }
-                if (r.Rv is not null)
-                {
-                    // ScrollBar RangeValue is an UNRELIABLE actuator: VS moves the thumb only (readback
-                    // is fooled — moved=True but content stays), Beyond Compare ignores SetValue entirely.
-                    // RangeValue is kept for DETECTION + position reads only; actuate via the injected
-                    // wheel at the content beside the bar (the reliable content-mover).
-                    Console.WriteLine($"[DBG] scrollbar region → wheel at content-beside-bar (RangeValue not trusted as actuator)");
-                    WheelFallback(ContentBesideBar(r.Rect), dx, dy, page);
-                    return;
-                }
+                // ALWAYS-WHEEL experiment: region taps/pages actuate via the wheel at the content point too
+                // (pane center, or content-beside-bar for a scrollbar) — no UIA ScrollPattern/RangeValue.
+                WheelFallback(r.Sp is not null ? r.Rect : ContentBesideBar(r.Rect), dx, dy, page);
+                return;
             }
             // default (window) OR a picked region with no usable pattern → injected wheel
             RECT wr = (_activeIndex >= 0) ? _regions[_activeIndex].Rect : GetWinRectHwnd(_targetHwnd);
@@ -904,7 +988,9 @@ internal static class Program
     private static string Title(IntPtr h) { var sb = new System.Text.StringBuilder(256); GetWindowText(h, sb, sb.Capacity); return sb.ToString(); }
 
     // ---- P/Invoke ----------------------------------------------------------
-    private const int WM_MOUSEWHEEL = 0x020A, WM_MOUSEHWHEEL = 0x020E;
+    private const int WM_MOUSEWHEEL = 0x020A, WM_MOUSEHWHEEL = 0x020E, WM_POINTERWHEEL = 0x024E;
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr h, System.Text.StringBuilder s, int n);
+    [DllImport("user32.dll")] private static extern IntPtr GetParent(IntPtr h);
     [StructLayout(LayoutKind.Sequential)] private struct RECT { public int left, top, right, bottom; }
     [StructLayout(LayoutKind.Sequential)] private struct POINT { public int x, y; }
 
