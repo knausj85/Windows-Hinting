@@ -309,13 +309,22 @@ internal static class Program
 
     private static bool Dir(int dx, int dy, int vk)
     {
-        // Axis-gate a selected region (V-only bar ignores horizontal keys, and vice-versa).
+        // Axis handling for a selected region. UIA axis metadata is CORRECT for native apps but a LIE for
+        // Chromium (Gmail's folder list reports H-scroll only yet scrolls V via wheel). So when the requested
+        // axis isn't UIA-supported, instead of no-op'ing, send a WHEEL at the region in that axis — Chromium
+        // honours it. Caveat: on a native V-only tree this can cross-axis-bubble to a parent (the earlier VS
+        // bug) — the real answer is a per-app profile (ticket E). Experiment for #69/E.
         int ai = _activeIndex;
         if (ai >= 0 && ai < _regions.Count)
         {
             var r = _regions[ai];
-            if (dy != 0 && !r.VScroll) return true;
-            if (dx != 0 && !r.HScroll) return true;
+            bool axisUnsupported = (dy != 0 && !r.VScroll) || (dx != 0 && !r.HScroll);
+            if (axisUnsupported)
+            {
+                Console.WriteLine($"[DBG] region[{r.Number}] axis not in UIA (V={r.VScroll} H={r.HScroll}) → wheel-in-requested-axis at region");
+                PostWork(() => WheelFallback(r.Rect, dx, dy, false));
+                return true;
+            }
         }
         if (_dirDown.Add(vk))
         {
