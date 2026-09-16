@@ -78,12 +78,15 @@ internal static class Program
         try { _com = new UIA.CUIAutomation(); }
         catch (Exception ex) { Console.WriteLine($"UIA init failed: {ex.Message}"); return; }
 
+        _worker = new Thread(WorkerLoop) { IsBackground = true, Name = "ssp-actuator" };
+        _worker.Start();
+
         var sink = new HotkeySink();
         bool ok = RegisterHotKey(sink.Handle, HotkeyId, MOD_CONTROL | MOD_ALT, VK_S);
         Console.WriteLine(ok
             ? "ScrollSelectProbe ready. Focus a target app, press Ctrl+Alt+S to toggle scroll mode."
             : "!! Ctrl+Alt+S hotkey registration FAILED — use --target <hwndHex> or the 3s fallback.");
-        Console.WriteLine("Keys in scroll mode: 0=window · 1-9=region · H/J=up/down · K/L=left/right · PgUp/PgDn=page · Esc=exit");
+        Console.WriteLine("Keys in scroll mode: 0=window · 1-9=region · H/J=up/down · K/L=left/right · PgUp/PgDn=page · Home/End=top/bottom · Esc=exit");
 
         // --target <hex>: enter scroll mode on that window ~700ms after the loop starts
         // (no hotkey needed — for smoke-testing / targeting a specific window).
@@ -100,7 +103,7 @@ internal static class Program
             t.Start();
         }
 
-        Application.ApplicationExit += (_, _) => { try { UnregisterHotKey(sink.Handle, HotkeyId); } catch { } ExitScrollMode(); };
+        Application.ApplicationExit += (_, _) => { try { UnregisterHotKey(sink.Handle, HotkeyId); } catch { } try { _work.CompleteAdding(); } catch { } ExitScrollMode(); };
         Application.Run();
     }
 
@@ -163,11 +166,13 @@ internal static class Program
         _hookProc = HookProc; // root delegate
         _hook = SetWindowsHookEx(WH_KEYBOARD_LL, _hookProc, GetModuleHandle(null), 0);
         _active = true;
+        StartVelocity(); // smooth lane ticker (drives only while the window target is active)
     }
 
     private static void ExitScrollMode()
     {
         _active = false;
+        StopVelocity();
         try { if (_hook != IntPtr.Zero) UnhookWindowsHookEx(_hook); } catch { }
         _hook = IntPtr.Zero;
         try { _overlay?.Close(); _overlay?.Dispose(); } catch { }
@@ -241,7 +246,8 @@ internal static class Program
                 if (rv is null) continue;
                 double mn = Try(() => rv.CurrentMinimum), mx = Try(() => rv.CurrentMaximum);
                 if (!(mx > mn)) continue; // no overflow
-                list.Add(new Region { Rect = r, Rv = rv, PathLabel = $"ScrollBar RangeValue ({mn:F0}..{mx:F0})" });
+                bool vBar = (r.bottom - r.top) >= (r.right - r.left); // tall = vertical, wide = horizontal
+                list.Add(new Region { Rect = r, Rv = rv, VScroll = vBar, HScroll = !vBar, PathLabel = $"ScrollBar {(vBar ? "V" : "H")} RangeValue ({mn:F0}..{mx:F0})" });
                 continue;
             }
 
@@ -264,38 +270,303 @@ internal static class Program
     // ---- keyboard hook (active only in scroll mode) ------------------------
     private static LowLevelKeyboardProc _hookProc = null!;
     private static IntPtr _hook;
-    private const int WH_KEYBOARD_LL = 13, WM_KEYDOWN = 0x0100, WM_SYSKEYDOWN = 0x0104;
+    private const int WH_KEYBOARD_LL = 13, WM_KEYDOWN = 0x0100, WM_SYSKEYDOWN = 0x0104, WM_KEYUP = 0x0101, WM_SYSKEYUP = 0x0105;
 
     private static IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        if (nCode >= 0 && _active && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN))
+        if (nCode >= 0 && _active)
         {
+            int msg = wParam.ToInt32();
             int vk = Marshal.ReadInt32(lParam);
-            if (Handle(vk)) return (IntPtr)1; // swallow keys we consumed
+            if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) { if (HandleDown(vk)) return (IntPtr)1; }
+            else if (msg == WM_KEYUP || msg == WM_SYSKEYUP) { if (HandleUp(vk)) return (IntPtr)1; }
         }
         return CallNextHookEx(_hook, nCode, wParam, lParam);
     }
 
-    private static bool Handle(int vk)
+    private static bool HandleDown(int vk)
     {
         switch (vk)
         {
-            case 0x1B: ExitScrollMode(); return true;                 // Esc
-            case 0x30: SetActive(-1); return true;                    // 0 → default/window
-            case >= 0x31 and <= 0x39: SetActive((vk - 0x31)); return true; // 1-9 → region idx
-            case 0x48: Scroll(0, -1, false); return true;             // H up
-            case 0x4A: Scroll(0, +1, false); return true;             // J down
-            case 0x4B: Scroll(-1, 0, false); return true;             // K left
-            case 0x4C: Scroll(+1, 0, false); return true;             // L right
-            case 0x21: Scroll(0, -1, true); return true;              // PageUp
-            case 0x22: Scroll(0, +1, true); return true;              // PageDown
+            case 0x1B: PostUi(ExitScrollMode); return true;                 // Esc  (mode/overlay → UI thread)
+            case 0x30: PostUi(() => SetActive(-1)); return true;            // 0 → default/window
+            case >= 0x31 and <= 0x39: int idx = vk - 0x31; PostUi(() => SetActive(idx)); return true; // 1-9
+            case 0x48: return Dir(0, -1, vk);                              // H up
+            case 0x4A: return Dir(0, +1, vk);                              // J down
+            case 0x4B: return Dir(-1, 0, vk);                              // K left
+            case 0x4C: return Dir(+1, 0, vk);                              // L right
+            case 0x21: PostWork(() => Scroll(0, -1, true)); return true;    // PageUp  (precise, both lanes)
+            case 0x22: PostWork(() => Scroll(0, +1, true)); return true;    // PageDown
+            case 0x24: PostWork(() => Jump(false)); return true;           // Home → ToStart (top)
+            case 0x23: PostWork(() => Jump(true)); return true;            // End  → ToEnd (bottom)
             default: return false;
+        }
+    }
+
+    // Directional key DOWN. Window target (_activeIndex < 0) → SMOOTH lane: feed the velocity engine.
+    // A selected region → PRECISE lane: the existing coalesced positional step.
+    private static readonly HashSet<int> _dirDown = new(); // directional keys physically down (hook thread only)
+
+    private static bool Dir(int dx, int dy, int vk)
+    {
+        // Axis-gate a selected region (V-only bar ignores horizontal keys, and vice-versa).
+        int ai = _activeIndex;
+        if (ai >= 0 && ai < _regions.Count)
+        {
+            var r = _regions[ai];
+            if (dy != 0 && !r.VScroll) return true;
+            if (dx != 0 && !r.HScroll) return true;
+        }
+        if (_dirDown.Add(vk))
+        {
+            // NEW press → TAP: one discrete unit (velocity NOT engaged). Region = precise one-line
+            // UIA step (exact — fixes Solution-Explorer over-scroll); window = one calibrated wheel step.
+            if (ai >= 0) PostWork(() => Scroll(dx, dy, false));
+            else SendInput(1, new[] { WheelInput(dy != 0 ? -Math.Sign(dy) * TAP_WHEEL : Math.Sign(dx) * TAP_WHEEL, dx != 0) }, Marshal.SizeOf<INPUT>());
+        }
+        else
+        {
+            // AUTO-REPEAT (key held past the OS repeat delay) → HOLD: engage the velocity fling.
+            if (dy != 0) _heldY = dy;
+            if (dx != 0) _heldX = dx;
+        }
+        return true;
+    }
+
+    // Directional key UP: end the hold (velocity decays) and clear the down-state so the next
+    // press is a fresh tap. Always swallow HJKL key-up so the focused app never sees a lone key-up.
+    private static bool HandleUp(int vk)
+    {
+        switch (vk)
+        {
+            case 0x48: case 0x4A: _dirDown.Remove(vk); _heldY = 0; return true;   // H / J released
+            case 0x4B: case 0x4C: _dirDown.Remove(vk); _heldX = 0; return true;   // K / L released
+            default: return false;
+        }
+    }
+
+    // Actuation must NOT run on the low-level keyboard hook's thread. The ScrollPattern verify-polls
+    // (MovedSince Thread.Sleep, ~240ms) exceed the ~300ms LowLevelHooksTimeout; Windows then delivers
+    // the "swallowed" key to the focused app (Solution Explorer type-search caught 'H'). Deferring to
+    // the UI message loop fixed single presses but NOT key-repeat: a queued 240ms actuation blocks the
+    // loop between repeats, so the next repeat's hook callback times out and leaks. Fix: run actuation
+    // on a dedicated worker thread. The hook enqueues (instant) and returns 1; COM calls marshal to the
+    // main STA (sub-ms to service) while only the Sleeps live on the worker, so hook + UI stay responsive.
+    // Design note for the engine: input→intent must be instant; effect execution + verify run on their
+    // own execution context, never the input/UI thread.
+    private static readonly System.Collections.Concurrent.BlockingCollection<Action> _work = new();
+    private static Thread? _worker;
+    private static void WorkerLoop()
+    {
+        foreach (var a in _work.GetConsumingEnumerable())
+        {
+            try { a(); } catch (Exception ex) { Console.WriteLine($"[DBG] worker exception: {ex.GetType().Name}: {ex.Message}"); }
+        }
+    }
+    private static void PostUi(Action a)     // mode + overlay changes → UI thread (Forms are thread-affine)
+    {
+        var ov = _overlay;
+        if (ov is not null && ov.IsHandleCreated) { try { ov.BeginInvoke(a); return; } catch { } }
+        try { a(); } catch { }
+    }
+    // COM actuation → dedicated worker thread, COALESCED. Actuation (ScrollPattern verify ~240ms) is
+    // far slower than key-repeat (~33ms); queuing every repeat grows an unbounded backlog that drains
+    // long after the key is released (the "freeze", and "indefinite" if you keep holding). Cap to ONE
+    // in-flight actuation and DROP repeats that arrive while busy. Design note for the engine: the
+    // effect executor must coalesce redundant scroll intents — latest-wins, never a growing queue.
+    private static int _scrollBusy;
+    private static long _dropped;
+    private static void PostWork(Action a)
+    {
+        if (Interlocked.CompareExchange(ref _scrollBusy, 1, 0) != 0)
+        {
+            long n = Interlocked.Increment(ref _dropped);
+            if (n % 10 == 1) Console.WriteLine($"[DBG] coalesce: dropped repeat while actuator busy (total={n})");
+            return;
+        }
+        _work.Add(() => { try { a(); } finally { Interlocked.Exchange(ref _scrollBusy, 0); } });
+    }
+
+    // ---- SMOOTH lane: velocity engine (window target, SendInput wheel) -----
+    // Windows-native "fling" feel requires SendInput (the only path that feeds the compositor's
+    // inertia — SendMessage bypasses the pipeline and hard-steps). SendInput has no HWND, so it
+    // scrolls the FOCUS window (the target app; our overlay is NOACTIVATE) — hence smooth is
+    // window-target-only, per the accepted split. A key-hold sets a velocity that ramps up, and
+    // decays with friction on release; a ~60Hz high-res ticker emits sub-WHEEL_DELTA impulses with
+    // fractional carry (mirrors real high-res wheels). Starting curve from docs/research/smooth-scroll-mimicry.md.
+    private static volatile bool _velRunning;
+    private static Thread? _velThread;
+    private static volatile int _heldY, _heldX;      // -1/0/+1 current drive direction (last key wins)
+    private static double _vY, _vX, _carryY, _carryX; // velocity (notches/sec) + fractional wheel remainder
+
+    private const double VEL_MAX = 22.0;     // notches/sec at full hold
+    private const double VEL_RAMP = 0.12;    // seconds to approach the target velocity (onset ramp)
+    private const double VEL_DECAY16 = 0.90; // velocity retained per 16ms after release (exponential friction)
+    private const double VEL_MIN = 0.6;      // below this (and no key held) → snap to 0
+    private const int TAP_WHEEL = 120;       // one wheel notch for a single window tap (calibratable)
+
+    private static void StartVelocity()
+    {
+        if (_velRunning) return;
+        _heldY = _heldX = 0; _vY = _vX = _carryY = _carryX = 0;
+        _velRunning = true;
+        _velThread = new Thread(VelocityLoop) { IsBackground = true, Name = "ssp-smooth" };
+        _velThread.Start();
+    }
+    private static void StopVelocity() { _velRunning = false; _heldY = _heldX = 0; Unpark(); try { _dirDown.Clear(); } catch { } }
+    private static void ResetVelocity() { _heldY = _heldX = 0; _vY = _vX = _carryY = _carryX = 0; Unpark(); } // on target switch
+
+    private static void VelocityLoop()
+    {
+        try { timeBeginPeriod(1); } catch { }
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        double last = sw.Elapsed.TotalSeconds;
+        try
+        {
+            while (_velRunning)
+            {
+                double t = sw.Elapsed.TotalSeconds, dt = t - last; last = t;
+                if (dt <= 0) dt = 1.0 / 60; else if (dt > 0.1) dt = 0.1;
+
+                _vY = Step(_vY, _heldY, dt);
+                _vX = Step(_vX, _heldX, dt);
+
+                int ai = _activeIndex;
+                bool parkThisFrame = false;
+                if (ai < 0)
+                {
+                    // WINDOW: continuous sub-notch wheel via SendInput (real pipeline → app inertia = glide).
+                    EmitInputWheel(dt);
+                }
+                else if (ai < _regions.Count && _regions[ai].Sp is not null)
+                {
+                    // PANE (ScrollPattern): UIA increments at rate |v| — reliable + cursor-free (works on UWP/WinUI).
+                    _carryY += Math.Abs(_vY) * dt;
+                    _carryX += Math.Abs(_vX) * dt;
+                    if (_carryY >= 1) { _carryY -= (int)_carryY; int sy = Math.Sign(_vY); if (sy != 0) PostWork(() => RegionStep(0, sy)); }
+                    if (_carryX >= 1) { _carryX -= (int)_carryX; int sx = Math.Sign(_vX); if (sx != 0) PostWork(() => RegionStep(sx, 0)); }
+                }
+                else if (ai < _regions.Count)
+                {
+                    // SCROLLBAR-ONLY (VS editor, WPF): no cursor-free actuator (RangeValue is thumb-only; a
+                    // SendMessage wheel is cursor-hit-tested by WPF). PARK the cursor into the content beside
+                    // the bar for the fling's duration and drive SendInput wheel → REAL inertia (#2 experiment).
+                    parkThisFrame = _heldY != 0 || _heldX != 0 || Math.Abs(_vY) > 0.001 || Math.Abs(_vX) > 0.001;
+                    if (parkThisFrame) EnsureParked(_regions[ai]);
+                    if (_parkSettle > 0) _parkSettle--;       // hold wheels off until hover has registered
+                    else EmitInputWheel(dt);
+                }
+                if (_parked && !parkThisFrame) Unpark(); // fling spent / target changed → restore cursor once
+
+                Thread.Sleep(15);
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"[DBG] velocity loop: {ex.Message}"); }
+        finally { try { timeEndPeriod(1); } catch { } }
+    }
+
+    private static void EmitInputWheel(double dt)
+    {
+        _carryY += _vY * dt * 120.0;   // notches/sec → wheel units/frame
+        _carryX += _vX * dt * 120.0;
+        int dY = (int)_carryY; _carryY -= dY;
+        int dX = (int)_carryX; _carryX -= dX;
+        if (dY != 0) SendInput(1, new[] { WheelInput(-dY, false) }, Marshal.SizeOf<INPUT>()); // wheel-down = negative
+        if (dX != 0) SendInput(1, new[] { WheelInput(dX, true) }, Marshal.SizeOf<INPUT>());
+    }
+
+    // Park-for-duration (#2): save the cursor once and move it into the content beside the bar, so the
+    // SendInput wheel hover-routes to the editor; restore it once when the fling is spent.
+    private static POINT _parkOrig;
+    private static volatile bool _parked;
+    private static int _parkSettle; // frames to let hover register before wheeling (park→wheel race fix)
+    private static void EnsureParked(Region r)
+    {
+        if (_parked) return;
+        RECT t = ContentBesideBar(r.Rect);
+        GetCursorPos(out _parkOrig);
+        int cx = (t.left + t.right) / 2, cy = (t.top + t.bottom) / 2;
+        // Real-pipeline move (NOT SetCursorPos) so a hover-enter is generated before the wheel arrives —
+        // otherwise the first wheels land before the editor knows the cursor is over it and get dropped.
+        SendInput(1, new[] { AbsMoveInput(cx, cy) }, Marshal.SizeOf<INPUT>());
+        _parkSettle = 3; // ~45ms for hover to settle (esp. under a VM)
+        _parked = true;
+    }
+    private static void Unpark()
+    {
+        if (!_parked) return;
+        _parked = false;
+        try { SendInput(1, new[] { AbsMoveInput(_parkOrig.x, _parkOrig.y) }, Marshal.SizeOf<INPUT>()); } catch { }
+    }
+
+    private static double Step(double v, int held, double dt)
+    {
+        if (held != 0) v += (held * VEL_MAX - v) * Math.Min(1.0, dt / VEL_RAMP); // ramp toward target
+        else { v *= Math.Pow(VEL_DECAY16, dt / 0.016); if (Math.Abs(v) < VEL_MIN) v = 0; } // friction decay
+        return v;
+    }
+
+    private static INPUT MouseInput(MOUSEINPUT mi) { var i = new INPUT { type = INPUT_MOUSE }; i.U.mi = mi; return i; }
+    private static INPUT WheelInput(int delta, bool horizontal) =>
+        MouseInput(new MOUSEINPUT { mouseData = delta, dwFlags = horizontal ? MOUSEEVENTF_HWHEEL : MOUSEEVENTF_WHEEL });
+    private static INPUT AbsMoveInput(int x, int y)
+    {
+        int vx = GetSystemMetrics(SM_XVIRTUALSCREEN), vy = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        int vw = GetSystemMetrics(SM_CXVIRTUALSCREEN), vh = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+        int ax = (int)Math.Round((x - vx) * 65535.0 / Math.Max(1, vw - 1));
+        int ay = (int)Math.Round((y - vy) * 65535.0 / Math.Max(1, vh - 1));
+        return MouseInput(new MOUSEINPUT { dx = ax, dy = ay, dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK });
+    }
+
+    // One reliable region increment (NO verify → fast, safe on the worker at cadence). Pane →
+    // UIA ScrollPattern increment (reaches UWP/WinUI, where a SendMessage wheel does not);
+    // scrollbar-only → SendMessage wheel at the content beside the bar (WPF editors).
+    private static void RegionStep(int dx, int dy)
+    {
+        int ai = _activeIndex;
+        if (ai < 0 || ai >= _regions.Count) return;
+        var r = _regions[ai];
+        if (r.Sp is not null)
+        {
+            char axis = (dy != 0 && r.VScroll) ? 'V' : (dx != 0 && r.HScroll) ? 'H' : '\0';
+            if (axis == '\0') return;
+            int sign = axis == 'V' ? dy : dx;
+            var amt = sign < 0 ? UIA.ScrollAmount.ScrollAmount_SmallDecrement : UIA.ScrollAmount.ScrollAmount_SmallIncrement;
+            TryScroll(r.Sp!, axis, amt);
+        }
+        else WheelFallback(ContentBesideBar(r.Rect), dx, dy, false);
+    }
+
+    private static void SendWheel(int delta, bool horizontal)
+    {
+        int ai = _activeIndex;
+        if (ai >= 0 && ai < _regions.Count)
+        {
+            // Region smooth = POINT-ADDRESSED SendMessage wheel at the content (pane center, or the
+            // content beside a scrollbar) — NO cursor move. The atomic-warp (SendInput move→wheel→
+            // restore) was ABANDONED: warping the cursor ~120x/sec leaked hover/selection events into
+            // neighbouring panes (Solution Explorer highlighting) and mis-routed the wheel (editor
+            // "stuck until you move the mouse"). SendMessage can't trigger app inertia, so region holds
+            // are smooth cadenced stepping, not an inertial fling — this IS the accepted split.
+            var r = _regions[ai];
+            RECT tgt = r.Sp is not null ? r.Rect : ContentBesideBar(r.Rect);
+            int cx = (tgt.left + tgt.right) / 2, cy = (tgt.top + tgt.bottom) / 2;
+            IntPtr h = WindowFromPoint(new POINT { x = cx, y = cy });
+            if (h == IntPtr.Zero) h = _targetHwnd;
+            IntPtr lp = (IntPtr)((cy << 16) | (cx & 0xFFFF));
+            SendMessage(h, horizontal ? WM_MOUSEHWHEEL : WM_MOUSEWHEEL, (IntPtr)(delta << 16), lp);
+        }
+        else
+        {
+            // Window smooth = SendInput real-pipeline wheel → engages the app's own inertia (the glide).
+            SendInput(1, new[] { WheelInput(delta, horizontal) }, Marshal.SizeOf<INPUT>());
         }
     }
 
     private static void SetActive(int idx)
     {
         _activeIndex = (idx >= 0 && idx < _regions.Count) ? idx : -1;
+        ResetVelocity(); // stop any in-flight smooth fling when the target changes
         _overlay?.SetActive(_activeIndex);
         Console.WriteLine($"   active target = {(_activeIndex < 0 ? "WINDOW (default/fallback wheel)" : $"region [{_regions[_activeIndex].Number}] — {_regions[_activeIndex].PathLabel}")}");
     }
@@ -306,13 +577,23 @@ internal static class Program
     {
         try
         {
+            Console.WriteLine($"[DBG] key dx={dx} dy={dy} page={page} target={(_activeIndex < 0 ? "WINDOW" : $"region[{_regions[_activeIndex].Number}] {_regions[_activeIndex].PathLabel}")}");
             if (_activeIndex >= 0)
             {
                 var r = _regions[_activeIndex];
                 if (r.Sp is not null) { ScrollViaPattern(r, dx, dy, page); return; }
-                if (r.Rv is not null) { ScrollViaRange(r, dx, dy, page); return; }
+                if (r.Rv is not null)
+                {
+                    // ScrollBar RangeValue is an UNRELIABLE actuator: VS moves the thumb only (readback
+                    // is fooled — moved=True but content stays), Beyond Compare ignores SetValue entirely.
+                    // RangeValue is kept for DETECTION + position reads only; actuate via the injected
+                    // wheel at the content beside the bar (the reliable content-mover).
+                    Console.WriteLine($"[DBG] scrollbar region → wheel at content-beside-bar (RangeValue not trusted as actuator)");
+                    WheelFallback(ContentBesideBar(r.Rect), dx, dy, page);
+                    return;
+                }
             }
-            // default (window) OR a picked region whose pattern actuation is unavailable → injected wheel
+            // default (window) OR a picked region with no usable pattern → injected wheel
             RECT wr = (_activeIndex >= 0) ? _regions[_activeIndex].Rect : GetWinRectHwnd(_targetHwnd);
             WheelFallback(wr, dx, dy, page);
         }
@@ -322,7 +603,14 @@ internal static class Program
     private static void ScrollViaPattern(Region r, int dx, int dy, bool page)
     {
         char axis = (dy != 0 && r.VScroll) ? 'V' : (dx != 0 && r.HScroll) ? 'H' : '\0';
-        if (axis == '\0') { WheelFallback(r.Rect, dx, dy, page); return; } // axis not scrollable → wheel
+        if (axis == '\0')
+        {
+            // Requested axis isn't scrollable on this region — NO-OP. (Previously this fell back to
+            // a wheel in the unsupported axis — a horizontal wheel on a V-only Tree — which scrolled
+            // the wrong thing. Bug found in VS.)
+            Console.WriteLine($"[DBG] pattern: axis unsupported (dx={dx} dy={dy} V={r.VScroll} H={r.HScroll}) -> no-op");
+            return;
+        }
         int sign = axis == 'V' ? dy : dx;                                  // -1 up/left, +1 down/right
         double before = ReadPct(r.Sp!, axis);
         var small = sign < 0 ? UIA.ScrollAmount.ScrollAmount_SmallDecrement : UIA.ScrollAmount.ScrollAmount_SmallIncrement;
@@ -341,6 +629,13 @@ internal static class Program
             try { if (axis == 'V') r.Sp!.SetScrollPercent(NoScroll, target); else r.Sp!.SetScrollPercent(target, NoScroll); } catch { }
             if (MovedSince(r.Sp!, axis, before)) return;
         }
+        // Don't escalate to a wheel when already at the scroll limit in this direction: the
+        // "no move" is expected (nothing left to scroll), and a wheel here bubbles to a PARENT
+        // scrollable and scrolls the wrong pane. Bug found in VS at the top of a Tree. Only guard
+        // when the percent is readable — an unreadable pane still needs the wheel fallback.
+        double now = ReadPct(r.Sp!, axis);
+        bool atLimit = now > NoScroll && ((sign < 0 && now <= 0.01) || (sign > 0 && now >= 99.99));
+        if (atLimit) { Console.WriteLine($"[DBG] pattern: at limit (pct={now:F1} sign={sign}) -> no wheel escalation"); return; }
         WheelFallback(r.Rect, dx, dy, page);
     }
 
@@ -367,12 +662,101 @@ internal static class Program
 
     private static void ScrollViaRange(Region r, int dx, int dy, bool page)
     {
+        // axis gate: a vertical scrollbar ignores horizontal keys and vice-versa. Bug found in VS —
+        // a horizontal key on a V-only bar was actuating / sending a horizontal wheel.
+        bool wantV = dy != 0, wantH = dx != 0;
+        if ((wantV && !r.VScroll) || (wantH && !r.HScroll))
+        {
+            Console.WriteLine($"[DBG] range: axis unsupported (dx={dx} dy={dy} V={r.VScroll} H={r.HScroll}) -> no-op");
+            return;
+        }
         double mn = Try(() => r.Rv!.CurrentMinimum), mx = Try(() => r.Rv!.CurrentMaximum), cur = Try(() => r.Rv!.CurrentValue);
         if (double.IsNaN(mn) || double.IsNaN(mx) || !(mx > mn)) { WheelFallback(r.Rect, dx, dy, page); return; }
         double step = (mx - mn) * (page ? 0.20 : 0.06);
         int sign = (dy != 0) ? dy : dx;              // up/left decrease, down/right increase
         double next = Math.Max(mn, Math.Min(mx, cur + sign * step));
-        try { r.Rv!.SetValue(next); } catch { WheelFallback(r.Rect, dx, dy, page); }
+        try
+        {
+            r.Rv!.SetValue(next);
+            double after = Try(() => r.Rv!.CurrentValue);
+            bool asked = Math.Abs(next - cur) > 0.001;   // did we actually request a move (not at a boundary)?
+            bool moved = Math.Abs(after - cur) > 0.001;
+            Console.WriteLine($"[DBG] range {(page ? "PAGE" : "line")}: min={mn:F1} max={mx:F1} cur={cur:F2} step={step:F2} -> next={next:F2}, readback after={after:F2} asked={asked} moved={moved}");
+            // VERIFY-AND-ESCALATE (Phase-3 fix): if we asked the value to move but it snapped
+            // back / didn't take (Beyond Compare's write-ignored scrollbar), the RangeValue is
+            // non-functional — escalate to the injected wheel. Aim it at the CONTENT beside the
+            // bar, since the bar's own center is the wrong target for a wheel message.
+            if (asked && !moved)
+            {
+                RECT content = ContentBesideBar(r.Rect);
+                Console.WriteLine($"[DBG] range no-move -> ESCALATE wheel at content-beside-bar ({(content.left + content.right) / 2},{(content.top + content.bottom) / 2})");
+                WheelFallback(content, dx, dy, page);
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"[DBG] range SetValue THREW {ex.Message} -> wheel"); WheelFallback(r.Rect, dx, dy, page); }
+    }
+
+    // ---- absolute jump (Home/End = ToStart/ToEnd) — ticket #65 Q3a validation --
+    // Home → top (percent 0), End → bottom (percent 100), vertical.
+    //  • Selected region: SetScrollPercent on its ScrollPattern, else SetValue min/max
+    //    on its ScrollBar RangeValue.
+    //  • WINDOW target (default, _activeIndex < 0): the PROPOSED behavior under test —
+    //    just-in-time resolve the UIA element under the window's scroll point (the SAME
+    //    center point the wheel fallback aims at) and SetScrollPercent on it if it exposes
+    //    a ScrollPattern. If not (pure-wheel apps — Monaco/Slack), a documented no-op.
+    private static void Jump(bool toEnd)
+    {
+        double pct = toEnd ? 100.0 : 0.0;
+        string k = toEnd ? "End" : "Home";
+        try
+        {
+            if (_activeIndex >= 0)
+            {
+                var r = _regions[_activeIndex];
+                if (r.Sp is not null)
+                {
+                    try { r.Sp.SetScrollPercent(NoScroll, pct); Console.WriteLine($"   {k}: region[{r.Number}] SetScrollPercent V={pct}"); }
+                    catch (Exception ex) { Console.WriteLine($"   !! {k} region SetScrollPercent threw: {ex.Message}"); }
+                    return;
+                }
+                if (r.Rv is not null)
+                {
+                    double mn = Try(() => r.Rv!.CurrentMinimum), mx = Try(() => r.Rv!.CurrentMaximum);
+                    if (!double.IsNaN(mn) && !double.IsNaN(mx) && mx > mn)
+                    {
+                        try { r.Rv!.SetValue(toEnd ? mx : mn); Console.WriteLine($"   {k}: region[{r.Number}] RangeValue SetValue={(toEnd ? mx : mn):F0}"); }
+                        catch (Exception ex) { Console.WriteLine($"   !! {k} region SetValue threw: {ex.Message}"); }
+                    }
+                    else Console.WriteLine($"   {k}: region[{r.Number}] RangeValue has no range — no-op");
+                    return;
+                }
+                Console.WriteLine($"   {k}: region[{r.Number}] has no Sp/Rv handle — no-op");
+                return;
+            }
+
+            // WINDOW target — the behavior under validation.
+            RECT wr = GetWinRectHwnd(_targetHwnd);
+            int cx = (wr.left + wr.right) / 2, cy = (wr.top + wr.bottom) / 2;
+            UIA.IUIAutomationElement? el = null;
+            try { el = _com.ElementFromPoint(new UIA.tagPOINT { x = cx, y = cy }); } catch { }
+            var sp = el is null ? null : Get<UIA.IUIAutomationScrollPattern>(el, UIA_ScrollPatternId);
+            if (sp is not null)
+            {
+                int ct = 0; try { ct = el!.CurrentControlType; } catch { }
+                bool vScrollable = el is not null && GetBool(el, UIA_ScrollVerticallyScrollablePropertyId);
+                try
+                {
+                    sp.SetScrollPercent(NoScroll, pct);
+                    Console.WriteLine($"   {k}: WINDOW → resolved '{ControlTypeName(ct)}' under center ({cx},{cy}), SetScrollPercent V={pct} (vScrollable={vScrollable})");
+                }
+                catch (Exception ex) { Console.WriteLine($"   !! {k} WINDOW SetScrollPercent threw: {ex.Message}"); }
+            }
+            else
+            {
+                Console.WriteLine($"   {k}: WINDOW → element under center ({cx},{cy}) exposes no ScrollPattern → documented no-op (pure-wheel app)");
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"   !! {k} threw: {ex.GetType().Name}: {ex.Message}"); }
     }
 
     // Synthesized wheel to the control under the region/window center (no cursor move).
@@ -386,12 +770,14 @@ internal static class Program
         if (dy != 0)
         {
             int delta = (dy < 0 ? 1 : -1) * 120 * notches;          // wheel-up (+) scrolls content up
-            SendMessage(h, WM_MOUSEWHEEL, (IntPtr)(delta << 16), lp);
+            IntPtr res = SendMessage(h, WM_MOUSEWHEEL, (IntPtr)(delta << 16), lp);
+            Console.WriteLine($"[DBG] wheel V hwnd=0x{h.ToInt64():X} at ({cx},{cy}) delta={delta} notches={notches} sendResult={res}");
         }
         else if (dx != 0)
         {
             int delta = (dx < 0 ? -1 : 1) * 120 * notches;          // hwheel + = right
-            SendMessage(h, WM_MOUSEHWHEEL, (IntPtr)(delta << 16), lp);
+            IntPtr res = SendMessage(h, WM_MOUSEHWHEEL, (IntPtr)(delta << 16), lp);
+            Console.WriteLine($"[DBG] wheel H hwnd=0x{h.ToInt64():X} at ({cx},{cy}) delta={delta} notches={notches} sendResult={res}");
         }
     }
 
@@ -429,7 +815,7 @@ internal static class Program
             using var legendFont = new Font("Consolas", 11, FontStyle.Bold);
 
             // legend
-            string legend = $"SCROLL MODE   active={( _act < 0 ? "WINDOW (default/wheel)" : $"[{_rs[_act].Number}] {_rs[_act].PathLabel}")}   |   0=window  1-9=region  H/J=up/down  K/L=left/right  PgUp/PgDn=page  Esc=exit";
+            string legend = $"SCROLL MODE   active={( _act < 0 ? "WINDOW (default/wheel)" : $"[{_rs[_act].Number}] {_rs[_act].PathLabel}")}   |   0=window  1-9=region  H/J=up/down  K/L=left/right  PgUp/PgDn=page  Home/End=top/bottom  Esc=exit";
             var lsz = g.MeasureString(legend, legendFont);
             var lr = new RectangleF(8, 8, lsz.Width + 16, lsz.Height + 10);
             using (var bg = new SolidBrush(Color.FromArgb(220, 20, 20, 30))) g.FillRectangle(bg, lr);
@@ -466,6 +852,17 @@ internal static class Program
     private static readonly HashSet<int> ContainerCtls = new() { 50008, 50023, 50028, 50036, 50030, 50033, 50026, 50025, 50032 };
     private static bool IsScrollContainer(int ctl) => ContainerCtls.Contains(ctl);
 
+    // For wheel-escalation off a bare scrollbar: the bar's own center is the wrong wheel
+    // target (it IS the bar, not the content). A vertical bar (taller than wide) has its
+    // content pane to the LEFT; a horizontal bar has it ABOVE. Return a thin rect centered
+    // ~40px into that content, so WheelFallback's rect-center lands on the scrolled pane.
+    private static RECT ContentBesideBar(RECT bar)
+    {
+        int w = bar.right - bar.left, h = bar.bottom - bar.top;
+        if (h >= w) { int x = bar.left - 40; return new RECT { left = x - 2, top = bar.top, right = x + 2, bottom = bar.bottom }; }
+        int y = bar.top - 40; return new RECT { left = bar.left, top = y - 2, right = bar.right, bottom = y + 2 };
+    }
+
     // A scrollbar sits at the edge of its pane, so it intersects (within a small margin)
     // that pane's rect. Used to drop redundant scrollbars when a content region exists.
     private static bool OverlapsAny(RECT bar, List<RECT> panes)
@@ -501,6 +898,22 @@ internal static class Program
     private const int WM_MOUSEWHEEL = 0x020A, WM_MOUSEHWHEEL = 0x020E;
     [StructLayout(LayoutKind.Sequential)] private struct RECT { public int left, top, right, bottom; }
     [StructLayout(LayoutKind.Sequential)] private struct POINT { public int x, y; }
+
+    // SendInput (smooth lane — real input pipeline → engages app inertia) + high-res timer
+    private const uint INPUT_MOUSE = 0, MOUSEEVENTF_WHEEL = 0x0800, MOUSEEVENTF_HWHEEL = 0x1000;
+    private const uint MOUSEEVENTF_MOVE = 0x0001, MOUSEEVENTF_ABSOLUTE = 0x8000, MOUSEEVENTF_VIRTUALDESK = 0x4000;
+    private const int SM_XVIRTUALSCREEN = 76, SM_YVIRTUALSCREEN = 77, SM_CXVIRTUALSCREEN = 78, SM_CYVIRTUALSCREEN = 79;
+    [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT p);
+    [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] private static extern int GetSystemMetrics(int nIndex);
+    [StructLayout(LayoutKind.Sequential)] private struct MOUSEINPUT { public int dx, dy; public int mouseData; public uint dwFlags, time; public IntPtr dwExtraInfo; }
+    [StructLayout(LayoutKind.Sequential)] private struct KEYBDINPUT { public ushort wVk, wScan; public uint dwFlags, time; public IntPtr dwExtraInfo; }
+    [StructLayout(LayoutKind.Sequential)] private struct HARDWAREINPUT { public uint uMsg; public ushort wParamL, wParamH; }
+    [StructLayout(LayoutKind.Explicit)] private struct InputUnion { [FieldOffset(0)] public MOUSEINPUT mi; [FieldOffset(0)] public KEYBDINPUT ki; [FieldOffset(0)] public HARDWAREINPUT hi; }
+    [StructLayout(LayoutKind.Sequential)] private struct INPUT { public uint type; public InputUnion U; }
+    [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+    [DllImport("winmm.dll")] private static extern uint timeBeginPeriod(uint uPeriod);
+    [DllImport("winmm.dll")] private static extern uint timeEndPeriod(uint uPeriod);
     private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
