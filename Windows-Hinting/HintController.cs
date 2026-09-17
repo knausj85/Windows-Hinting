@@ -10,6 +10,7 @@ using WindowsHinting.Configuration;
 using WindowsHinting.Forms;
 using WindowsHinting.Logging;
 using WindowsHinting.Models;
+using WindowsHinting.NativeInterop;
 using WindowsHinting.Services;
 
 namespace WindowsHinting
@@ -32,6 +33,7 @@ namespace WindowsHinting
         private readonly MouseClickService _mouseClickService;
         private readonly StartupService _startupService;
         private readonly UpdateService _updateService;
+        private readonly HintDismissalWatcher _dismissalWatcher;
 
         private HintOverlayOptions _options;
         private long _lastToggleTicks;
@@ -59,7 +61,8 @@ namespace WindowsHinting
             //NamedPipeService namedPipeService,
             MouseClickService mouseClickService,
             StartupService startupService,
-            UpdateService updateService)
+            UpdateService updateService,
+            HintDismissalWatcher dismissalWatcher)
         {
             using (PerformanceMetrics.Start("HintController.Constructor", logger, LogLevel.Info))
             {
@@ -82,6 +85,7 @@ namespace WindowsHinting
                 _mouseClickService = mouseClickService ?? throw new ArgumentNullException(nameof(mouseClickService));
                 _startupService = startupService ?? throw new ArgumentNullException(nameof(startupService));
                 _updateService = updateService ?? throw new ArgumentNullException(nameof(updateService));
+                _dismissalWatcher = dismissalWatcher ?? throw new ArgumentNullException(nameof(dismissalWatcher));
 
                 // Auto-hide timer (threadpool-based; see field comment).
                 _autoHideTimer = new System.Threading.Timer(OnAutoHideTick, null, Timeout.Infinite, Timeout.Infinite);
@@ -123,6 +127,8 @@ namespace WindowsHinting
 
                 _keyboardService.KeyPressed += OnKeyPressed;
                 _keyboardService.KeyReleased += OnKeyReleased;
+
+                _dismissalWatcher.DismissRequested += OnDismissRequested;
 
                 //_namedPipeService.CommandReceived += OnNamedPipeCommandReceived;
 
@@ -582,6 +588,20 @@ namespace WindowsHinting
                 _logger.Debug("Starting keyboard service");
                 _keyboardService.Start();
 
+                if (mode == HintMode.Scanning)
+                {
+                    // Intelligent dismissal: watch for the user clicking, switching foreground
+                    // window, or moving/resizing the target. Installed on the Scanning transition
+                    // (synchronous on the UI thread, like the keyboard hook) so the hook callbacks
+                    // are delivered on a thread that pumps messages. For foreground-window hints the
+                    // target is the foreground window; taskbar hints have no single move/resize
+                    // target (Zero → the location-change hook is skipped).
+                    IntPtr dismissalTarget = _stateManager.CurrentSource == HintSource.ForegroundWindow
+                        ? _windowManager.GetForegroundWindow()
+                        : IntPtr.Zero;
+                    _dismissalWatcher.Start(dismissalTarget);
+                }
+
                 if (mode == HintMode.Active && _options.AutoHideTimeoutSeconds > 0)
                 {
                     _autoHideTimer.Change(_options.AutoHideTimeoutSeconds * 1000, Timeout.Infinite);
@@ -593,9 +613,28 @@ namespace WindowsHinting
                 _autoHideTimer.Change(Timeout.Infinite, Timeout.Infinite);
                 _logger.Debug("Stopping keyboard service");
                 _keyboardService.Stop();
+                _dismissalWatcher.Stop();
                 _inputHandler.Reset();
                 _trayIcon.ResetIcon();
             }
+        }
+
+        private void OnDismissRequested(object? sender, EventArgs e)
+        {
+            // Raised from a hook callback on the UI thread. Defer to the message loop so the hooks
+            // are not torn down (Stop → UnhookWindowsHookEx) from inside the callback, and so a
+            // dismissing mouse click has already fallen through to the app first.
+            if (_stateManager.CurrentMode == HintMode.Inactive)
+                return;
+
+            _overlay.BeginInvoke(() =>
+            {
+                if (_stateManager.CurrentMode != HintMode.Inactive)
+                {
+                    _logger.Debug("Dismissing hints (intelligent dismissal)");
+                    _stateManager.Deactivate();
+                }
+            });
         }
 
         private void OnHintsChanged(object? sender, System.Collections.Generic.IReadOnlyList<HintItem> hints)
@@ -772,6 +811,7 @@ namespace WindowsHinting
             _autoHideTimer.Dispose();
             //_namedPipeService.Dispose();
             _keyboardService.Stop();
+            _dismissalWatcher.Dispose();
             _updateService.Dispose();
             _trayIcon.Dispose();
             _overlay.Dispose();

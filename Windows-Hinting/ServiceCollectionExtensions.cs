@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using WindowsHinting.Configuration;
 using WindowsHinting.Forms;
 using WindowsHinting.Logging;
+using WindowsHinting.NativeInterop;
 using WindowsHinting.Services;
 
 namespace WindowsHinting
@@ -38,6 +39,7 @@ namespace WindowsHinting
             services.AddSingleton<IWindowManager, WindowManager>();
             services.AddSingleton<HintStateManager>();
             services.AddSingleton<HintInputHandler>();
+            services.AddSingleton<HintDismissalWatcher>();
             services.AddSingleton<ElementActivatorChain>();
             //services.AddSingleton<NamedPipeService>();
             services.AddSingleton<MouseClickService>();

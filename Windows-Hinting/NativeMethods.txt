@@ -83,3 +83,11 @@ MonitorFromWindow
 MONITOR_FROM_FLAGS
 GetClassName
 EnumChildWindows
+
+// --- Wave 7: intelligent dismissal (HintDismissalWatcher) ---
+// WinEvent hooks that auto-dismiss the overlay when the user switches foreground
+// window or moves/resizes the target window. The low-level mouse hook reuses the
+// Wave-4 SetWindowsHookEx/CallNextHookEx/WINDOWS_HOOK_ID imports.
+SetWinEventHook
+UnhookWinEvent
+WINEVENTPROC
