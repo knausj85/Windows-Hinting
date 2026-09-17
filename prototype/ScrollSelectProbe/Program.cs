@@ -165,16 +165,31 @@ internal static class Program
 
         _hookProc = HookProc; // root delegate
         _hook = SetWindowsHookEx(WH_KEYBOARD_LL, _hookProc, GetModuleHandle(null), 0);
+        // dismissal hooks: LL mouse (click), foreground-change (system-wide, skip our own process),
+        // and target-window move/resize (scoped to the target's thread to keep the event volume low).
+        _mouseProc = MouseHookProc;
+        _mouseHook = SetWindowsHookEx(WH_MOUSE_LL, _mouseProc, GetModuleHandle(null), 0);
+        _winEventProc = OnWinEvent;
+        uint tid = GetWindowThreadProcessId(_targetHwnd, out uint pid);
+        _winEventFg = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, _winEventProc, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+        _winEventLoc = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, IntPtr.Zero, _winEventProc, pid, tid, WINEVENT_OUTOFCONTEXT);
         _active = true;
         StartVelocity(); // smooth lane ticker (drives only while the window target is active)
     }
 
     private static void ExitScrollMode()
     {
+        if (!_active) return; // idempotent — click + foreground + resize can all fire together
         _active = false;
         StopVelocity();
         try { if (_hook != IntPtr.Zero) UnhookWindowsHookEx(_hook); } catch { }
         _hook = IntPtr.Zero;
+        try { if (_mouseHook != IntPtr.Zero) UnhookWindowsHookEx(_mouseHook); } catch { }
+        _mouseHook = IntPtr.Zero;
+        try { if (_winEventFg != IntPtr.Zero) UnhookWinEvent(_winEventFg); } catch { }
+        _winEventFg = IntPtr.Zero;
+        try { if (_winEventLoc != IntPtr.Zero) UnhookWinEvent(_winEventLoc); } catch { }
+        _winEventLoc = IntPtr.Zero;
         try { _overlay?.Close(); _overlay?.Dispose(); } catch { }
         _overlay = null;
         _regions = new();
@@ -306,6 +321,58 @@ internal static class Program
             }
         }
         return CallNextHookEx(_hook, nCode, wParam, lParam);
+    }
+
+    // ---- intelligent dismissal: click / foreground-change / target move|resize ----
+    // Scroll mode is a transient modal; it should tear itself down the moment the user's
+    // intent leaves it. Three signals, all of which invalidate the picked region's geometry
+    // or the whole premise: a real mouse click (user is interacting with the app), the
+    // foreground window changing away from the target, and the target window moving/resizing
+    // (the numbered region rects go stale). A #63 flagged foreground-loss dismissal.
+    private const int WH_MOUSE_LL = 14;
+    private const int WM_LBUTTONDOWN = 0x0201, WM_RBUTTONDOWN = 0x0204, WM_MBUTTONDOWN = 0x0207, WM_XBUTTONDOWN = 0x020B;
+    private const uint LLMHF_INJECTED = 0x01;               // MSLLHOOKSTRUCT.flags bit
+    private const uint EVENT_SYSTEM_FOREGROUND = 0x0003, EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
+    private const uint WINEVENT_OUTOFCONTEXT = 0x0000, WINEVENT_SKIPOWNPROCESS = 0x0002;
+    private const int OBJID_WINDOW = 0;
+    private static IntPtr _mouseHook;
+    private static LowLevelMouseProc? _mouseProc;          // rooted to survive GC
+    private static IntPtr _winEventFg, _winEventLoc;
+    private static WinEventProc? _winEventProc;            // rooted to survive GC
+    private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
+    private delegate void WinEventProc(IntPtr hHook, uint ev, IntPtr hwnd, int idObject, int idChild, uint thread, uint time);
+
+    private static IntPtr MouseHookProc(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode >= 0 && _active)
+        {
+            uint flags = (uint)Marshal.ReadInt32(lParam, 12); // MSLLHOOKSTRUCT.flags — skip our own injected park/wheel
+            if ((flags & LLMHF_INJECTED) == 0)
+            {
+                int msg = wParam.ToInt32();
+                if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_XBUTTONDOWN)
+                {
+                    Console.WriteLine("── dismiss: mouse click ──");
+                    PostUi(ExitScrollMode); // let the click fall through to the app (not swallowed)
+                }
+            }
+        }
+        return CallNextHookEx(_mouseHook, nCode, wParam, lParam);
+    }
+
+    private static void OnWinEvent(IntPtr hHook, uint ev, IntPtr hwnd, int idObject, int idChild, uint thread, uint time)
+    {
+        if (!_active) return;
+        if (ev == EVENT_SYSTEM_FOREGROUND)
+        {
+            if (hwnd != _targetHwnd) { Console.WriteLine("── dismiss: foreground changed ──"); PostUi(ExitScrollMode); }
+        }
+        else if (ev == EVENT_OBJECT_LOCATIONCHANGE)
+        {
+            // only the target window FRAME itself (not child objects/caret) — it moved or resized
+            if (hwnd == _targetHwnd && idObject == OBJID_WINDOW && idChild == 0)
+            { Console.WriteLine("── dismiss: target moved/resized ──"); PostUi(ExitScrollMode); }
+        }
     }
 
     private static bool HandleDown(int vk)
@@ -1090,6 +1157,10 @@ internal static class Program
     [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
     [DllImport("user32.dll")] private static extern bool UnhookWindowsHookEx(IntPtr hhk);
     [DllImport("user32.dll")] private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
+    [DllImport("user32.dll")] private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventProc lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+    [DllImport("user32.dll")] private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string? name);
     private static readonly IntPtr HWND_TOPMOST = new(-1);
     private const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOACTIVATE = 0x0010, SWP_SHOWWINDOW = 0x0040;
