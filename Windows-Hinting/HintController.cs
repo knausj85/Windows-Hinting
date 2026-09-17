@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using Preferences;
@@ -48,14 +49,25 @@ namespace WindowsHinting
         // ─── PROTOTYPE #73: chained hinting ─────────────────────────────────
         // Throwaway spike (branch prototype/chained-hinting). After an activation,
         // re-scan the foreground window and re-show hints instead of just
-        // deactivating — looping until Esc / foreground-leaves-app / zero
-        // elements. Uses the crudest settle: a fixed delay (ticket A). Prototypes
-        // B/C replace the delay with event-driven settle. Remove for production.
+        // deactivating — looping until Esc / foreground-leaves-app / zero elements.
+        //
+        // Ticket A proved the loop with a crude fixed delay (brittle: the scan
+        // raced the pane's settle → partial UIA tree → missing hints). Ticket B
+        // (this) replaces the delay with an EVENT-DRIVEN settle gate: subscribe to
+        // UIA StructureChanged on the foreground root, wait for a short quiet
+        // window after the last child-add, then re-scan — with a hard-timeout
+        // backstop so a silent surface still re-scans. (Settle-gate role per #48.)
+        // Remove for production.
         private const bool ChainingEnabled = true;
-        private const int ChainReScanDelayMs = 400;   // fixed-delay settle — tune live
-        private readonly System.Threading.Timer _chainTimer;
-        private int _chainGeneration;                 // guards against stale re-scan ticks
-        private uint _chainOriginPid;                 // foreground process when the chain round began
+        private const int ChainSettleQuietMs = 120;    // re-scan this long after the LAST StructureChanged
+        private const int ChainSettleTimeoutMs = 800;  // hard-timeout backstop if the surface is silent
+        private readonly System.Threading.Timer _chainTimer;       // hard-timeout backstop
+        private readonly System.Threading.Timer _chainQuietTimer;  // debounce: fires after the quiet window
+        private int _chainGeneration;                  // guards against stale settle ticks
+        private uint _chainOriginPid;                  // foreground process when the chain round began
+        private readonly IUIAutomation _chainUia;      // dedicated COM UIA client for the settle gate
+        private ChainStructureHandler? _chainScHandler;
+        private IUIAutomationElement? _chainScElement;
         // ────────────────────────────────────────────────────────────────────
 
         public HintController(
@@ -101,8 +113,10 @@ namespace WindowsHinting
                 // Auto-hide timer (threadpool-based; see field comment).
                 _autoHideTimer = new System.Threading.Timer(OnAutoHideTick, null, Timeout.Infinite, Timeout.Infinite);
 
-                // PROTOTYPE #73: chain re-scan timer (threadpool-based; marshalled to UI thread).
-                _chainTimer = new System.Threading.Timer(OnChainReScanTick, null, Timeout.Infinite, Timeout.Infinite);
+                // PROTOTYPE #73/B: chain settle timers (threadpool-based; marshalled to UI thread).
+                _chainTimer = new System.Threading.Timer(_ => ChainSettle("timeout"), null, Timeout.Infinite, Timeout.Infinite);
+                _chainQuietTimer = new System.Threading.Timer(_ => ChainSettle("quiet"), null, Timeout.Infinite, Timeout.Infinite);
+                _chainUia = new CUIAutomation();
 
                 // Load preferences
                 _logger.Debug("Loading preferences");
@@ -716,7 +730,7 @@ namespace WindowsHinting
                 {
                     _chainOriginPid = GetForegroundPid();
                     int gen = ++_chainGeneration;
-                    _logger.Info($"[CHAIN] commit → re-scan scheduled in {ChainReScanDelayMs}ms (gen={gen}, originPid={_chainOriginPid})");
+                    _logger.Info($"[CHAIN] commit → settle gate will arm after activation (gen={gen}, originPid={_chainOriginPid})");
                 }
 
                 // Hide hints immediately so the overlay is gone before activation
@@ -749,9 +763,10 @@ namespace WindowsHinting
                     }
                     finally
                     {
-                        // PROTOTYPE #73: arm the fixed-delay settle AFTER activation is posted.
+                        // PROTOTYPE #73/B: arm the event-driven settle gate AFTER activation
+                        // is posted (so we catch the StructureChanged burst the click causes).
                         if (chainThisRound)
-                            _chainTimer.Change(ChainReScanDelayMs, Timeout.Infinite);
+                            ArmChainSettle(_chainGeneration);
                     }
                 });
             }
@@ -767,16 +782,65 @@ namespace WindowsHinting
             return pid;
         }
 
-        // PROTOTYPE #73: fixed-delay settle tick. Runs on a threadpool thread;
-        // marshal to the UI thread, then re-scan the foreground app and re-show
-        // hints — unless an exit condition fires:
-        //   • Esc            → the commit's Deactivate() already left us Inactive and
-        //                      no re-scan is scheduled for an Esc, so a plain Esc ends
-        //                      the loop. (Esc *during* the delay window can't be seen
-        //                      while the keyboard hook is stopped — documented gap.)
+        // PROTOTYPE #73/B: COM handler for UIA StructureChanged on the foreground root.
+        // Callback arrives on an RPC/MTA worker thread — keep it cheap and thread-safe.
+        private sealed class ChainStructureHandler : IUIAutomationStructureChangedEventHandler
+        {
+            private readonly Action _onEvent;
+            public ChainStructureHandler(Action onEvent) { _onEvent = onEvent; }
+            public void HandleStructureChangedEvent(IUIAutomationElement sender, StructureChangeType changeType, Array runtimeId)
+                => _onEvent();
+        }
+
+        // PROTOTYPE #73/B: subscribe StructureChanged on the foreground root and arm the
+        // hard-timeout backstop. Runs on the UI thread (from the activation closure).
+        private void ArmChainSettle(int gen)
+        {
+            DetachChainSettle();
+
+            // Hard-timeout backstop fires even if the surface is silent (or subscribe fails).
+            _chainTimer.Change(ChainSettleTimeoutMs, Timeout.Infinite);
+
+            try
+            {
+                var hwnd = _windowManager.GetForegroundWindow();
+                if (!_windowManager.IsWindowValid(hwnd))
+                {
+                    _logger.Debug("[CHAIN] settle: no valid foreground window — relying on hard-timeout");
+                    return;
+                }
+                _chainScElement = _chainUia.ElementFromHandle(hwnd);
+                _chainScHandler = new ChainStructureHandler(() => OnChainStructureChanged(gen));
+                _chainUia.AddStructureChangedEventHandler(
+                    _chainScElement, TreeScope.TreeScope_Subtree, null, _chainScHandler);
+                _logger.Info($"[CHAIN] settle armed (gen={gen}) — StructureChanged gate + {ChainSettleTimeoutMs}ms backstop");
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning($"[CHAIN] settle subscribe failed ({ex.GetType().Name}: {ex.Message}) — relying on hard-timeout");
+                _chainScHandler = null;
+                _chainScElement = null;
+            }
+        }
+
+        // PROTOTYPE #73/B: each StructureChanged pushes the quiet-window out (debounce).
+        // Worker-thread context — only touch the thread-safe timer.
+        private void OnChainStructureChanged(int gen)
+        {
+            if (gen != _chainGeneration) return;
+            try { _chainQuietTimer.Change(ChainSettleQuietMs, Timeout.Infinite); }
+            catch (ObjectDisposedException) { }
+        }
+
+        // PROTOTYPE #73/B: settle reached (quiet window elapsed, or hard-timeout). Marshal to
+        // the UI thread, tear down the gate, then re-scan the foreground app and re-show hints —
+        // unless an exit fires:
+        //   • Esc            → the commit's Deactivate() left us Inactive and only a commit arms
+        //                      the gate, so a plain Esc ends the loop. (Esc *during* the settle
+        //                      window can't be seen while the keyboard hook is stopped — known gap.)
         //   • foreground left → origin-PID check below.
         //   • zero elements  → handled inside ScanForHints() (it Deactivates).
-        private void OnChainReScanTick(object? state)
+        private void ChainSettle(string reason)
         {
             if (_disposed || !_overlay.IsHandleCreated) return;
             int gen = _chainGeneration;
@@ -785,11 +849,14 @@ namespace WindowsHinting
                 _overlay.BeginInvoke(() =>
                 {
                     if (_disposed) return;
-                    if (gen != _chainGeneration)
-                    {
-                        _logger.Debug($"[CHAIN] stale re-scan tick (gen={gen}, current={_chainGeneration}) — skipping");
-                        return;
-                    }
+                    // Consume the round once: a stale gen means a newer commit superseded us,
+                    // OR the other settle timer already handled this round (it bumps the gen).
+                    if (gen != _chainGeneration) return;
+                    _chainGeneration++;
+
+                    _chainTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                    _chainQuietTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                    DetachChainSettle();
 
                     uint nowPid = GetForegroundPid();
                     if (nowPid == 0 || nowPid != _chainOriginPid)
@@ -798,19 +865,25 @@ namespace WindowsHinting
                         return; // already Inactive from the commit's Deactivate()
                     }
 
-                    _logger.Info($"[CHAIN] re-scan (gen={gen}, pid={nowPid}) — activating + scanning foreground");
+                    _logger.Info($"[CHAIN] settled via {reason} (gen={gen}, pid={nowPid}) — activating + scanning foreground");
                     _stateManager.Activate(HintSource.ForegroundWindow);
                     ScanForHints(); // zero-elements / timeout exits handled inside
                 });
             }
-            catch (ObjectDisposedException)
+            catch (ObjectDisposedException) { }
+            catch (InvalidOperationException) { }
+        }
+
+        // PROTOTYPE #73/B: remove the StructureChanged subscription and clear the gate.
+        private void DetachChainSettle()
+        {
+            if (_chainScElement != null && _chainScHandler != null)
             {
-                // Shutdown race; ignore.
+                try { _chainUia.RemoveStructureChangedEventHandler(_chainScElement, _chainScHandler); }
+                catch { /* best-effort */ }
             }
-            catch (InvalidOperationException)
-            {
-                // Handle destroyed between the check and BeginInvoke.
-            }
+            _chainScHandler = null;
+            _chainScElement = null;
         }
 
         private void OnPreferencesRequested(object? sender, EventArgs e)
@@ -861,7 +934,12 @@ namespace WindowsHinting
 
             _logger.Info("Disposing HintController");
             _autoHideTimer.Dispose();
-            _chainTimer.Dispose(); // PROTOTYPE #73
+            // PROTOTYPE #73/B: tear down the chain settle gate.
+            _chainTimer.Dispose();
+            _chainQuietTimer.Dispose();
+            DetachChainSettle();
+            if (_chainUia != null && Marshal.IsComObject(_chainUia))
+                Marshal.ReleaseComObject(_chainUia);
             //_namedPipeService.Dispose();
             _keyboardService.Stop();
             _updateService.Dispose();
