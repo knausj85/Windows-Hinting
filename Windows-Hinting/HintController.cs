@@ -397,17 +397,26 @@ namespace WindowsHinting
                 //    return;
                 //}
 
+                // Sort into reading order (left-to-right, top-to-bottom) so labels follow
+                // spatial position. Elements otherwise arrive in UIA tree order, scrambling
+                // the A, B, C… sequence relative to what the eye expects.
+                var sorted = PerformanceMetricsExtensions.MeasureExecution(
+                    "SortReadingOrder",
+                    () => ReadingOrder.Sort(elements, e => e.Bounds),
+                    _logger,
+                    LogLevel.Debug);
+
                 // Generate labels
                 var labels = PerformanceMetricsExtensions.MeasureExecution(
                     "GenerateLabels",
-                    () => LabelGenerator.Generate(elements.Count),
+                    () => LabelGenerator.Generate(sorted.Count),
                     _logger,
                     LogLevel.Debug);
 
                 // Create hint items
                 var hints = PerformanceMetricsExtensions.MeasureExecution(
                     "CreateHintItems",
-                    () => elements.Select((e, i) => new HintItem
+                    () => sorted.Select((e, i) => new HintItem
                     {
                         Rect = e.Bounds,
                         Element = e.Element,
@@ -518,17 +527,27 @@ namespace WindowsHinting
                     return;
                 }
 
+                // Sort into reading order (left-to-right, top-to-bottom) so labels follow
+                // spatial position. Taskbar elements otherwise arrive in UIA tree order and
+                // are appended one taskbar-window after another (multi-monitor), scrambling
+                // the A, B, C… sequence relative to what the eye expects.
+                var sorted = PerformanceMetricsExtensions.MeasureExecution(
+                    "SortReadingOrder(Taskbar)",
+                    () => ReadingOrder.Sort(deduped, e => e.Bounds),
+                    _logger,
+                    LogLevel.Debug);
+
                 // Generate labels
                 var labels = PerformanceMetricsExtensions.MeasureExecution(
                     "GenerateLabels(Taskbar)",
-                    () => LabelGenerator.Generate(deduped.Count),
+                    () => LabelGenerator.Generate(sorted.Count),
                     _logger,
                     LogLevel.Debug);
 
                 // Create hint items
                 var hints = PerformanceMetricsExtensions.MeasureExecution(
                     "CreateHintItems(Taskbar)",
-                    () => deduped.Select((e, i) => new HintItem
+                    () => sorted.Select((e, i) => new HintItem
                     {
                         Rect = e.Bounds,
                         Element = e.Element,
