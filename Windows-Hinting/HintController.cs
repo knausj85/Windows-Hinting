@@ -56,24 +56,24 @@ namespace WindowsHinting
         //     elements: on Settings' XAML the SC stream goes silent BEFORE the tree
         //     finishes materializing (a fresh scan ~1-2s later sees everything).
         //     "SC quiet" != "tree complete" — the #48/#49 virtualization warning.
-        //  C (this): POLL-UNTIL-STABLE — re-scan on a short interval and only show
-        //     hints once two consecutive scans return the SAME element count (the
-        //     scannable tree has stopped growing), capped by an attempt budget.
-        //     Measures readiness directly instead of proxying through SC events.
+        //  C. POLL-UNTIL-STABLE — a build *pause* looked identical to *done* → false-
+        //     stabled on a partial tree (highly timing-dependent on big list pages).
+        //  D (this): PROGRESSIVE-RECONCILE (per #76) — stop guessing "done"; show hints
+        //     immediately (even partial) and ADD late-arriving elements as the tree
+        //     fills, append-only so nothing shifts. Mirrors macOS Voice Control's live
+        //     "show numbers continuously" overlay. Also confirmed dead: AsyncContentLoaded
+        //     never fires on WinUI pane swaps (#76 + the in-app probe).
         // Remove for production.
         private const bool ChainingEnabled = true;
-        private const int ChainPollIntervalMs = 150;   // gap between stability probes
-        private const int ChainPollMaxAttempts = 12;   // ~up to 1.8s of settling before we give up and show
+        private const int ChainPollIntervalMs = 150;      // gap between reconcile scans
+        private const int ChainReconcileMaxAttempts = 20; // ~up to 3s ceiling of reconciling
+        private const int ChainReconcileStableStreak = 4; // stop after this many scans add nothing (~600ms)
+        private const int ChainReconcileLabelPool = 700;  // stable append-only label sequence per round
         private int _chainGeneration;                  // guards against stale / superseded rounds
         private uint _chainOriginPid;                  // foreground process when the chain round began
 
-        // PROBE (#76 lead): does WinUI/XAML raise UIA AsyncContentLoaded on a pane swap?
-        // If it fires ≈ when the tree is actually complete, it beats poll-until-stable.
-        // Diagnostic only — logs fire time vs. the poll cadence; does not drive the show.
-        private const int UIA_AsyncContentLoadedEventId = 20006;
-        private readonly IUIAutomation _probeUia;
-        private ChainProbeHandler? _probeHandler;
-        private long _probeArmTick;
+        // (AsyncContentLoaded probe removed — #76 + the in-app probe confirmed WinUI never
+        //  raises UIA event 20006 on pane swaps. Re-introduce for the Edge prototype, C #75.)
         // ────────────────────────────────────────────────────────────────────
 
         public HintController(
@@ -118,9 +118,6 @@ namespace WindowsHinting
 
                 // Auto-hide timer (threadpool-based; see field comment).
                 _autoHideTimer = new System.Threading.Timer(OnAutoHideTick, null, Timeout.Infinite, Timeout.Infinite);
-
-                // PROBE (#76 lead): dedicated UIA client for the AsyncContentLoaded diagnostic.
-                _probeUia = new CUIAutomation();
 
 
                 // Load preferences
@@ -768,12 +765,9 @@ namespace WindowsHinting
                     }
                     finally
                     {
-                        // PROTOTYPE #73/C: start poll-until-stable AFTER activation is posted.
+                        // PROTOTYPE #73/D: start progressive-reconcile AFTER activation is posted.
                         if (chainThisRound)
-                        {
-                            ArmAsyncContentProbe(_chainGeneration); // #76 diagnostic (logging only)
-                            ChainReScanUntilStable(_chainGeneration);
-                        }
+                            ChainReScanReconcile(_chainGeneration);
                     }
                 });
             }
@@ -789,25 +783,44 @@ namespace WindowsHinting
             return pid;
         }
 
-        // PROTOTYPE #73/C: poll-until-stable settle. Runs on the UI thread (async void from the
-        // activation closure; awaits resume on the WinForms sync context). Re-scans the foreground
-        // window on a short interval and shows hints once the element count stops changing — the
-        // scannable tree has finished materializing. Exit conditions:
-        //   • Esc            → the commit's Deactivate() left us Inactive and only a commit starts
-        //                      a poll, so a plain Esc ends the loop. (Esc *during* the poll can't be
-        //                      seen while the keyboard hook is stopped — known spike gap.)
-        //   • foreground left → origin-PID check each iteration.
-        //   • zero elements  → two consecutive empty scans (terminal click).
-        //   • superseded     → a newer commit bumped the generation.
-        private async void ChainReScanUntilStable(int gen)
+        // PROTOTYPE #73/D: PROGRESSIVE-RECONCILE settle (per #76). Runs on the UI thread
+        // (async void from the activation closure; awaits resume on the WinForms sync context).
+        //
+        // We stop trying to detect a single "done" moment — Settings' progressive XAML has no
+        // reliable local signal for it (fixed-delay / StructureChanged-quiet / poll-until-stable
+        // and AsyncContentLoaded all failed; #76). Instead: scan on a short interval, SHOW hints
+        // as soon as any appear (even partial), and ADDITIVELY add late-arriving elements as the
+        // tree fills — append-only labels (keyed by bounds) so existing hints never shift.
+        // Keep going until the element set stops growing for a stability streak, or a budget cap.
+        // A late element is never permanently missing; it just gets its hint a beat later.
+        //
+        // Exit conditions:
+        //   • Esc / superseded → only a commit starts a round; Esc's Deactivate + the generation
+        //                        guard end it. (Esc during the first ~150ms gap is a known gap.)
+        //   • user typing      → stop reconciling once a filter is entered, so labels don't shift
+        //                        under an in-progress selection.
+        //   • foreground left  → origin-PID check each iteration.
+        //   • zero elements    → persistently empty (terminal click).
+        private async void ChainReScanReconcile(int gen)
         {
-            int prevCount = -1;
+            var shown = new Dictionary<string, HintItem>();          // bounds-key → hint (append-only)
+            var labelPool = LabelGenerator.Generate(ChainReconcileLabelPool);
+            int nextLabel = 0;
+            int stableStreak = 0;
+            bool activated = false;
             try
             {
-                for (int attempt = 1; attempt <= ChainPollMaxAttempts; attempt++)
+                for (int attempt = 1; attempt <= ChainReconcileMaxAttempts; attempt++)
                 {
                     await System.Threading.Tasks.Task.Delay(ChainPollIntervalMs).ConfigureAwait(true);
                     if (_disposed || gen != _chainGeneration) return;
+
+                    // Don't shift labels under an in-progress selection.
+                    if (!string.IsNullOrEmpty(_stateManager.FilterText))
+                    {
+                        _logger.Info($"[CHAIN] reconcile stop — user is typing a filter (gen={gen}, shown={shown.Count})");
+                        return;
+                    }
 
                     uint nowPid = GetForegroundPid();
                     if (nowPid == 0 || nowPid != _chainOriginPid)
@@ -819,100 +832,77 @@ namespace WindowsHinting
                     var hwnd = _windowManager.GetForegroundWindow();
                     if (!_windowManager.IsWindowValid(hwnd)) continue;
 
-                    int count;
+                    IReadOnlyList<Services.ClickableElement> elements;
                     try
                     {
                         var timeoutMs = _options.ScanTimeoutMs;
-                        var elements = timeoutMs > 0
+                        elements = timeoutMs > 0
                             ? await _uiaService.FindClickableElementsAsync(hwnd, timeoutMs).ConfigureAwait(true)
                             : _uiaService.FindClickableElements(hwnd);
-                        count = elements.Count;
                     }
                     catch (Exception ex)
                     {
-                        _logger.Warning($"[CHAIN] poll #{attempt} scan failed: {ex.GetType().Name}: {ex.Message}");
+                        _logger.Warning($"[CHAIN] reconcile poll #{attempt} scan failed: {ex.GetType().Name}: {ex.Message}");
                         continue;
                     }
-
                     if (_disposed || gen != _chainGeneration) return;
-                    _logger.Debug($"[CHAIN] poll #{attempt} (gen={gen}) — {count} elements (prev={prevCount})");
 
-                    if (count == 0)
+                    int added = 0;
+                    foreach (var e in elements)
                     {
-                        if (prevCount == 0)
+                        var b = e.Bounds;
+                        string key = $"{b.Left},{b.Top},{b.Width},{b.Height}";
+                        if (shown.ContainsKey(key)) continue;
+                        if (nextLabel >= labelPool.Length) break; // pool exhausted (very large page)
+                        shown[key] = new HintItem
+                        {
+                            Rect = b,
+                            Element = e.Element,
+                            Label = labelPool[nextLabel++],
+                            CurrentOpacity = 1.0f,
+                            TargetOpacity = 1.0f
+                        };
+                        added++;
+                    }
+
+                    _logger.Debug($"[CHAIN] reconcile poll #{attempt} (gen={gen}) — scan={elements.Count}, +{added} new, total shown={shown.Count}");
+
+                    if (shown.Count == 0)
+                    {
+                        if (attempt >= 3)
                         {
                             _logger.Info($"[CHAIN] exit — zero scannable elements (terminal click, gen={gen})");
                             return;
                         }
-                        prevCount = 0;
                         continue;
                     }
 
-                    if (count == prevCount)
+                    if (added > 0 || !activated)
                     {
-                        _logger.Info($"[CHAIN] stable at {count} elements after {attempt} polls (gen={gen}) — showing hints");
-                        ShowChainHints();
-                        return;
+                        if (!activated) { _stateManager.Activate(HintSource.ForegroundWindow); activated = true; }
+                        _overlay.EnsureTopmost();
+                        _stateManager.SetHints(shown.Values.ToList()); // additive redraw
                     }
-                    prevCount = count;
-                }
 
-                // Budget exhausted while still changing (e.g. a live/animated pane): show current.
-                if (_disposed || gen != _chainGeneration) return;
-                uint pid = GetForegroundPid();
-                if (pid != 0 && pid == _chainOriginPid)
-                {
-                    _logger.Info($"[CHAIN] poll budget exhausted (gen={gen}, last count={prevCount}) — showing current");
-                    ShowChainHints();
+                    if (added == 0)
+                    {
+                        if (++stableStreak >= ChainReconcileStableStreak)
+                        {
+                            _logger.Info($"[CHAIN] reconcile settled at {shown.Count} elements after {attempt} polls (gen={gen})");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        stableStreak = 0;
+                    }
                 }
+                _logger.Info($"[CHAIN] reconcile budget exhausted at {shown.Count} shown (gen={gen})");
             }
             catch (Exception ex)
             {
-                _logger.Error("[CHAIN] poll loop error", ex);
+                _logger.Error("[CHAIN] reconcile loop error", ex);
             }
-        }
-
-        // PROTOTYPE #73/C: re-enter the normal scan+show path (reused from the hotkey flow).
-        private void ShowChainHints()
-        {
-            _stateManager.Activate(HintSource.ForegroundWindow);
-            ScanForHints(); // rebuilds labels/hints + SetHints; its own zero/timeout guards apply
-        }
-
-        // ── PROBE (#76 lead): AsyncContentLoaded diagnostic ─────────────────
-        // Logs whether/when UIA_AsyncContentLoaded fires on the foreground root after a
-        // chained click, so we can compare its timing against the poll cadence. If it
-        // reliably fires ≈ when the tree is complete, it replaces poll-until-stable.
-        private sealed class ChainProbeHandler : IUIAutomationEventHandler
-        {
-            private readonly Action<int> _onEvent;
-            public ChainProbeHandler(Action<int> onEvent) { _onEvent = onEvent; }
-            public void HandleAutomationEvent(IUIAutomationElement sender, int eventId) => _onEvent(eventId);
-        }
-
-        private void ArmAsyncContentProbe(int gen)
-        {
-            try { _probeUia.RemoveAllEventHandlers(); } catch { /* best-effort reset */ }
-            _probeArmTick = Environment.TickCount64;
-            try
-            {
-                var hwnd = _windowManager.GetForegroundWindow();
-                if (!_windowManager.IsWindowValid(hwnd)) return;
-                var element = _probeUia.ElementFromHandle(hwnd);
-                _probeHandler = new ChainProbeHandler(_ => OnAsyncContentLoaded(gen));
-                _probeUia.AddAutomationEventHandler(
-                    UIA_AsyncContentLoadedEventId, element, TreeScope.TreeScope_Subtree, null, _probeHandler);
-            }
-            catch (Exception ex)
-            {
-                _logger.Debug($"[CHAIN-PROBE] AsyncContentLoaded subscribe failed: {ex.GetType().Name}: {ex.Message}");
-                _probeHandler = null;
-            }
-        }
-
-        private void OnAsyncContentLoaded(int gen)
-        {
-            _logger.Info($"[CHAIN-PROBE] AsyncContentLoaded fired +{Environment.TickCount64 - _probeArmTick}ms (gen={gen})");
         }
 
         private void OnPreferencesRequested(object? sender, EventArgs e)
@@ -963,9 +953,8 @@ namespace WindowsHinting
 
             _logger.Info("Disposing HintController");
             _autoHideTimer.Dispose();
-            // PROTOTYPE #73/C: poll-until-stable holds no timers/COM to tear down;
-            // the generation guard + _disposed short-circuit any in-flight poll loop.
-            try { _probeUia?.RemoveAllEventHandlers(); } catch { } // PROBE #76
+            // PROTOTYPE #73/D: progressive-reconcile holds no timers/COM to tear down;
+            // the generation guard + _disposed short-circuit any in-flight reconcile loop.
             //_namedPipeService.Dispose();
             _keyboardService.Stop();
             _updateService.Dispose();
