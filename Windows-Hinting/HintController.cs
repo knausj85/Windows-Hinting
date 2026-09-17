@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using Preferences;
@@ -51,26 +50,22 @@ namespace WindowsHinting
         // re-scan the foreground window and re-show hints instead of just
         // deactivating — looping until Esc / foreground-leaves-app / zero elements.
         //
-        // Ticket A proved the loop with a crude fixed delay (brittle: the scan
-        // raced the pane's settle → partial UIA tree → missing hints). Ticket B
-        // (this) replaces the delay with an EVENT-DRIVEN settle gate: subscribe to
-        // UIA StructureChanged on the foreground root, wait for a short quiet
-        // window after the last child-add, then re-scan — with a hard-timeout
-        // backstop so a silent surface still re-scans. (Settle-gate role per #48.)
+        // Settle-detection journey (all confirmed live on Settings):
+        //  A. Fixed delay — brittle: the scan raced the pane's settle → partial tree.
+        //  B. UIA StructureChanged gate (debounce to a quiet window) — ALSO missed
+        //     elements: on Settings' XAML the SC stream goes silent BEFORE the tree
+        //     finishes materializing (a fresh scan ~1-2s later sees everything).
+        //     "SC quiet" != "tree complete" — the #48/#49 virtualization warning.
+        //  C (this): POLL-UNTIL-STABLE — re-scan on a short interval and only show
+        //     hints once two consecutive scans return the SAME element count (the
+        //     scannable tree has stopped growing), capped by an attempt budget.
+        //     Measures readiness directly instead of proxying through SC events.
         // Remove for production.
         private const bool ChainingEnabled = true;
-        private const int ChainSettleQuietMs = 120;    // re-scan this long after the LAST StructureChanged
-        private const int ChainSettleTimeoutMs = 800;  // hard-timeout backstop if the surface is silent
-        private readonly System.Threading.Timer _chainTimer;       // hard-timeout backstop
-        private readonly System.Threading.Timer _chainQuietTimer;  // debounce: fires after the quiet window
-        private int _chainGeneration;                  // guards against stale settle ticks
+        private const int ChainPollIntervalMs = 150;   // gap between stability probes
+        private const int ChainPollMaxAttempts = 12;   // ~up to 1.8s of settling before we give up and show
+        private int _chainGeneration;                  // guards against stale / superseded rounds
         private uint _chainOriginPid;                  // foreground process when the chain round began
-        private readonly IUIAutomation _chainUia;      // dedicated COM UIA client for the settle gate
-        private ChainStructureHandler? _chainScHandler;
-        private IUIAutomationElement? _chainScElement;
-        private int _chainScCount;                      // StructureChanged events seen this round (cadence diag)
-        private long _chainArmTick;                     // Environment.TickCount64 when the round's gate armed
-        private long _chainLastScTick;                  // last StructureChanged tick (for Δ diag)
         // ────────────────────────────────────────────────────────────────────
 
         public HintController(
@@ -116,10 +111,6 @@ namespace WindowsHinting
                 // Auto-hide timer (threadpool-based; see field comment).
                 _autoHideTimer = new System.Threading.Timer(OnAutoHideTick, null, Timeout.Infinite, Timeout.Infinite);
 
-                // PROTOTYPE #73/B: chain settle timers (threadpool-based; marshalled to UI thread).
-                _chainTimer = new System.Threading.Timer(_ => ChainSettle("timeout"), null, Timeout.Infinite, Timeout.Infinite);
-                _chainQuietTimer = new System.Threading.Timer(_ => ChainSettle("quiet"), null, Timeout.Infinite, Timeout.Infinite);
-                _chainUia = new CUIAutomation();
 
                 // Load preferences
                 _logger.Debug("Loading preferences");
@@ -733,7 +724,7 @@ namespace WindowsHinting
                 {
                     _chainOriginPid = GetForegroundPid();
                     int gen = ++_chainGeneration;
-                    _logger.Info($"[CHAIN] commit → settle gate will arm after activation (gen={gen}, originPid={_chainOriginPid})");
+                    _logger.Info($"[CHAIN] commit → poll-until-stable will start after activation (gen={gen}, originPid={_chainOriginPid})");
                 }
 
                 // Hide hints immediately so the overlay is gone before activation
@@ -766,10 +757,9 @@ namespace WindowsHinting
                     }
                     finally
                     {
-                        // PROTOTYPE #73/B: arm the event-driven settle gate AFTER activation
-                        // is posted (so we catch the StructureChanged burst the click causes).
+                        // PROTOTYPE #73/C: start poll-until-stable AFTER activation is posted.
                         if (chainThisRound)
-                            ArmChainSettle(_chainGeneration);
+                            ChainReScanUntilStable(_chainGeneration);
                     }
                 });
             }
@@ -785,118 +775,94 @@ namespace WindowsHinting
             return pid;
         }
 
-        // PROTOTYPE #73/B: COM handler for UIA StructureChanged on the foreground root.
-        // Callback arrives on an RPC/MTA worker thread — keep it cheap and thread-safe.
-        private sealed class ChainStructureHandler : IUIAutomationStructureChangedEventHandler
+        // PROTOTYPE #73/C: poll-until-stable settle. Runs on the UI thread (async void from the
+        // activation closure; awaits resume on the WinForms sync context). Re-scans the foreground
+        // window on a short interval and shows hints once the element count stops changing — the
+        // scannable tree has finished materializing. Exit conditions:
+        //   • Esc            → the commit's Deactivate() left us Inactive and only a commit starts
+        //                      a poll, so a plain Esc ends the loop. (Esc *during* the poll can't be
+        //                      seen while the keyboard hook is stopped — known spike gap.)
+        //   • foreground left → origin-PID check each iteration.
+        //   • zero elements  → two consecutive empty scans (terminal click).
+        //   • superseded     → a newer commit bumped the generation.
+        private async void ChainReScanUntilStable(int gen)
         {
-            private readonly Action<StructureChangeType> _onEvent;
-            public ChainStructureHandler(Action<StructureChangeType> onEvent) { _onEvent = onEvent; }
-            public void HandleStructureChangedEvent(IUIAutomationElement sender, StructureChangeType changeType, Array runtimeId)
-                => _onEvent(changeType);
-        }
-
-        // PROTOTYPE #73/B: subscribe StructureChanged on the foreground root and arm the
-        // hard-timeout backstop. Runs on the UI thread (from the activation closure).
-        private void ArmChainSettle(int gen)
-        {
-            DetachChainSettle();
-
-            _chainScCount = 0;
-            _chainArmTick = Environment.TickCount64;
-            _chainLastScTick = _chainArmTick;
-
-            // Hard-timeout backstop fires even if the surface is silent (or subscribe fails).
-            _chainTimer.Change(ChainSettleTimeoutMs, Timeout.Infinite);
-
+            int prevCount = -1;
             try
             {
-                var hwnd = _windowManager.GetForegroundWindow();
-                if (!_windowManager.IsWindowValid(hwnd))
+                for (int attempt = 1; attempt <= ChainPollMaxAttempts; attempt++)
                 {
-                    _logger.Debug("[CHAIN] settle: no valid foreground window — relying on hard-timeout");
-                    return;
-                }
-                _chainScElement = _chainUia.ElementFromHandle(hwnd);
-                _chainScHandler = new ChainStructureHandler(ct => OnChainStructureChanged(gen, ct));
-                _chainUia.AddStructureChangedEventHandler(
-                    _chainScElement, TreeScope.TreeScope_Subtree, null, _chainScHandler);
-                _logger.Info($"[CHAIN] settle armed (gen={gen}) — StructureChanged gate (quiet={ChainSettleQuietMs}ms) + {ChainSettleTimeoutMs}ms backstop");
-            }
-            catch (Exception ex)
-            {
-                _logger.Warning($"[CHAIN] settle subscribe failed ({ex.GetType().Name}: {ex.Message}) — relying on hard-timeout");
-                _chainScHandler = null;
-                _chainScElement = null;
-            }
-        }
-
-        // PROTOTYPE #73/B: each StructureChanged pushes the quiet-window out (debounce).
-        // Worker-thread context — only touch the thread-safe timer.
-        private void OnChainStructureChanged(int gen, StructureChangeType changeType)
-        {
-            if (gen != _chainGeneration) return;
-            long now = Environment.TickCount64;
-            int n = System.Threading.Interlocked.Increment(ref _chainScCount);
-            long sinceArm = now - _chainArmTick;
-            long sinceLast = now - _chainLastScTick;
-            _chainLastScTick = now;
-            _logger.Debug($"[CHAIN-SC] #{n} +{sinceArm}ms Δ{sinceLast}ms type={changeType}");
-            try { _chainQuietTimer.Change(ChainSettleQuietMs, Timeout.Infinite); }
-            catch (ObjectDisposedException) { }
-        }
-
-        // PROTOTYPE #73/B: settle reached (quiet window elapsed, or hard-timeout). Marshal to
-        // the UI thread, tear down the gate, then re-scan the foreground app and re-show hints —
-        // unless an exit fires:
-        //   • Esc            → the commit's Deactivate() left us Inactive and only a commit arms
-        //                      the gate, so a plain Esc ends the loop. (Esc *during* the settle
-        //                      window can't be seen while the keyboard hook is stopped — known gap.)
-        //   • foreground left → origin-PID check below.
-        //   • zero elements  → handled inside ScanForHints() (it Deactivates).
-        private void ChainSettle(string reason)
-        {
-            if (_disposed || !_overlay.IsHandleCreated) return;
-            int gen = _chainGeneration;
-            try
-            {
-                _overlay.BeginInvoke(() =>
-                {
-                    if (_disposed) return;
-                    // Consume the round once: a stale gen means a newer commit superseded us,
-                    // OR the other settle timer already handled this round (it bumps the gen).
-                    if (gen != _chainGeneration) return;
-                    _chainGeneration++;
-
-                    _chainTimer.Change(Timeout.Infinite, Timeout.Infinite);
-                    _chainQuietTimer.Change(Timeout.Infinite, Timeout.Infinite);
-                    DetachChainSettle();
+                    await System.Threading.Tasks.Task.Delay(ChainPollIntervalMs).ConfigureAwait(true);
+                    if (_disposed || gen != _chainGeneration) return;
 
                     uint nowPid = GetForegroundPid();
                     if (nowPid == 0 || nowPid != _chainOriginPid)
                     {
                         _logger.Info($"[CHAIN] exit — foreground left app (originPid={_chainOriginPid}, nowPid={nowPid})");
-                        return; // already Inactive from the commit's Deactivate()
+                        return;
                     }
 
-                    _logger.Info($"[CHAIN] settled via {reason} after {_chainScCount} SC events, {Environment.TickCount64 - _chainArmTick}ms since arm (gen={gen}, pid={nowPid}) — activating + scanning foreground");
-                    _stateManager.Activate(HintSource.ForegroundWindow);
-                    ScanForHints(); // zero-elements / timeout exits handled inside
-                });
+                    var hwnd = _windowManager.GetForegroundWindow();
+                    if (!_windowManager.IsWindowValid(hwnd)) continue;
+
+                    int count;
+                    try
+                    {
+                        var timeoutMs = _options.ScanTimeoutMs;
+                        var elements = timeoutMs > 0
+                            ? await _uiaService.FindClickableElementsAsync(hwnd, timeoutMs).ConfigureAwait(true)
+                            : _uiaService.FindClickableElements(hwnd);
+                        count = elements.Count;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warning($"[CHAIN] poll #{attempt} scan failed: {ex.GetType().Name}: {ex.Message}");
+                        continue;
+                    }
+
+                    if (_disposed || gen != _chainGeneration) return;
+                    _logger.Debug($"[CHAIN] poll #{attempt} (gen={gen}) — {count} elements (prev={prevCount})");
+
+                    if (count == 0)
+                    {
+                        if (prevCount == 0)
+                        {
+                            _logger.Info($"[CHAIN] exit — zero scannable elements (terminal click, gen={gen})");
+                            return;
+                        }
+                        prevCount = 0;
+                        continue;
+                    }
+
+                    if (count == prevCount)
+                    {
+                        _logger.Info($"[CHAIN] stable at {count} elements after {attempt} polls (gen={gen}) — showing hints");
+                        ShowChainHints();
+                        return;
+                    }
+                    prevCount = count;
+                }
+
+                // Budget exhausted while still changing (e.g. a live/animated pane): show current.
+                if (_disposed || gen != _chainGeneration) return;
+                uint pid = GetForegroundPid();
+                if (pid != 0 && pid == _chainOriginPid)
+                {
+                    _logger.Info($"[CHAIN] poll budget exhausted (gen={gen}, last count={prevCount}) — showing current");
+                    ShowChainHints();
+                }
             }
-            catch (ObjectDisposedException) { }
-            catch (InvalidOperationException) { }
+            catch (Exception ex)
+            {
+                _logger.Error("[CHAIN] poll loop error", ex);
+            }
         }
 
-        // PROTOTYPE #73/B: remove the StructureChanged subscription and clear the gate.
-        private void DetachChainSettle()
+        // PROTOTYPE #73/C: re-enter the normal scan+show path (reused from the hotkey flow).
+        private void ShowChainHints()
         {
-            if (_chainScElement != null && _chainScHandler != null)
-            {
-                try { _chainUia.RemoveStructureChangedEventHandler(_chainScElement, _chainScHandler); }
-                catch { /* best-effort */ }
-            }
-            _chainScHandler = null;
-            _chainScElement = null;
+            _stateManager.Activate(HintSource.ForegroundWindow);
+            ScanForHints(); // rebuilds labels/hints + SetHints; its own zero/timeout guards apply
         }
 
         private void OnPreferencesRequested(object? sender, EventArgs e)
@@ -947,12 +913,8 @@ namespace WindowsHinting
 
             _logger.Info("Disposing HintController");
             _autoHideTimer.Dispose();
-            // PROTOTYPE #73/B: tear down the chain settle gate.
-            _chainTimer.Dispose();
-            _chainQuietTimer.Dispose();
-            DetachChainSettle();
-            if (_chainUia != null && Marshal.IsComObject(_chainUia))
-                Marshal.ReleaseComObject(_chainUia);
+            // PROTOTYPE #73/C: poll-until-stable holds no timers/COM to tear down;
+            // the generation guard + _disposed short-circuit any in-flight poll loop.
             //_namedPipeService.Dispose();
             _keyboardService.Stop();
             _updateService.Dispose();
