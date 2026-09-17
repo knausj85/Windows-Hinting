@@ -156,7 +156,7 @@ internal static class Program
         foreach (var r in _regions)
             Console.WriteLine($"   [{r.Number}] {r.PathLabel}  rect=({r.Rect.left},{r.Rect.top} {r.Rect.right - r.Rect.left}x{r.Rect.bottom - r.Rect.top})");
 
-        _overlay = new Overlay(_regions);
+        _overlay = new Overlay(_regions, GetWinRectHwnd(_targetHwnd));
         _overlay.SetActive(_activeIndex);
         _overlay.Show(); // does not activate (see Overlay.ShowWithoutActivation)
         // force into the topmost band without stealing focus (target app keeps focus so
@@ -258,7 +258,13 @@ internal static class Program
             if (sp is null) continue;
             bool vS = GetBool(el, UIA_ScrollVerticallyScrollablePropertyId), hS = GetBool(el, UIA_ScrollHorizontallyScrollablePropertyId);
             double vView = GetDbl(el, UIA_ScrollVerticalViewSizePropertyId), hView = GetDbl(el, UIA_ScrollHorizontalViewSizePropertyId);
-            bool vOver = vS && vView < 99.5, hOver = hS && hView < 99.5; // scrollable & overflows at all
+            bool vOver = vS && vView < 99.5; // vertically scrollable & overflows at all
+            // Horizontal overflow only counts on a TALL-ENOUGH surface: a single-row-height element
+            // reporting H-overflow is almost always TEXT TRUNCATION ("…"), not a scroll area — e.g.
+            // GitHub Desktop history rows are Group, 23px tall, v=100 h=51-74. Real horizontal scrollers
+            // (tables, editors, panes) are tall. (Vertical overflow needs no such gate — the thin Monaco
+            // editor is a legit vertical scroller.)
+            bool hOver = hS && hView < 99.5 && h >= 60;
             if (!(vOver || hOver)) continue;
             if (Math.Max(w, h) < 60) continue;              // long-dimension gate (Monaco editor is 637x24 — thin but long)
             // Accept a real scroll CONTAINER by type (List/Tree/etc.), OR any element with STRONG overflow
@@ -267,7 +273,11 @@ internal static class Program
             // `Edit` with viewSize v=9 — while still rejecting barely-overflowing junk (buttons ~98) and
             // virtual rows (TreeItems ~80). Container-type keeps lightly-overflowing legit panes (Tree ~96)
             // that a strong-overflow test alone would miss.
-            bool strongOverflow = (vOver && vView < 50) || (hOver && hView < 50);
+            // Strong-overflow bypass is VERTICAL-only: spurious *horizontal* overflow is common (clipped
+            // text / layout quirks — GitHub Desktop history, some Edge areas report H-scroll but don't
+            // scroll), while genuine non-container scrollers we care about are vertical (Monaco editor v=9).
+            // Container-type still admits legit horizontal scrollers (they pass the type branch).
+            bool strongOverflow = vOver && vView < 50;
             if (!IsScrollContainer(ctl) && !strongOverflow) continue;
             list.Add(new Region { Rect = r, Sp = sp, VScroll = vOver, HScroll = hOver, PathLabel = $"ScrollPattern {(vOver ? "V" : "")}{(hOver ? "H" : "")} {ControlTypeName(ctl)} (viewSize v={vView:F0} h={hView:F0})" });
         }
@@ -320,22 +330,10 @@ internal static class Program
     private static bool Dir(int dx, int dy, int vk)
     {
         // No axis-gate: the directional keypress is authoritative intent, honored via the wheel regardless of
-        // what UIA claims (Chromium lies about the axis). Region = debounced cursor-borrow + SendInput wheel
-        // (reaches WPF/UWP/Chromium); window = SendInput wheel (focus-routed).
-        int ai = _activeIndex;
-        if (_dirDown.Add(vk))
-        {
-            // NEW press → TAP: one wheel notch.
-            if (ai >= 0) PostWork(() => BorrowWheelTap(dx, dy));   // region: borrow → debounce → wheel → restore
-            else SendInput(1, new[] { WheelInput(dy != 0 ? -Math.Sign(dy) * TAP_WHEEL : Math.Sign(dx) * TAP_WHEEL, dx != 0) }, Marshal.SizeOf<INPUT>()); // window
-        }
-        else
-        {
-            // AUTO-REPEAT (key held past the OS repeat delay) → HOLD: engage the velocity fling
-            // (window = SendInput; region = debounced-park + SendInput wheel, in the velocity loop).
-            if (dy != 0) _heldY = dy;
-            if (dx != 0) _heldX = dx;
-        }
+        // what UIA claims (Chromium lies about the axis). Both window and region use the same debounced
+        // cursor-borrow so the wheel is aimed at the target (window center or region content point).
+        if (_dirDown.Add(vk)) PostWork(() => BorrowWheelTap(dx, dy)); // TAP: borrow → debounce → wheel → restore
+        else { if (dy != 0) _heldY = dy; if (dx != 0) _heldX = dx; } // HOLD → velocity fling (parked, in the loop)
         return true;
     }
 
@@ -437,24 +435,17 @@ internal static class Program
                 _vY = Step(_vY, _heldY, dt);
                 _vX = Step(_vX, _heldX, dt);
 
-                int ai = _activeIndex;
-                bool parkActive = false;
-                if (ai < 0)
+                // DEBOUNCED PARK for BOTH window and region: borrow the cursor to the target point (window
+                // center, or the region's content point) ONCE, wait _debounceMs for the hover-enter, then
+                // drive the SendInput wheel for the hold; restore the cursor when the fling is spent. This
+                // aims the wheel so it lands on the target instead of following the physical mouse (bare
+                // metal; a VM can't move the cursor, so there it still follows the physical mouse).
+                bool parkActive = _heldY != 0 || _heldX != 0 || Math.Abs(_vY) > 0.001 || Math.Abs(_vX) > 0.001;
+                if (parkActive)
                 {
-                    // WINDOW: continuous sub-notch wheel via SendInput (real pipeline → app inertia = glide).
-                    EmitInputWheel(dt);
-                }
-                else if (ai < _regions.Count)
-                {
-                    // REGION (DEBOUNCED PARK): borrow the cursor into the region ONCE, wait _debounceMs for the
-                    // hover-enter to register, then drive SendInput wheel (real pipeline → inertia) for the hold;
-                    // restore the cursor once the fling is spent. SendInput reaches WPF/UWP/Chromium alike.
-                    parkActive = _heldY != 0 || _heldX != 0 || Math.Abs(_vY) > 0.001 || Math.Abs(_vX) > 0.001;
-                    if (parkActive)
-                    {
-                        EnsureParked(_regions[ai]);
-                        if (Environment.TickCount64 - _parkAt >= _debounceMs) EmitInputWheel(dt);
-                    }
+                    var (cx, cy) = TargetPoint();
+                    EnsureParkedAt(cx, cy);
+                    if (Environment.TickCount64 - _parkAt >= _debounceMs) EmitInputWheel(dt);
                 }
                 if (_parked && !parkActive) Unpark(); // fling spent / target changed → restore cursor once
 
@@ -482,26 +473,35 @@ internal static class Program
     private static POINT _parkOrig;
     private static volatile bool _parked;
     private static long _parkAt;
-    private static void EnsureParked(Region r)
+    private static void EnsureParkedAt(int cx, int cy)
     {
         if (_parked) return;
-        RECT t = r.Sp is not null ? r.Rect : ContentBesideBar(r.Rect);
         GetCursorPos(out _parkOrig);
-        SendInput(1, new[] { AbsMoveInput((t.left + t.right) / 2, (t.top + t.bottom) / 2) }, Marshal.SizeOf<INPUT>());
+        SendInput(1, new[] { AbsMoveInput(cx, cy) }, Marshal.SizeOf<INPUT>());
         _parkAt = Environment.TickCount64;
         _parked = true;
     }
 
     // Region TAP: borrow the cursor → debounce → one wheel notch → debounce → restore. All on the worker
     // thread, so the Sleeps never block the hook. Honors the requested direction regardless of UIA axis.
-    private static void BorrowWheelTap(int dx, int dy)
+    // Park point for the active target: window center (window mode) or the region's content point.
+    private static (int x, int y) TargetPoint()
     {
         int ai = _activeIndex;
-        if (ai < 0 || ai >= _regions.Count) return;
-        var r = _regions[ai];
-        RECT t = r.Sp is not null ? r.Rect : ContentBesideBar(r.Rect);
+        if (ai >= 0 && ai < _regions.Count)
+        {
+            var r = _regions[ai];
+            RECT t = r.Sp is not null ? r.Rect : ContentBesideBar(r.Rect);
+            return ((t.left + t.right) / 2, (t.top + t.bottom) / 2);
+        }
+        RECT wr = GetWinRectHwnd(_targetHwnd);
+        return ((wr.left + wr.right) / 2, (wr.top + wr.bottom) / 2);
+    }
+
+    private static void BorrowWheelTap(int dx, int dy)
+    {
+        var (tx, ty) = TargetPoint();
         GetCursorPos(out POINT orig);
-        int tx = (t.left + t.right) / 2, ty = (t.top + t.bottom) / 2;
         try
         {
             SendInput(1, new[] { AbsMoveInput(tx, ty) }, Marshal.SizeOf<INPUT>());
@@ -881,10 +881,12 @@ internal static class Program
     private sealed class Overlay : Form
     {
         private readonly List<Region> _rs;
+        private readonly RECT _winRect;
         private int _act = -1;
-        public Overlay(List<Region> rs)
+        public Overlay(List<Region> rs, RECT winRect)
         {
             _rs = rs;
+            _winRect = winRect;
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
             TopMost = true;
@@ -917,18 +919,39 @@ internal static class Program
             using (var bg = new SolidBrush(Color.FromArgb(220, 20, 20, 30))) g.FillRectangle(bg, lr);
             g.DrawString(legend, legendFont, Brushes.White, lr.X + 8, lr.Y + 5);
 
+            // Window mode (no region selected): outline the whole active window so the target is clear.
+            if (_act < 0)
+            {
+                var wr = new Rectangle(_winRect.left - ox, _winRect.top - oy, _winRect.right - _winRect.left, _winRect.bottom - _winRect.top);
+                wr.Inflate(-3, -3); // keep the stroke inside the window edge
+                using var wpen = new Pen(Color.FromArgb(0, 220, 220), 5) { DashStyle = System.Drawing.Drawing2D.DashStyle.Solid };
+                g.DrawRectangle(wpen, wr);
+            }
+
             foreach (var r in _rs)
             {
                 var rect = new Rectangle(r.Rect.left - ox, r.Rect.top - oy, r.Rect.right - r.Rect.left, r.Rect.bottom - r.Rect.top);
                 bool active = _act >= 0 && _rs[_act] == r;
-                using var pen = new Pen(r.Color, active ? 5 : 3) { DashStyle = active ? System.Drawing.Drawing2D.DashStyle.Solid : System.Drawing.Drawing2D.DashStyle.Dash };
-                g.DrawRectangle(pen, rect);
-                // number badge (top-left of the region)
+
+                // Outline ONLY the active region; inactive regions show just their number.
+                if (active)
+                {
+                    using var pen = new Pen(r.Color, 5) { DashStyle = System.Drawing.Drawing2D.DashStyle.Solid };
+                    g.DrawRectangle(pen, rect);
+                }
+
+                // Number badge: solid high-contrast background so it reads over any content — dark fill,
+                // white number, region-color border to keep the per-region identity. Larger when active.
                 string num = r.Number.ToString(CultureInfo.InvariantCulture);
                 var nsz = g.MeasureString(num, badgeFont);
-                var br = new RectangleF(rect.X + 2, rect.Y + 2, nsz.Width + 12, nsz.Height + 6);
-                using (var bb = new SolidBrush(r.Color)) g.FillRectangle(bb, br);
-                g.DrawString(num, badgeFont, Brushes.Black, br.X + 6, br.Y + 3);
+                float bw = nsz.Width + 14, bh = nsz.Height + 8;
+                // Clamp the badge into the visible client area so a region at a screen edge still shows its number.
+                float bx = Math.Max(0, Math.Min(rect.X + 2, ClientSize.Width - bw));
+                float by = Math.Max(0, Math.Min(rect.Y + 2, ClientSize.Height - bh));
+                var br = new RectangleF(bx, by, bw, bh);
+                using (var bb = new SolidBrush(Color.FromArgb(255, 22, 22, 28))) g.FillRectangle(bb, br); // solid, opaque (not the black transparency key)
+                using (var bp = new Pen(r.Color, active ? 3 : 2)) g.DrawRectangle(bp, br.X, br.Y, br.Width, br.Height);
+                g.DrawString(num, badgeFont, Brushes.White, br.X + 7, br.Y + 4);
             }
         }
     }
