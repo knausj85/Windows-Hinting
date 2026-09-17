@@ -6,6 +6,8 @@ using System.Threading;
 using System.Windows.Forms;
 using Preferences;
 using UIAutomationClient;
+using Windows.Win32;
+using Windows.Win32.Foundation;
 using WindowsHinting.Configuration;
 using WindowsHinting.Forms;
 using WindowsHinting.Logging;
@@ -42,6 +44,19 @@ namespace WindowsHinting
         // the real overlay window.
         private readonly System.Threading.Timer _autoHideTimer;
         private bool _disposed;
+
+        // ─── PROTOTYPE #73: chained hinting ─────────────────────────────────
+        // Throwaway spike (branch prototype/chained-hinting). After an activation,
+        // re-scan the foreground window and re-show hints instead of just
+        // deactivating — looping until Esc / foreground-leaves-app / zero
+        // elements. Uses the crudest settle: a fixed delay (ticket A). Prototypes
+        // B/C replace the delay with event-driven settle. Remove for production.
+        private const bool ChainingEnabled = true;
+        private const int ChainReScanDelayMs = 400;   // fixed-delay settle — tune live
+        private readonly System.Threading.Timer _chainTimer;
+        private int _chainGeneration;                 // guards against stale re-scan ticks
+        private uint _chainOriginPid;                 // foreground process when the chain round began
+        // ────────────────────────────────────────────────────────────────────
 
         public HintController(
             OverlayManager overlay,
@@ -85,6 +100,9 @@ namespace WindowsHinting
 
                 // Auto-hide timer (threadpool-based; see field comment).
                 _autoHideTimer = new System.Threading.Timer(OnAutoHideTick, null, Timeout.Infinite, Timeout.Infinite);
+
+                // PROTOTYPE #73: chain re-scan timer (threadpool-based; marshalled to UI thread).
+                _chainTimer = new System.Threading.Timer(OnChainReScanTick, null, Timeout.Infinite, Timeout.Infinite);
 
                 // Load preferences
                 _logger.Debug("Loading preferences");
@@ -691,7 +709,18 @@ namespace WindowsHinting
                 var rect = match.Rect;
                 var action = e.Action;
 
+                // PROTOTYPE #73: decide whether to chain BEFORE Deactivate() wipes the
+                // source. Chaining only applies to foreground-window hints (not taskbar).
+                bool chainThisRound = ChainingEnabled && _stateManager.CurrentSource == HintSource.ForegroundWindow;
+                if (chainThisRound)
+                {
+                    _chainOriginPid = GetForegroundPid();
+                    int gen = ++_chainGeneration;
+                    _logger.Info($"[CHAIN] commit → re-scan scheduled in {ChainReScanDelayMs}ms (gen={gen}, originPid={_chainOriginPid})");
+                }
+
                 // Hide hints immediately so the overlay is gone before activation
+                // (also prevents a stale-hint flash before the next round paints).
                 _logger.Debug("Deactivating hints before element activation");
                 _stateManager.Deactivate();
 
@@ -718,7 +747,69 @@ namespace WindowsHinting
                     {
                         _logger.Error("Error activating element", ex);
                     }
+                    finally
+                    {
+                        // PROTOTYPE #73: arm the fixed-delay settle AFTER activation is posted.
+                        if (chainThisRound)
+                            _chainTimer.Change(ChainReScanDelayMs, Timeout.Infinite);
+                    }
                 });
+            }
+        }
+
+        // PROTOTYPE #73: foreground window's process id (0 if none/invalid).
+        private uint GetForegroundPid()
+        {
+            var hwnd = _windowManager.GetForegroundWindow();
+            if (!_windowManager.IsWindowValid(hwnd))
+                return 0;
+            PInvoke.GetWindowThreadProcessId((HWND)hwnd, out uint pid);
+            return pid;
+        }
+
+        // PROTOTYPE #73: fixed-delay settle tick. Runs on a threadpool thread;
+        // marshal to the UI thread, then re-scan the foreground app and re-show
+        // hints — unless an exit condition fires:
+        //   • Esc            → the commit's Deactivate() already left us Inactive and
+        //                      no re-scan is scheduled for an Esc, so a plain Esc ends
+        //                      the loop. (Esc *during* the delay window can't be seen
+        //                      while the keyboard hook is stopped — documented gap.)
+        //   • foreground left → origin-PID check below.
+        //   • zero elements  → handled inside ScanForHints() (it Deactivates).
+        private void OnChainReScanTick(object? state)
+        {
+            if (_disposed || !_overlay.IsHandleCreated) return;
+            int gen = _chainGeneration;
+            try
+            {
+                _overlay.BeginInvoke(() =>
+                {
+                    if (_disposed) return;
+                    if (gen != _chainGeneration)
+                    {
+                        _logger.Debug($"[CHAIN] stale re-scan tick (gen={gen}, current={_chainGeneration}) — skipping");
+                        return;
+                    }
+
+                    uint nowPid = GetForegroundPid();
+                    if (nowPid == 0 || nowPid != _chainOriginPid)
+                    {
+                        _logger.Info($"[CHAIN] exit — foreground left app (originPid={_chainOriginPid}, nowPid={nowPid})");
+                        return; // already Inactive from the commit's Deactivate()
+                    }
+
+                    _logger.Info($"[CHAIN] re-scan (gen={gen}, pid={nowPid}) — activating + scanning foreground");
+                    _stateManager.Activate(HintSource.ForegroundWindow);
+                    ScanForHints(); // zero-elements / timeout exits handled inside
+                });
+            }
+            catch (ObjectDisposedException)
+            {
+                // Shutdown race; ignore.
+            }
+            catch (InvalidOperationException)
+            {
+                // Handle destroyed between the check and BeginInvoke.
             }
         }
 
@@ -770,6 +861,7 @@ namespace WindowsHinting
 
             _logger.Info("Disposing HintController");
             _autoHideTimer.Dispose();
+            _chainTimer.Dispose(); // PROTOTYPE #73
             //_namedPipeService.Dispose();
             _keyboardService.Stop();
             _updateService.Dispose();
