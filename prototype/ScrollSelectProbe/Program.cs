@@ -287,15 +287,23 @@ internal static class Program
     private static LowLevelKeyboardProc _hookProc = null!;
     private static IntPtr _hook;
     private const int WH_KEYBOARD_LL = 13, WM_KEYDOWN = 0x0100, WM_SYSKEYDOWN = 0x0104, WM_KEYUP = 0x0101, WM_SYSKEYUP = 0x0105;
+    private const uint LLKHF_INJECTED = 0x10; // KBDLLHOOKSTRUCT.flags bit
 
     private static IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam)
     {
         if (nCode >= 0 && _active)
         {
-            int msg = wParam.ToInt32();
-            int vk = Marshal.ReadInt32(lParam);
-            if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) { if (HandleDown(vk)) return (IntPtr)1; }
-            else if (msg == WM_KEYUP || msg == WM_SYSKEYUP) { if (HandleUp(vk)) return (IntPtr)1; }
+            // KBDLLHOOKSTRUCT: vkCode@0, scanCode@4, flags@8. Pass our OWN replayed nav keys
+            // (Page/Home/End re-injected at the parked cursor) straight through — otherwise the
+            // hook would swallow and re-inject them forever.
+            uint flags = (uint)Marshal.ReadInt32(lParam, 8);
+            if ((flags & LLKHF_INJECTED) == 0)
+            {
+                int msg = wParam.ToInt32();
+                int vk = Marshal.ReadInt32(lParam);
+                if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) { if (HandleDown(vk)) return (IntPtr)1; }
+                else if (msg == WM_KEYUP || msg == WM_SYSKEYUP) { if (HandleUp(vk)) return (IntPtr)1; }
+            }
         }
         return CallNextHookEx(_hook, nCode, wParam, lParam);
     }
@@ -311,10 +319,10 @@ internal static class Program
             case 0x4A: return Dir(0, +1, vk);                              // J down
             case 0x4B: return Dir(-1, 0, vk);                              // K left
             case 0x4C: return Dir(+1, 0, vk);                              // L right
-            case 0x21: PostWork(() => Scroll(0, -1, true)); return true;    // PageUp  (precise, both lanes)
-            case 0x22: PostWork(() => Scroll(0, +1, true)); return true;    // PageDown
-            case 0x24: PostWork(() => Jump(false)); return true;           // Home → ToStart (top)
-            case 0x23: PostWork(() => Jump(true)); return true;            // End  → ToEnd (bottom)
+            case 0x21: PostWork(() => ReinjectAtTarget(0x21)); return true; // PageUp  → park + replay to control
+            case 0x22: PostWork(() => ReinjectAtTarget(0x22)); return true; // PageDown
+            case 0x24: PostWork(() => ReinjectAtTarget(0x24)); return true; // Home
+            case 0x23: PostWork(() => ReinjectAtTarget(0x23)); return true; // End
             case 0x55: PostWork(UwpWheelProbe); return true;               // U — UWP wheel-family probe
             case 0x44: PostWork(DumpScan); return true;                    // D — verbose detection dump
             case 0xDB: _debounceMs = Math.Max(0, _debounceMs - 10); Console.WriteLine($"[DBG] debounce = {_debounceMs}ms"); return true;   // [
@@ -513,6 +521,30 @@ internal static class Program
         }
         finally { SendInput(1, new[] { AbsMoveInput(orig.x, orig.y) }, Marshal.SizeOf<INPUT>()); }
     }
+
+    // Page / Home / End: do NOT translate to a wheel or a UIA call — the tool's only job is to aim.
+    // Park the cursor over the target region's content point so a hover-enter registers (debounce),
+    // then REPLAY the same navigation key via SendInput and let the CONTROL page itself, and restore
+    // the cursor. Our replayed key is passed straight through by the hook's injected-guard (no loop).
+    // Worker-thread only, so the Sleeps never block the hook. All four are extended navigation keys.
+    // NOTE: a keyboard event lands on the FOCUSED control, not the hovered one — so this aims correctly
+    // for window-target and single-focus panes; a picked pane that lacks keyboard focus is the case to
+    // watch when testing (that's the empirical question this run answers).
+    private static void ReinjectAtTarget(int vk)
+    {
+        var (tx, ty) = TargetPoint();
+        GetCursorPos(out POINT orig);
+        try
+        {
+            SendInput(1, new[] { AbsMoveInput(tx, ty) }, Marshal.SizeOf<INPUT>());
+            Thread.Sleep(_debounceMs);
+            SendInput(1, new[] { KeyInput((ushort)vk, false) }, Marshal.SizeOf<INPUT>()); // key down
+            SendInput(1, new[] { KeyInput((ushort)vk, true) }, Marshal.SizeOf<INPUT>());  // key up
+            Thread.Sleep(_debounceMs);
+            Console.WriteLine($"[DBG] replay key 0x{vk:X2} at target ({tx},{ty}) — control handles paging");
+        }
+        finally { SendInput(1, new[] { AbsMoveInput(orig.x, orig.y) }, Marshal.SizeOf<INPUT>()); }
+    }
     private static void Unpark()
     {
         if (!_parked) return;
@@ -528,6 +560,12 @@ internal static class Program
     }
 
     private static INPUT MouseInput(MOUSEINPUT mi) { var i = new INPUT { type = INPUT_MOUSE }; i.U.mi = mi; return i; }
+    private static INPUT KeyInput(ushort vk, bool up)
+    {
+        var i = new INPUT { type = INPUT_KEYBOARD };
+        i.U.ki = new KEYBDINPUT { wVk = vk, dwFlags = KEYEVENTF_EXTENDEDKEY | (up ? KEYEVENTF_KEYUP : 0u) };
+        return i;
+    }
     private static INPUT WheelInput(int delta, bool horizontal) =>
         MouseInput(new MOUSEINPUT { mouseData = delta, dwFlags = horizontal ? MOUSEEVENTF_HWHEEL : MOUSEEVENTF_WHEEL });
     private static INPUT AbsMoveInput(int x, int y)
@@ -1022,6 +1060,7 @@ internal static class Program
 
     // SendInput (smooth lane — real input pipeline → engages app inertia) + high-res timer
     private const uint INPUT_MOUSE = 0, MOUSEEVENTF_WHEEL = 0x0800, MOUSEEVENTF_HWHEEL = 0x1000;
+    private const uint INPUT_KEYBOARD = 1, KEYEVENTF_KEYUP = 0x0002, KEYEVENTF_EXTENDEDKEY = 0x0001;
     private const uint MOUSEEVENTF_MOVE = 0x0001, MOUSEEVENTF_ABSOLUTE = 0x8000, MOUSEEVENTF_VIRTUALDESK = 0x4000;
     private const int SM_XVIRTUALSCREEN = 76, SM_YVIRTUALSCREEN = 77, SM_CXVIRTUALSCREEN = 78, SM_CYVIRTUALSCREEN = 79;
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT p);
