@@ -66,6 +66,14 @@ namespace WindowsHinting
         private const int ChainPollMaxAttempts = 12;   // ~up to 1.8s of settling before we give up and show
         private int _chainGeneration;                  // guards against stale / superseded rounds
         private uint _chainOriginPid;                  // foreground process when the chain round began
+
+        // PROBE (#76 lead): does WinUI/XAML raise UIA AsyncContentLoaded on a pane swap?
+        // If it fires ≈ when the tree is actually complete, it beats poll-until-stable.
+        // Diagnostic only — logs fire time vs. the poll cadence; does not drive the show.
+        private const int UIA_AsyncContentLoadedEventId = 20006;
+        private readonly IUIAutomation _probeUia;
+        private ChainProbeHandler? _probeHandler;
+        private long _probeArmTick;
         // ────────────────────────────────────────────────────────────────────
 
         public HintController(
@@ -110,6 +118,9 @@ namespace WindowsHinting
 
                 // Auto-hide timer (threadpool-based; see field comment).
                 _autoHideTimer = new System.Threading.Timer(OnAutoHideTick, null, Timeout.Infinite, Timeout.Infinite);
+
+                // PROBE (#76 lead): dedicated UIA client for the AsyncContentLoaded diagnostic.
+                _probeUia = new CUIAutomation();
 
 
                 // Load preferences
@@ -759,7 +770,10 @@ namespace WindowsHinting
                     {
                         // PROTOTYPE #73/C: start poll-until-stable AFTER activation is posted.
                         if (chainThisRound)
+                        {
+                            ArmAsyncContentProbe(_chainGeneration); // #76 diagnostic (logging only)
                             ChainReScanUntilStable(_chainGeneration);
+                        }
                     }
                 });
             }
@@ -865,6 +879,42 @@ namespace WindowsHinting
             ScanForHints(); // rebuilds labels/hints + SetHints; its own zero/timeout guards apply
         }
 
+        // ── PROBE (#76 lead): AsyncContentLoaded diagnostic ─────────────────
+        // Logs whether/when UIA_AsyncContentLoaded fires on the foreground root after a
+        // chained click, so we can compare its timing against the poll cadence. If it
+        // reliably fires ≈ when the tree is complete, it replaces poll-until-stable.
+        private sealed class ChainProbeHandler : IUIAutomationEventHandler
+        {
+            private readonly Action<int> _onEvent;
+            public ChainProbeHandler(Action<int> onEvent) { _onEvent = onEvent; }
+            public void HandleAutomationEvent(IUIAutomationElement sender, int eventId) => _onEvent(eventId);
+        }
+
+        private void ArmAsyncContentProbe(int gen)
+        {
+            try { _probeUia.RemoveAllEventHandlers(); } catch { /* best-effort reset */ }
+            _probeArmTick = Environment.TickCount64;
+            try
+            {
+                var hwnd = _windowManager.GetForegroundWindow();
+                if (!_windowManager.IsWindowValid(hwnd)) return;
+                var element = _probeUia.ElementFromHandle(hwnd);
+                _probeHandler = new ChainProbeHandler(_ => OnAsyncContentLoaded(gen));
+                _probeUia.AddAutomationEventHandler(
+                    UIA_AsyncContentLoadedEventId, element, TreeScope.TreeScope_Subtree, null, _probeHandler);
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug($"[CHAIN-PROBE] AsyncContentLoaded subscribe failed: {ex.GetType().Name}: {ex.Message}");
+                _probeHandler = null;
+            }
+        }
+
+        private void OnAsyncContentLoaded(int gen)
+        {
+            _logger.Info($"[CHAIN-PROBE] AsyncContentLoaded fired +{Environment.TickCount64 - _probeArmTick}ms (gen={gen})");
+        }
+
         private void OnPreferencesRequested(object? sender, EventArgs e)
         {
             using (PerformanceMetrics.Start("ShowPreferencesDialog", _logger, LogLevel.Info))
@@ -915,6 +965,7 @@ namespace WindowsHinting
             _autoHideTimer.Dispose();
             // PROTOTYPE #73/C: poll-until-stable holds no timers/COM to tear down;
             // the generation guard + _disposed short-circuit any in-flight poll loop.
+            try { _probeUia?.RemoveAllEventHandlers(); } catch { } // PROBE #76
             //_namedPipeService.Dispose();
             _keyboardService.Stop();
             _updateService.Dispose();
