@@ -68,6 +68,9 @@ namespace WindowsHinting
         private readonly IUIAutomation _chainUia;      // dedicated COM UIA client for the settle gate
         private ChainStructureHandler? _chainScHandler;
         private IUIAutomationElement? _chainScElement;
+        private int _chainScCount;                      // StructureChanged events seen this round (cadence diag)
+        private long _chainArmTick;                     // Environment.TickCount64 when the round's gate armed
+        private long _chainLastScTick;                  // last StructureChanged tick (for Δ diag)
         // ────────────────────────────────────────────────────────────────────
 
         public HintController(
@@ -786,10 +789,10 @@ namespace WindowsHinting
         // Callback arrives on an RPC/MTA worker thread — keep it cheap and thread-safe.
         private sealed class ChainStructureHandler : IUIAutomationStructureChangedEventHandler
         {
-            private readonly Action _onEvent;
-            public ChainStructureHandler(Action onEvent) { _onEvent = onEvent; }
+            private readonly Action<StructureChangeType> _onEvent;
+            public ChainStructureHandler(Action<StructureChangeType> onEvent) { _onEvent = onEvent; }
             public void HandleStructureChangedEvent(IUIAutomationElement sender, StructureChangeType changeType, Array runtimeId)
-                => _onEvent();
+                => _onEvent(changeType);
         }
 
         // PROTOTYPE #73/B: subscribe StructureChanged on the foreground root and arm the
@@ -797,6 +800,10 @@ namespace WindowsHinting
         private void ArmChainSettle(int gen)
         {
             DetachChainSettle();
+
+            _chainScCount = 0;
+            _chainArmTick = Environment.TickCount64;
+            _chainLastScTick = _chainArmTick;
 
             // Hard-timeout backstop fires even if the surface is silent (or subscribe fails).
             _chainTimer.Change(ChainSettleTimeoutMs, Timeout.Infinite);
@@ -810,10 +817,10 @@ namespace WindowsHinting
                     return;
                 }
                 _chainScElement = _chainUia.ElementFromHandle(hwnd);
-                _chainScHandler = new ChainStructureHandler(() => OnChainStructureChanged(gen));
+                _chainScHandler = new ChainStructureHandler(ct => OnChainStructureChanged(gen, ct));
                 _chainUia.AddStructureChangedEventHandler(
                     _chainScElement, TreeScope.TreeScope_Subtree, null, _chainScHandler);
-                _logger.Info($"[CHAIN] settle armed (gen={gen}) — StructureChanged gate + {ChainSettleTimeoutMs}ms backstop");
+                _logger.Info($"[CHAIN] settle armed (gen={gen}) — StructureChanged gate (quiet={ChainSettleQuietMs}ms) + {ChainSettleTimeoutMs}ms backstop");
             }
             catch (Exception ex)
             {
@@ -825,9 +832,15 @@ namespace WindowsHinting
 
         // PROTOTYPE #73/B: each StructureChanged pushes the quiet-window out (debounce).
         // Worker-thread context — only touch the thread-safe timer.
-        private void OnChainStructureChanged(int gen)
+        private void OnChainStructureChanged(int gen, StructureChangeType changeType)
         {
             if (gen != _chainGeneration) return;
+            long now = Environment.TickCount64;
+            int n = System.Threading.Interlocked.Increment(ref _chainScCount);
+            long sinceArm = now - _chainArmTick;
+            long sinceLast = now - _chainLastScTick;
+            _chainLastScTick = now;
+            _logger.Debug($"[CHAIN-SC] #{n} +{sinceArm}ms Δ{sinceLast}ms type={changeType}");
             try { _chainQuietTimer.Change(ChainSettleQuietMs, Timeout.Infinite); }
             catch (ObjectDisposedException) { }
         }
@@ -865,7 +878,7 @@ namespace WindowsHinting
                         return; // already Inactive from the commit's Deactivate()
                     }
 
-                    _logger.Info($"[CHAIN] settled via {reason} (gen={gen}, pid={nowPid}) — activating + scanning foreground");
+                    _logger.Info($"[CHAIN] settled via {reason} after {_chainScCount} SC events, {Environment.TickCount64 - _chainArmTick}ms since arm (gen={gen}, pid={nowPid}) — activating + scanning foreground");
                     _stateManager.Activate(HintSource.ForegroundWindow);
                     ScanForHints(); // zero-elements / timeout exits handled inside
                 });
