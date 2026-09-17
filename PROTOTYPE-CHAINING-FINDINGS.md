@@ -24,16 +24,18 @@ All changes in `Windows-Hinting/HintController.cs`, tagged `PROTOTYPE #73`:
 - Stale-tick guard = a generation counter bumped on every commit; the tick captures its generation and no-ops if superseded.
 - Chaining is gated to `HintSource.ForegroundWindow` (taskbar hints don't chain).
 
-## Live-run results (FILL IN after driving Settings)
+## Live-run results (Settings, 2026-09-17)
 
-- [ ] Does chaining work at all on Settings? (click nav item → hints re-appear on new pane → repeat)
-- [ ] Does `Esc` exit cleanly?
-- [ ] Does the fixed-delay flash/thrash? What `N` felt right (too short = mid-animation empty/partial scan; too long = laggy)?
-- [ ] Overlay/focus: did the re-show ever steal focus or collapse the target?
-- [ ] Stale hints: any flash of the pre-click state before the new scan painted?
-- [ ] Idempotency: any misbehavior from a fast second commit (stale-tick guard holding)?
-- [ ] Re-scan target: was it always the same foreground HWND for an in-app click? (expected yes for Settings)
+- **Chaining works mechanically — YES.** Click a nav item → hints re-appear on the new pane → repeat. The loop (activate → re-scan → re-show → repeat) and the re-scan target (same foreground HWND for in-app clicks) behave as designed.
+- **NOT robust: some elements are not hinted** on a chained re-scan. Signature of the **fixed delay racing the pane's settle** — 400 ms sometimes fires before the new pane has finished materializing its UIA children, so the scan catches a *partial* tree. This is the predicted failure of a blind time-based settle.
+- No focus-theft / target-collapse / wrong-window re-scan reported. Stale-tick guard held (no thrash from fast commits).
+
+## Verdict
+
+**Mechanical GO.** Chaining is viable on legacy `main` via the re-toggle path (`Activate` + `ScanForHints`). The fixed-delay settle is a working stand-in but **not robust** — the settle **must be event-driven**, which is exactly Prototype B's scope.
 
 ## Constraints handed to B / C
 
-- (fill in: recommended settle N, whether fixed-delay is viable as a floor, what event-driven signal B should reach for, any focus/overlay gotchas)
+- **Fixed-delay is a backstop, not the mechanism.** Keep it only as a hard-timeout fallback (~800 ms) behind the event-driven gate.
+- **B's settle signal = UIA `StructureChanged` readiness gate** (per #44's #48): subscribe on the foreground root after activation, re-scan when `ChildAdded`/bulk-add fires, debounced to a short quiet window; fall back to the timeout if silent.
+- Harness to build on: `OnChainReScanTick` + `_chainGeneration` guard + `GetForegroundPid` exit are the reusable pieces; B replaces the `_chainTimer.Change(...)` arming with an event subscription.
