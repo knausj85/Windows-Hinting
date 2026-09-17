@@ -104,6 +104,10 @@ internal static class Program
         }
 
         Application.ApplicationExit += (_, _) => { try { UnregisterHotKey(sink.Handle, HotkeyId); } catch { } try { _work.CompleteAdding(); } catch { } ExitScrollMode(); };
+        // Watchdog: a leaked SetSystemCursor override leaves the WHOLE desktop with no pointer, so
+        // guarantee restoration even on a crash / hard exit (ExitScrollMode handles the normal paths).
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => RestoreSystemCursor();
+        AppDomain.CurrentDomain.UnhandledException += (_, _) => RestoreSystemCursor();
         Application.Run();
     }
 
@@ -174,6 +178,8 @@ internal static class Program
         _winEventFg = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, _winEventProc, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
         _winEventLoc = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, IntPtr.Zero, _winEventProc, pid, tid, WINEVENT_OUTOFCONTEXT);
         _active = true;
+        GetCursorPos(out _modeCursorOrig); _cursorMoved = false; _parked = false; // remember where to put the cursor back on exit
+        HideSystemCursor(); // hide the pointer for the mode (park-aimer still works — logical cursor unaffected)
         StartVelocity(); // smooth lane ticker (drives only while the window target is active)
     }
 
@@ -181,7 +187,8 @@ internal static class Program
     {
         if (!_active) return; // idempotent — click + foreground + resize can all fire together
         _active = false;
-        StopVelocity();
+        StopVelocity();        // Unpark restores the cursor POSITION to mode-entry (while still hidden)
+        RestoreSystemCursor(); // then unhide — the pointer is already back where it started
         try { if (_hook != IntPtr.Zero) UnhookWindowsHookEx(_hook); } catch { }
         _hook = IntPtr.Zero;
         try { if (_mouseHook != IntPtr.Zero) UnhookWindowsHookEx(_mouseHook); } catch { }
@@ -195,6 +202,44 @@ internal static class Program
         _regions = new();
         _activeIndex = -1;
         Console.WriteLine("── scroll mode off ──");
+    }
+
+    // ---- cursor hide (research: docs/research/cursor-hide-lock-scroll-mode.md) --------------------
+    // Hiding the pointer over the target's FOREIGN, focused window is only possible by swapping the
+    // shared SYSTEM cursor to a transparent one (SetSystemCursor) — ShowCursor/SetCursor(NULL) only
+    // affect our own/the foreground window. It's a bitmap swap, so the LOGICAL cursor still moves and
+    // hit-tests — the park-aimer keeps working, invisibly. We do NOT ClipCursor (a hard lock forbids
+    // the aim move and is dropped when we're not foreground). RISK: SetSystemCursor mutates a desktop-
+    // wide resource, so a leak leaves the whole desktop with no pointer — we restore on every exit path
+    // (ExitScrollMode) plus a ProcessExit/UnhandledException watchdog (see Main).
+    private static bool _cursorHidden;
+    // the full OCR_* system-cursor set, so no shape (arrow/ibeam/hand/resize/…) shows through
+    private static readonly uint[] OCR_IDS = { 32512, 32513, 32514, 32515, 32516, 32631, 32642, 32643, 32644, 32645, 32646, 32648, 32649, 32650, 32651 };
+    private static void HideSystemCursor()
+    {
+        if (_cursorHidden) return;
+        _cursorHidden = true; // set first: a partial failure must still trigger restore
+        foreach (uint id in OCR_IDS)
+        {
+            IntPtr blank = CreateTransparentCursor();
+            if (blank != IntPtr.Zero) SetSystemCursor(blank, id); // SetSystemCursor takes ownership/destroys it
+        }
+        Console.WriteLine("[DBG] system cursor hidden");
+    }
+    private static void RestoreSystemCursor()
+    {
+        if (!_cursorHidden) return;
+        _cursorHidden = false;
+        try { SystemParametersInfo(SPI_SETCURSORS, 0, IntPtr.Zero, 0); } catch { } // reload the default system cursors
+        Console.WriteLine("[DBG] system cursor restored");
+    }
+    private static IntPtr CreateTransparentCursor()
+    {
+        int w = GetSystemMetrics(SM_CXCURSOR), h = GetSystemMetrics(SM_CYCURSOR);
+        if (w <= 0) w = 32; if (h <= 0) h = 32;
+        var and = new byte[w * h / 8]; for (int i = 0; i < and.Length; i++) and[i] = 0xFF; // AND=1
+        var xor = new byte[w * h / 8];                                                      // XOR=0 → fully transparent
+        return CreateCursor(GetModuleHandle(null), 0, 0, w, h, and, xor);
     }
 
     // ---- detection (reuses the #59 census heuristic; no actuation here) ----
@@ -407,8 +452,15 @@ internal static class Program
         // No axis-gate: the directional keypress is authoritative intent, honored via the wheel regardless of
         // what UIA claims (Chromium lies about the axis). Both window and region use the same debounced
         // cursor-borrow so the wheel is aimed at the target (window center or region content point).
-        if (_dirDown.Add(vk)) PostWork(() => BorrowWheelTap(dx, dy)); // TAP: borrow → debounce → wheel → restore
-        else { if (dy != 0) _heldY = dy; if (dx != 0) _heldX = dx; } // HOLD → velocity fling (parked, in the loop)
+        if (_dirDown.Add(vk))
+        {
+            // fresh press: one immediate tap notch, and ARM the self-timed hold (the velocity loop starts
+            // the fling once the key passes HOLD_MS — no longer waiting on the OS auto-repeat).
+            if (dy != 0) { _dirYval = dy; _pressYtick = Environment.TickCount; _holdingY = true; }
+            if (dx != 0) { _dirXval = dx; _pressXtick = Environment.TickCount; _holdingX = true; }
+            PostWork(() => BorrowWheelTap(dx, dy));
+        }
+        // OS auto-repeats are ignored — the loop owns hold-start via HOLD_MS.
         return true;
     }
 
@@ -418,8 +470,8 @@ internal static class Program
     {
         switch (vk)
         {
-            case 0x48: case 0x4A: _dirDown.Remove(vk); _heldY = 0; return true;   // H / J released
-            case 0x4B: case 0x4C: _dirDown.Remove(vk); _heldX = 0; return true;   // K / L released
+            case 0x48: case 0x4A: _dirDown.Remove(vk); _holdingY = false; _heldY = 0; return true;   // H / J released
+            case 0x4B: case 0x4C: _dirDown.Remove(vk); _holdingX = false; _heldX = 0; return true;   // K / L released
             default: return false;
         }
     }
@@ -475,11 +527,19 @@ internal static class Program
     // fractional carry (mirrors real high-res wheels). Starting curve from docs/research/smooth-scroll-mimicry.md.
     private static volatile bool _velRunning;
     private static Thread? _velThread;
-    private static volatile int _heldY, _heldX;      // -1/0/+1 current drive direction (last key wins)
+    private static volatile int _heldY, _heldX;      // -1/0/+1 current drive direction (derived each tick from the self-timed hold)
+    private static bool _prevParkActive, _holdSkipPark; // latch: skip park for a hold that began with the cursor already in-pane
+    // Self-timed hold — independent of the OS keyboard auto-repeat delay (which used to bootstrap the
+    // fling and caused the tap→hold stall). On a fresh press we arm intent + press time; the velocity
+    // loop starts the fling once the key has been physically down past HOLD_MS.
+    private static volatile bool _holdingY, _holdingX;
+    private static volatile int _dirYval, _dirXval;    // -1/+1 direction of the currently held Y/X key
+    private static volatile int _pressYtick, _pressXtick; // Environment.TickCount at the fresh press
     private static double _vY, _vX, _carryY, _carryX; // velocity (notches/sec) + fractional wheel remainder
 
+    private const int HOLD_MS = 130;         // key down longer than this → hold (fling); shorter → tap only
     private const double VEL_MAX = 22.0;     // notches/sec at full hold
-    private const double VEL_RAMP = 0.12;    // seconds to approach the target velocity (onset ramp)
+    private const double VEL_RAMP = 0.07;    // seconds to approach the target velocity (onset ramp — snappier)
     private const double VEL_DECAY16 = 0.90; // velocity retained per 16ms after release (exponential friction)
     private const double VEL_MIN = 0.6;      // below this (and no key held) → snap to 0
     private const int TAP_WHEEL = 120;       // one wheel notch for a single window tap (calibratable)
@@ -492,8 +552,8 @@ internal static class Program
         _velThread = new Thread(VelocityLoop) { IsBackground = true, Name = "ssp-smooth" };
         _velThread.Start();
     }
-    private static void StopVelocity() { _velRunning = false; _heldY = _heldX = 0; Unpark(); try { _dirDown.Clear(); } catch { } }
-    private static void ResetVelocity() { _heldY = _heldX = 0; _vY = _vX = _carryY = _carryX = 0; Unpark(); } // on target switch
+    private static void StopVelocity() { _velRunning = false; _heldY = _heldX = 0; _holdingY = _holdingX = false; Unpark(); try { _dirDown.Clear(); } catch { } }
+    private static void ResetVelocity() { _heldY = _heldX = 0; _vY = _vX = _carryY = _carryX = 0; _parked = false; } // on target switch → repark to the new target, but leave the cursor where it is (hidden)
 
     private static void VelocityLoop()
     {
@@ -507,6 +567,10 @@ internal static class Program
                 double t = sw.Elapsed.TotalSeconds, dt = t - last; last = t;
                 if (dt <= 0) dt = 1.0 / 60; else if (dt > 0.1) dt = 0.1;
 
+                // self-timed hold: a key that's been physically down past HOLD_MS drives the fling —
+                // independent of the OS keyboard-repeat delay (fixes the tap→hold stall).
+                _heldY = (_holdingY && (Environment.TickCount - _pressYtick) >= HOLD_MS) ? _dirYval : 0;
+                _heldX = (_holdingX && (Environment.TickCount - _pressXtick) >= HOLD_MS) ? _dirXval : 0;
                 _vY = Step(_vY, _heldY, dt);
                 _vX = Step(_vX, _heldX, dt);
 
@@ -516,13 +580,22 @@ internal static class Program
                 // aims the wheel so it lands on the target instead of following the physical mouse (bare
                 // metal; a VM can't move the cursor, so there it still follows the physical mouse).
                 bool parkActive = _heldY != 0 || _heldX != 0 || Math.Abs(_vY) > 0.001 || Math.Abs(_vX) > 0.001;
+                if (parkActive && !_prevParkActive) _holdSkipPark = CursorInsideActivePane(); // latch once at hold start
+                _prevParkActive = parkActive;
                 if (parkActive)
                 {
-                    var (cx, cy) = TargetPoint();
-                    EnsureParkedAt(cx, cy);
-                    if (Environment.TickCount64 - _parkAt >= _debounceMs) EmitInputWheel(dt);
+                    if (_holdSkipPark)
+                    {
+                        EmitInputWheel(dt); // cursor was already inside the pane at hold start → wheel in place
+                    }
+                    else
+                    {
+                        var (cx, cy) = TargetPoint();
+                        EnsureParkedAt(cx, cy);
+                        if (Environment.TickCount64 - _parkAt >= _debounceMs) EmitInputWheel(dt);
+                    }
                 }
-                if (_parked && !parkActive) Unpark(); // fling spent / target changed → restore cursor once
+                // fling spent → leave the (hidden) cursor parked; it's restored only on mode exit (Unpark)
 
                 Thread.Sleep(15);
             }
@@ -545,14 +618,15 @@ internal static class Program
     // via a real-pipeline move so a hover-enter is generated, and record the time. Callers hold wheels off
     // until _debounceMs has elapsed, so the wheel lands after the target knows the cursor is over it.
     private static volatile int _debounceMs = 40; // tunable live with [ and ] (VMs want more)
-    private static POINT _parkOrig;
-    private static volatile bool _parked;
+    private static POINT _modeCursorOrig;         // physical cursor position at mode entry — where we put it back on exit
+    private static volatile bool _cursorMoved;    // did we move the (hidden) cursor at all this mode?
+    private static volatile bool _parked;         // cursor is positioned for the CURRENT target (invalidated on switch)
     private static long _parkAt;
     private static void EnsureParkedAt(int cx, int cy)
     {
         if (_parked) return;
-        GetCursorPos(out _parkOrig);
         SendInput(1, new[] { AbsMoveInput(cx, cy) }, Marshal.SizeOf<INPUT>());
+        _cursorMoved = true;
         _parkAt = Environment.TickCount64;
         _parked = true;
     }
@@ -573,20 +647,41 @@ internal static class Program
         return ((wr.left + wr.right) / 2, (wr.top + wr.bottom) / 2);
     }
 
+    // Polish: is the physical cursor already inside the ACTIVE pane region? Then a wheel lands on the
+    // target without any park — skip the move/debounce/restore entirely. Only for ScrollPattern PANES
+    // (r.Sp != null), where the region rect IS the content; scrollbar/RangeValue regions aim at the
+    // content-beside-bar (not the bar the cursor may be over), so they always park. Window target never
+    // qualifies (its point is the window centre; we can't assume the cursor is usefully inside).
+    private static bool CursorInsideActivePane()
+    {
+        int ai = _activeIndex;
+        if (ai < 0 || ai >= _regions.Count) return false;
+        var r = _regions[ai];
+        if (r.Sp is null) return false;
+        if (!GetCursorPos(out POINT p)) return false;
+        return p.x >= r.Rect.left && p.x < r.Rect.right && p.y >= r.Rect.top && p.y < r.Rect.bottom;
+    }
+
     private static void BorrowWheelTap(int dx, int dy)
     {
+        int wheel = dy != 0 ? -Math.Sign(dy) * TAP_WHEEL : Math.Sign(dx) * TAP_WHEEL;
         var (tx, ty) = TargetPoint();
-        GetCursorPos(out POINT orig);
-        try
+        GetCursorPos(out POINT cur);
+        bool atTarget = Math.Abs(cur.x - tx) < 3 && Math.Abs(cur.y - ty) < 3; // already parked here (prior tap/hold)
+        if (atTarget || CursorInsideActivePane())
         {
-            SendInput(1, new[] { AbsMoveInput(tx, ty) }, Marshal.SizeOf<INPUT>());
-            Thread.Sleep(_debounceMs);
-            GetCursorPos(out POINT chk); // did the park move actually stick to the region point?
-            Console.WriteLine($"[DBG] borrow: target=({tx},{ty}) cursor-after-move=({chk.x},{chk.y}) match={(Math.Abs(chk.x - tx) < 3 && Math.Abs(chk.y - ty) < 3)}");
-            SendInput(1, new[] { WheelInput(dy != 0 ? -Math.Sign(dy) * TAP_WHEEL : Math.Sign(dx) * TAP_WHEEL, dx != 0) }, Marshal.SizeOf<INPUT>());
-            Thread.Sleep(_debounceMs);
+            // cursor already over the target → wheel in place, no move/debounce
+            SendInput(1, new[] { WheelInput(wheel, dx != 0) }, Marshal.SizeOf<INPUT>());
+            _parked = true; _parkAt = Environment.TickCount64;
+            return;
         }
-        finally { SendInput(1, new[] { AbsMoveInput(orig.x, orig.y) }, Marshal.SizeOf<INPUT>()); }
+        // move the (hidden) cursor to the target, settle for the hover-enter, wheel — and LEAVE it parked.
+        // No per-tap restore: the pointer is hidden all mode, so we only put it back on exit (Unpark).
+        SendInput(1, new[] { AbsMoveInput(tx, ty) }, Marshal.SizeOf<INPUT>());
+        _cursorMoved = true;
+        Thread.Sleep(_debounceMs);
+        SendInput(1, new[] { WheelInput(wheel, dx != 0) }, Marshal.SizeOf<INPUT>());
+        _parked = true; _parkAt = Environment.TickCount64;
     }
 
     // Page / Home / End: do NOT translate to a wheel or a UIA call — the tool's only job is to aim.
@@ -612,11 +707,14 @@ internal static class Program
         }
         finally { SendInput(1, new[] { AbsMoveInput(orig.x, orig.y) }, Marshal.SizeOf<INPUT>()); }
     }
+    // Restore the physical cursor to its mode-entry position. We do NOT restore after each scroll — the
+    // cursor is hidden for the whole mode, so we park it freely (invisibly) and only put it back on exit.
     private static void Unpark()
     {
-        if (!_parked) return;
         _parked = false;
-        try { SendInput(1, new[] { AbsMoveInput(_parkOrig.x, _parkOrig.y) }, Marshal.SizeOf<INPUT>()); } catch { }
+        if (!_cursorMoved) return;
+        _cursorMoved = false;
+        try { SendInput(1, new[] { AbsMoveInput(_modeCursorOrig.x, _modeCursorOrig.y) }, Marshal.SizeOf<INPUT>()); } catch { }
     }
 
     private static double Step(double v, int held, double dt)
@@ -1133,6 +1231,11 @@ internal static class Program
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT p);
     [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] private static extern int GetSystemMetrics(int nIndex);
+    private const int SM_CXCURSOR = 13, SM_CYCURSOR = 14;
+    private const uint SPI_SETCURSORS = 0x0057;
+    [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr CreateCursor(IntPtr hInst, int xHotSpot, int yHotSpot, int nWidth, int nHeight, byte[] pvANDPlane, byte[] pvXORPlane);
+    [DllImport("user32.dll", SetLastError = true)] private static extern bool SetSystemCursor(IntPtr hcur, uint id);
+    [DllImport("user32.dll", SetLastError = true)] private static extern bool SystemParametersInfo(uint uiAction, uint uiParam, IntPtr pvParam, uint fWinIni);
     [StructLayout(LayoutKind.Sequential)] private struct MOUSEINPUT { public int dx, dy; public int mouseData; public uint dwFlags, time; public IntPtr dwExtraInfo; }
     [StructLayout(LayoutKind.Sequential)] private struct KEYBDINPUT { public ushort wVk, wScan; public uint dwFlags, time; public IntPtr dwExtraInfo; }
     [StructLayout(LayoutKind.Sequential)] private struct HARDWAREINPUT { public uint uMsg; public ushort wParamL, wParamH; }
