@@ -803,9 +803,10 @@ namespace WindowsHinting
         //   • zero elements    → persistently empty (terminal click).
         private async void ChainReScanReconcile(int gen)
         {
-            var shown = new Dictionary<string, HintItem>();          // bounds-key → hint (append-only)
+            var labelByRid = new Dictionary<string, string>();      // RuntimeId → stable label (persists this round)
             var labelPool = LabelGenerator.Generate(ChainReconcileLabelPool);
             int nextLabel = 0;
+            string prevSig = "";                                    // last shown RuntimeId-set signature
             int stableStreak = 0;
             bool activated = false;
             try
@@ -818,7 +819,7 @@ namespace WindowsHinting
                     // Don't shift labels under an in-progress selection.
                     if (!string.IsNullOrEmpty(_stateManager.FilterText))
                     {
-                        _logger.Info($"[CHAIN] reconcile stop — user is typing a filter (gen={gen}, shown={shown.Count})");
+                        _logger.Info($"[CHAIN] reconcile stop — user is typing a filter (gen={gen})");
                         return;
                     }
 
@@ -847,27 +848,34 @@ namespace WindowsHinting
                     }
                     if (_disposed || gen != _chainGeneration) return;
 
-                    int added = 0;
+                    // Reconcile to THIS scan: identity = UIA RuntimeId (not bounds — bounds
+                    // jitter created duplicates and bounds collisions dropped distinct elements).
+                    // Keep a survivor's label stable; assign new labels to new RuntimeIds; drop
+                    // whatever isn't in the current scan (so old-pane hints don't linger); use the
+                    // fresh element ref from this scan (early refs on a virtualized tree go stale).
+                    var hints = new List<HintItem>(elements.Count);
+                    var seen = new HashSet<string>();
                     foreach (var e in elements)
                     {
-                        var b = e.Bounds;
-                        string key = $"{b.Left},{b.Top},{b.Width},{b.Height}";
-                        if (shown.ContainsKey(key)) continue;
-                        if (nextLabel >= labelPool.Length) break; // pool exhausted (very large page)
-                        shown[key] = new HintItem
+                        string? rid = RuntimeIdKey(e.Element);
+                        if (rid == null || !seen.Add(rid)) continue; // unidentifiable or dup within this scan
+                        if (!labelByRid.TryGetValue(rid, out var label))
                         {
-                            Rect = b,
+                            if (nextLabel >= labelPool.Length) continue; // pool exhausted (very large page)
+                            label = labelPool[nextLabel++];
+                            labelByRid[rid] = label;
+                        }
+                        hints.Add(new HintItem
+                        {
+                            Rect = e.Bounds,
                             Element = e.Element,
-                            Label = labelPool[nextLabel++],
+                            Label = label,
                             CurrentOpacity = 1.0f,
                             TargetOpacity = 1.0f
-                        };
-                        added++;
+                        });
                     }
 
-                    _logger.Debug($"[CHAIN] reconcile poll #{attempt} (gen={gen}) — scan={elements.Count}, +{added} new, total shown={shown.Count}");
-
-                    if (shown.Count == 0)
+                    if (hints.Count == 0)
                     {
                         if (attempt >= 3)
                         {
@@ -877,18 +885,21 @@ namespace WindowsHinting
                         continue;
                     }
 
-                    if (added > 0 || !activated)
-                    {
-                        if (!activated) { _stateManager.Activate(HintSource.ForegroundWindow); activated = true; }
-                        _overlay.EnsureTopmost();
-                        _stateManager.SetHints(shown.Values.ToList()); // additive redraw
-                    }
+                    string sig = string.Join("|", seen.OrderBy(x => x, StringComparer.Ordinal));
+                    bool changed = sig != prevSig;
+                    prevSig = sig;
 
-                    if (added == 0)
+                    if (!activated) { _stateManager.Activate(HintSource.ForegroundWindow); activated = true; }
+                    _overlay.EnsureTopmost();
+                    _stateManager.SetHints(hints); // always the latest clean set, stable labels
+
+                    _logger.Debug($"[CHAIN] reconcile poll #{attempt} (gen={gen}) — scan={elements.Count}, shown={hints.Count}, changed={changed}");
+
+                    if (!changed)
                     {
                         if (++stableStreak >= ChainReconcileStableStreak)
                         {
-                            _logger.Info($"[CHAIN] reconcile settled at {shown.Count} elements after {attempt} polls (gen={gen})");
+                            _logger.Info($"[CHAIN] reconcile settled at {hints.Count} elements after {attempt} polls (gen={gen})");
                             return;
                         }
                     }
@@ -897,12 +908,23 @@ namespace WindowsHinting
                         stableStreak = 0;
                     }
                 }
-                _logger.Info($"[CHAIN] reconcile budget exhausted at {shown.Count} shown (gen={gen})");
+                _logger.Info($"[CHAIN] reconcile budget exhausted (gen={gen})");
             }
             catch (Exception ex)
             {
                 _logger.Error("[CHAIN] reconcile loop error", ex);
             }
+        }
+
+        // PROTOTYPE #73/D: stable identity for an element across reconcile scans.
+        private static string? RuntimeIdKey(IUIAutomationElement element)
+        {
+            try
+            {
+                var rid = element.GetRuntimeId();
+                return rid == null ? null : string.Join(".", rid.Cast<int>());
+            }
+            catch { return null; }
         }
 
         private void OnPreferencesRequested(object? sender, EventArgs e)
