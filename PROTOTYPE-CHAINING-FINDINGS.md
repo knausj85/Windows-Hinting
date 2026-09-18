@@ -39,3 +39,29 @@ All changes in `Windows-Hinting/HintController.cs`, tagged `PROTOTYPE #73`:
 - **Fixed-delay is a backstop, not the mechanism.** Keep it only as a hard-timeout fallback (~800 ms) behind the event-driven gate.
 - **B's settle signal = UIA `StructureChanged` readiness gate** (per #44's #48): subscribe on the foreground root after activation, re-scan when `ChildAdded`/bulk-add fires, debounced to a short quiet window; fall back to the timeout if silent.
 - Harness to build on: `OnChainReScanTick` + `_chainGeneration` guard + `GetForegroundPid` exit are the reusable pieces; B replaces the `_chainTimer.Change(...)` arming with an event subscription.
+
+---
+
+## Prototype B — settle detection (RESOLVED: progressive-reconcile)
+
+Four "detect the finished moment" heuristics were tried and **all failed** on Settings' progressive XAML:
+
+| Approach | Failure |
+|---|---|
+| Fixed delay | races the settle → partial tree |
+| UIA `StructureChanged` quiet-window | SC goes silent *before* the tree finishes building |
+| Poll-until-count-stable | a build *pause* looks like *done* → false-stables (timing-dependent) |
+| `AsyncContentLoaded` event | never fires on WinUI pane swaps (provider-opt-in; #76 + in-app probe) |
+
+**Answer = PROGRESSIVE-RECONCILE** (per #76; macOS Voice Control's "show numbers continuously" model). Each round, poll every 150 ms and reconcile to the **latest** scan, identity = **UIA RuntimeId** (not bounds — bounds jitter caused duplicates, bounds collisions caused missing): stable label per RuntimeId, drop-not-present, fresh element refs. Show immediately (even partial); settle when the RuntimeId-set signature is unchanged for 4 polls (~600 ms) or a 3 s cap; stop reconciling once a filter is typed. Key code: `ChainReScanReconcile`, `RuntimeIdKey`.
+
+**Validated live:** Settings, File Explorer, VSCode (Electron ⇒ covers the GitHub-Desktop class). Duplicates and missing-hints both cleared.
+
+## Known gaps (open)
+
+- **Edge / cross-site navigation (= Prototype C #75).** Reconcile settles (~0.9 s) on the *old* page because a navigation outlasts the settle budget → stale-page hints. Fix path (per #71): Edge profile waits for `AsyncContentLoaded` on the document root (Chromium *does* fire it) after navigation, then reconciles the doc subtree.
+- **Menu / popup surfaces (e.g. Word ribbon submenu) — NEW.** A submenu opens in a **separate popup HWND**; reconcile only scans `GetForegroundWindow()` (still the app's main window), finds nothing new, and exits as a *terminal click* even though the popup has hintable items. Fix direction (per #44's #45): detect menu **open/close** events, hint the **popup HWND** while open, and resume full-app reconcile on close. → next prototype.
+
+## Per-app settle profile (confirmed required)
+
+The apps genuinely diverge: reconcile-by-RuntimeId for normal windows; a navigation-aware profile for Edge/Chromium; a popup-following profile for menus. This is the integration point the eventual spec must hold.
