@@ -93,6 +93,7 @@ namespace WindowsHinting.Services
             cache.AddProperty(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
             cache.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
             cache.AddProperty(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PropertyIds.UIA_ExpandCollapseExpandCollapseStatePropertyId); // PROTOTYPE #78
             cache.AddProperty(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId);
             cache.AddProperty(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId);
             cache.AddProperty(UIA_PropertyIds.UIA_NamePropertyId);

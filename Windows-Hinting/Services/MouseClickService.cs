@@ -117,6 +117,33 @@ namespace WindowsHinting.Services
             return PInvoke.SendInput(inputs, sizeof(INPUT));
         }
 
+        /// <summary>
+        /// PROTOTYPE #78: hover the cursor over an element and leave it there. Unlike a click, this only
+        /// moves the mouse — used to SWITCH between already-open menus (menus follow the mouse). Sends a
+        /// real movement WITH a delta (a tiny jiggle) so the target registers a genuine mouse-enter and
+        /// opens the hovered menu; a zero-delta move is often ignored.
+        /// </summary>
+        public void Hover(Rectangle bounds)
+        {
+            int x = bounds.Left + bounds.Width / 2;
+            int y = bounds.Top + bounds.Height / 2;
+            _logger.Info($"Hovering at ({x}, {y})");
+            try
+            {
+                // Approach from just outside, then settle on center — guarantees a non-zero move delta
+                // INTO the item so the menu's hover-tracking switches to it.
+                SendMove(x - 4, y);
+                Thread.Sleep(15);
+                SendMove(x + 3, y);
+                Thread.Sleep(15);
+                SendMove(x, y);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Failed to hover", ex);
+            }
+        }
+
         private void SendMove(int screenX, int screenY)
         {
             var (absX, absY) = ToVirtualDesktopAbsolute(screenX, screenY);

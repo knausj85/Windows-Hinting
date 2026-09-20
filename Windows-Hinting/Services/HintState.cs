@@ -17,7 +17,10 @@ namespace WindowsHinting.Services
     {
         None,
         ForegroundWindow,
-        Taskbar
+        Taskbar,
+        // PROTOTYPE #78: dedicated menubar auto-hint path (separate hotkey; scans the first
+        // MenuBar and re-hints on ExpandCollapse events until nothing is expanded).
+        MenuBar
     }
 
     internal sealed class HintStateManager
