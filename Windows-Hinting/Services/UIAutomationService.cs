@@ -23,6 +23,7 @@ namespace WindowsHinting.Services
         private readonly IUIAutomationCondition _searchCondition;
         private readonly IUIAutomationCacheRequest _cacheRequest;
         private readonly List<IUIAutomationCondition> _ownedConditions;
+        private readonly IUIAutomationCondition _menuContainerCondition; // Menu OR MenuBar (change #9)
         private bool _disposed;
 
         public UIAutomationService(ILogger logger, WindowRuleRegistry ruleRegistry)
@@ -32,6 +33,12 @@ namespace WindowsHinting.Services
             _automation = new CUIAutomation();
 
             (_searchCondition, _cacheRequest, _ownedConditions) = BuildSearchConditionsAndCache();
+
+            // PROTOTYPE #77 (change #9): reliable menu CONTAINER markers. Everything clickable inside
+            // a Menu/MenuBar is a menu item regardless of its own control type (Button/CheckBox/…).
+            _menuContainerCondition = _automation.CreateOrCondition(
+                _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_ControlTypePropertyId, UIA_ControlTypeIds.UIA_MenuControlTypeId),
+                _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_ControlTypePropertyId, UIA_ControlTypeIds.UIA_MenuBarControlTypeId));
         }
 
         private (IUIAutomationCondition combined, IUIAutomationCacheRequest cache, List<IUIAutomationCondition> owned) BuildSearchConditionsAndCache()
@@ -163,7 +170,6 @@ namespace WindowsHinting.Services
             }
 
             IUIAutomationElement? root = null;
-            var elementArraysToRelease = new List<IUIAutomationElementArray>();
             var roots = new List<IUIAutomationElement>();
 
             try
@@ -177,9 +183,81 @@ namespace WindowsHinting.Services
 
                 // Resolve the root element(s) strategy based on window rules
                 roots = ResolveRootElements(windowHandle, root);
+                return ScanRoots(roots);
+            }
+            finally
+            {
+                foreach (var r in roots)
+                {
+                    if (r != null && Marshal.IsComObject(r))
+                    {
+                        try { Marshal.ReleaseComObject(r); } catch { }
+                    }
+                }
+            }
+        }
 
-                var results = new List<ClickableElement>();
+        // PROTOTYPE #77: scan an element's own subtree directly. Used for menu/popup
+        // elements delivered by a UIA event, which frequently have no native HWND (so the
+        // HWND-based path would fall back to scanning the whole foreground window). Ownership
+        // of 'root' stays with the caller — it is NOT released here.
+        public IReadOnlyList<ClickableElement> FindClickableElements(IUIAutomationElement root)
+        {
+            if (root == null)
+                return Array.Empty<ClickableElement>();
+            using (PerformanceMetrics.Start("FindClickableElements(element)", _logger, LogLevel.Info))
+            {
+                return ScanRoots(new List<IUIAutomationElement> { root });
+            }
+        }
 
+        // PROTOTYPE #77 (change #9): find Menu/MenuBar containers under windowRoot, then return every
+        // clickable element inside them — menu items regardless of their own control type.
+        public IReadOnlyList<ClickableElement> FindMenuClickableElements(IUIAutomationElement windowRoot)
+        {
+            if (windowRoot == null)
+                return Array.Empty<ClickableElement>();
+            using (PerformanceMetrics.Start("FindMenuClickableElements", _logger, LogLevel.Info))
+            {
+                IUIAutomationElementArray? containers = null;
+                var roots = new List<IUIAutomationElement>();
+                try
+                {
+                    try { containers = windowRoot.FindAllBuildCache(TreeScope.TreeScope_Subtree, _menuContainerCondition, _cacheRequest); }
+                    catch (COMException ex) { _logger.Warning($"FindMenuClickableElements: container FindAll failed: {ex.Message}"); return Array.Empty<ClickableElement>(); }
+                    if (containers == null || containers.Length == 0) return Array.Empty<ClickableElement>();
+                    for (int i = 0; i < containers.Length; i++)
+                    {
+                        var c = containers.GetElement(i);
+                        if (c != null) roots.Add(c);
+                    }
+                    _logger.Debug($"FindMenuClickableElements: {roots.Count} menu container(s)");
+                    return ScanRoots(roots);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("Unexpected error in FindMenuClickableElements", ex);
+                    return Array.Empty<ClickableElement>();
+                }
+                finally
+                {
+                    foreach (var r in roots)
+                        if (r != null && Marshal.IsComObject(r)) { try { Marshal.ReleaseComObject(r); } catch { } }
+                    if (containers != null && Marshal.IsComObject(containers)) { try { Marshal.ReleaseComObject(containers); } catch { } }
+                }
+            }
+        }
+
+        // Walks each scan root's descendants, collecting activatable clickable elements.
+        // Releases the element arrays it allocates; does NOT release the scan roots
+        // (their ownership belongs to the caller).
+        private List<ClickableElement> ScanRoots(IReadOnlyList<IUIAutomationElement> roots)
+        {
+            var elementArraysToRelease = new List<IUIAutomationElementArray>();
+            var results = new List<ClickableElement>();
+
+            try
+            {
                 using (PerformanceMetrics.Start("FindAllBuildCache", _logger, LogLevel.Info))
                 {
                     foreach (var scanRoot in roots)
@@ -201,7 +279,7 @@ namespace WindowsHinting.Services
                     if (elementArraysToRelease.Count == 0)
                     {
                         _logger.Debug("FindAllBuildCache returned no results");
-                        return Array.Empty<ClickableElement>();
+                        return results;
                     }
                 }
 
@@ -254,10 +332,13 @@ namespace WindowsHinting.Services
 
                                         if (hasActivatablePattern)
                                         {
+                                            int ctVal = 0;
+                                            try { ctVal = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_ControlTypePropertyId) is int c ? c : 0; } catch { }
                                             results.Add(new ClickableElement
                                             {
                                                 Element = element,
-                                                Bounds = rect
+                                                Bounds = rect,
+                                                ControlType = ctVal
                                             });
                                             element = null; // Don't release - ownership transferred to ClickableElement
                                         }
@@ -289,19 +370,12 @@ namespace WindowsHinting.Services
             }
             finally
             {
-                // Release per-call COM objects (element arrays and root elements)
+                // Release per-call COM objects (element arrays only). Scan roots are owned
+                // by the caller (FindClickableElementsCore, or the element overload's caller).
                 foreach (var elemArray in elementArraysToRelease)
                 {
                     if (elemArray != null && Marshal.IsComObject(elemArray))
                         Marshal.ReleaseComObject(elemArray);
-                }
-
-                foreach (var r in roots)
-                {
-                    if (r != null && Marshal.IsComObject(r))
-                    {
-                        try { Marshal.ReleaseComObject(r); } catch { }
-                    }
                 }
             }
         }

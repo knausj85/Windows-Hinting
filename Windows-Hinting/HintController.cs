@@ -69,11 +69,56 @@ namespace WindowsHinting
         private const int ChainReconcileMaxAttempts = 20; // ~up to 3s ceiling of reconciling
         private const int ChainReconcileStableStreak = 4; // stop after this many scans add nothing (~600ms)
         private const int ChainReconcileLabelPool = 700;  // stable append-only label sequence per round
+        private const int MenuSettleMaxAttempts = 8;      // PROTOTYPE #77 change #3: ~1.2s at 150ms
+        private const int MenuSettlePollMs = 150;
+        private const int MenuSettleStableStreak = 2;     // 2 stable polls (~300ms) after items appear
+        private const int MenuWatchPollMs = 200;          // PROTOTYPE #77 change #4: watch cadence after settle
+        private const int MenuWatchMaxEmpties = 3;        // consecutive empty scans → menu gone (missing-MenuClosed backstop)
+        private const int MenuEventDebounceMs = 120;      // PROTOTYPE #77 change #5: coalesce event bursts before a rescan
+        private const int MenuCommitGraceMs = 1500;       // honor a MenuOpened within this window after ANY commit
         private int _chainGeneration;                  // guards against stale / superseded rounds
         private uint _chainOriginPid;                  // foreground process when the chain round began
 
-        // (AsyncContentLoaded probe removed — #76 + the in-app probe confirmed WinUI never
-        //  raises UIA event 20006 on pane swaps. Re-introduce for the Edge prototype, C #75.)
+        // PROTOTYPE #77: menu-aware chaining. A submenu/popup opens in a SEPARATE HWND, so the
+        // foreground-window reconcile misses it (looks like a terminal click). Subscribe globally
+        // to UIA MenuOpened/MenuClosed; while chaining is active, hint the popup on open and
+        // resume the foreground reconcile on close. Probe-instrumented (logs what actually fires
+        // for the Word ribbon — #45 warns UIA menu events are unreliable for some surfaces).
+        private const int UIA_MenuOpenedEventId = 20003;
+        private const int UIA_MenuClosedEventId = 20007;
+        private readonly IUIAutomation _menuUia;        // dedicated client for global menu events
+        private ChainMenuHandler? _menuHandler;
+        private bool _menuActive;                        // a menu popup is currently hinted
+        // PROTOTYPE #77 (change #2): a chained-hinting session is live. Stays true across the
+        // transient commit→reactivate gap (when mode blips Inactive), so a menu opened by
+        // activating a hint isn't dropped by the old CurrentMode==Inactive guard. Cleared on a
+        // TERMINAL exit (Esc / manual deactivate / foreground-left / zero-scannable) — never on
+        // the commit gap, which sets _suppressChainClearOnce for the next Inactive transition.
+        private bool _chainActive;
+        private bool _suppressChainClearOnce;
+        // PROTOTYPE #77 (change #3): menu-scoped progressive settle state.
+        private int _menuGeneration;                                       // supersedes prior settle loops (multi-fire)
+        private readonly Dictionary<string, string> _menuLabels = new();   // RuntimeId → label, stable across a menu session
+        private int _menuNextLabel;
+        private string[] _menuLabelPool = System.Array.Empty<string>();
+        // PROTOTYPE #77 (change #7): WINDOW-SCOPE event-driven menu watch. Subscribe on the whole
+        // foreground window (where VS actually raises StructureChanged/ExpandCollapse — change #6
+        // measured element-scope as silent) and drive debounced rescans of the menu root + the event
+        // sender. Per-second counts logged for visibility; Bounds counted only (firehose-prone).
+        private PropertyChangedHandler? _menuPropHandler;
+        private IUIAutomationElement? _watchedMenu;                         // subscription target (the window; for removal)
+        private IUIAutomationElement? _menuRoot;                            // menu element — primary scan root
+        private IUIAutomationElement? _menuAuxRoot;                         // last expanded event sender — aux scan root
+        private bool _menuSettled;                                         // initial settle done → events may drive rescans
+        private string _menuLastSig = "";                                  // last shown RuntimeId signature (skip redundant SetHints)
+        private DateTime _lastCommitUtc = DateTime.MinValue;               // robust menu-gate: a commit was just made
+        private System.Threading.Timer? _menuEvtTimer;                     // ~120ms coalescing tick (rescan-if-dirty + count flush)
+        private long _mecExpand;                                           // per-second ExpandCollapse(MenuItem) counter (Interlocked)
+        private int _menuEvtDetailBudget;                                  // remaining detailed sample logs
+        private int _menuDirty;                                            // set by events (UIA thread), consumed by the tick
+        private int _menuEvtTick;                                          // tick counter for the 1s count-flush cadence
+        private IUIAutomationElement? _pendingExpandRoot;                  // last expanded MenuItem (UIA thread → tick)
+        private readonly object _menuEvtLock = new object();
         // ────────────────────────────────────────────────────────────────────
 
         public HintController(
@@ -118,6 +163,9 @@ namespace WindowsHinting
 
                 // Auto-hide timer (threadpool-based; see field comment).
                 _autoHideTimer = new System.Threading.Timer(OnAutoHideTick, null, Timeout.Infinite, Timeout.Infinite);
+
+                // PROTOTYPE #77: global UIA menu-event client for menu-aware chaining.
+                _menuUia = new CUIAutomation();
 
 
                 // Load preferences
@@ -166,6 +214,9 @@ namespace WindowsHinting
 
                 // Kick off the auto-update background loop (no-op if disabled in prefs).
                 _updateService.Initialize();
+
+                // PROTOTYPE #77: start listening for menu open/close globally.
+                SubscribeMenuEvents();
 
                 _logger.Info("HintController initialized successfully");
             }
@@ -616,14 +667,50 @@ namespace WindowsHinting
                 _logger.Debug("Starting keyboard service");
                 _keyboardService.Start();
 
-                if (mode == HintMode.Active && _options.AutoHideTimeoutSeconds > 0)
+                // PROTOTYPE #77 (change #2): a foreground-hint session is live from the moment
+                // hints show (Toggle or reconcile) — so a menu opened before the first commit is
+                // caught too. Taskbar hints don't chain, so they don't arm it.
+                if (mode == HintMode.Active && _stateManager.CurrentSource == HintSource.ForegroundWindow)
+                {
+                    _chainActive = true;
+                    // PROTOTYPE #77 (change #7): subscribe the window event watch once per session, on
+                    // the current (main) foreground window — where VS raises menu ExpandCollapse/Structure.
+                    SubscribeWindowWatch();
+                }
+
+                // PROTOTYPE #77 (change #4): auto-hide contradicts always-on-until-Esc chained mode
+                // — it was firing mid-menu-watch and killing the hints. Suppress it while a chain
+                // session is live; keep it for plain (e.g. taskbar) hints.
+                if (mode == HintMode.Active && _options.AutoHideTimeoutSeconds > 0 && !_chainActive && !_menuActive)
                 {
                     _autoHideTimer.Change(_options.AutoHideTimeoutSeconds * 1000, Timeout.Infinite);
                     _logger.Debug($"Auto-hide timer started ({_options.AutoHideTimeoutSeconds}s)");
                 }
+                else if (_chainActive || _menuActive)
+                {
+                    _autoHideTimer.Change(Timeout.Infinite, Timeout.Infinite); // cancel any pending auto-hide
+                }
             }
             else
             {
+                // PROTOTYPE #77 diagnostic: a menu is being watched but something deactivated us.
+                // Capture the caller so we can identify the silent Deactivate path.
+                if (_menuActive)
+                    _logger.Warning($"[MENU] UNEXPECTED deactivate while watching a menu — stack:\n{Environment.StackTrace}");
+
+                // PROTOTYPE #77 (change #2): a terminal deactivate ends the chain session; the
+                // transient commit→reactivate gap does not (it set _suppressChainClearOnce).
+                if (_suppressChainClearOnce)
+                {
+                    _suppressChainClearOnce = false;
+                }
+                else
+                {
+                    _chainActive = false;
+                    _menuActive = false;
+                    UnsubscribeWindowWatch(); // PROTOTYPE #77 change #7: stop the event watch on terminal exit
+                }
+
                 _autoHideTimer.Change(Timeout.Infinite, Timeout.Infinite);
                 _logger.Debug("Stopping keyboard service");
                 _keyboardService.Stop();
@@ -720,6 +807,11 @@ namespace WindowsHinting
 
                 _logger.Info($"Activating element with label: {match.Label}, action: {e.Action}");
 
+                // PROTOTYPE #77 (change #5): robust menu gate — record that a commit just happened,
+                // so a MenuOpened arriving in the brief commit→reactivate gap is honored even if the
+                // mode/source flags read inconsistently. Replaces the fragile _chainActive gate.
+                _lastCommitUtc = DateTime.UtcNow;
+
                 // Capture values for the closure before deactivating hints
                 var element = match.Element;
                 var rect = match.Rect;
@@ -732,8 +824,19 @@ namespace WindowsHinting
                 {
                     _chainOriginPid = GetForegroundPid();
                     int gen = ++_chainGeneration;
+                    _chainActive = true;             // PROTOTYPE #77: session live across the commit gap
+                    _menuActive = false;             // stale menu (if any) is gone once we commit again
                     _logger.Info($"[CHAIN] commit → poll-until-stable will start after activation (gen={gen}, originPid={_chainOriginPid})");
                 }
+
+                // PROTOTYPE #77 (change #2 fix): a commit is NEVER terminal in always-on chained
+                // mode — the chain continues via the reconcile OR the next MenuOpened. So the
+                // imminent Deactivate must not clear _chainActive, EVEN when chainThisRound is false
+                // (e.g. a menu-item commit whose source read as non-foreground). Without this, such
+                // a commit cleared the session and the very next menu-open was silently ignored.
+                // Only genuine terminals (Esc / foreground-left / zero-scannable) clear _chainActive.
+                if (_chainActive)
+                    _suppressChainClearOnce = true;
 
                 // Hide hints immediately so the overlay is gone before activation
                 // (also prevents a stale-hint flash before the next round paints).
@@ -783,6 +886,19 @@ namespace WindowsHinting
             return pid;
         }
 
+        // PROTOTYPE #77 diagnostic: foreground process name, for tagging menu-watch logs per app.
+        private string ForegroundExe()
+        {
+            try
+            {
+                var pid = GetForegroundPid();
+                if (pid == 0) return "?";
+                using var p = System.Diagnostics.Process.GetProcessById((int)pid);
+                return p.ProcessName;
+            }
+            catch { return "?"; }
+        }
+
         // PROTOTYPE #73/D: PROGRESSIVE-RECONCILE settle (per #76). Runs on the UI thread
         // (async void from the activation closure; awaits resume on the WinForms sync context).
         //
@@ -827,6 +943,7 @@ namespace WindowsHinting
                     if (nowPid == 0 || nowPid != _chainOriginPid)
                     {
                         _logger.Info($"[CHAIN] exit — foreground left app (originPid={_chainOriginPid}, nowPid={nowPid})");
+                        _chainActive = false; _menuActive = false; // PROTOTYPE #77: terminal
                         return;
                     }
 
@@ -880,6 +997,7 @@ namespace WindowsHinting
                         if (attempt >= 3)
                         {
                             _logger.Info($"[CHAIN] exit — zero scannable elements (terminal click, gen={gen})");
+                            _chainActive = false; _menuActive = false; // PROTOTYPE #77: terminal
                             return;
                         }
                         continue;
@@ -888,6 +1006,15 @@ namespace WindowsHinting
                     string sig = string.Join("|", seen.OrderBy(x => x, StringComparer.Ordinal));
                     bool changed = sig != prevSig;
                     prevSig = sig;
+
+                    // PROTOTYPE #77 (change #2): a menu is showing — yield, don't clobber it with
+                    // a foreground scan. The menu path superseded us via ++_chainGeneration, but
+                    // this guards the narrow window where a poll already passed the gen check.
+                    if (_menuActive)
+                    {
+                        _logger.Info($"[CHAIN] reconcile yielding — menu is open (gen={gen})");
+                        return;
+                    }
 
                     if (!activated) { _stateManager.Activate(HintSource.ForegroundWindow); activated = true; }
                     _overlay.EnsureTopmost();
@@ -925,6 +1052,505 @@ namespace WindowsHinting
                 return rid == null ? null : string.Join(".", rid.Cast<int>());
             }
             catch { return null; }
+        }
+
+        // ── PROTOTYPE #77: menu-aware chaining ───────────────────────────────
+        private sealed class ChainMenuHandler : IUIAutomationEventHandler
+        {
+            private readonly Action<IUIAutomationElement, int> _cb;
+            public ChainMenuHandler(Action<IUIAutomationElement, int> cb) { _cb = cb; }
+            public void HandleAutomationEvent(IUIAutomationElement sender, int eventId) => _cb(sender, eventId);
+        }
+
+        // PROTOTYPE #77 (change #5): UIA event handlers for the event-driven menu watch.
+        private sealed class StructureChangedHandler : IUIAutomationStructureChangedEventHandler
+        {
+            private readonly Action<IUIAutomationElement, StructureChangeType, Array> _cb;
+            public StructureChangedHandler(Action<IUIAutomationElement, StructureChangeType, Array> cb) { _cb = cb; }
+            public void HandleStructureChangedEvent(IUIAutomationElement sender, StructureChangeType changeType, Array runtimeId) => _cb(sender, changeType, runtimeId);
+        }
+
+        private sealed class PropertyChangedHandler : IUIAutomationPropertyChangedEventHandler
+        {
+            private readonly Action<IUIAutomationElement, int, object> _cb;
+            public PropertyChangedHandler(Action<IUIAutomationElement, int, object> cb) { _cb = cb; }
+            public void HandlePropertyChangedEvent(IUIAutomationElement sender, int propertyId, object newValue) => _cb(sender, propertyId, newValue);
+        }
+
+        private void SubscribeMenuEvents()
+        {
+            try
+            {
+                var root = _menuUia.GetRootElement();
+                _menuHandler = new ChainMenuHandler(OnMenuEvent);
+                _menuUia.AddAutomationEventHandler(UIA_MenuOpenedEventId, root, TreeScope.TreeScope_Subtree, null, _menuHandler);
+                _menuUia.AddAutomationEventHandler(UIA_MenuClosedEventId, root, TreeScope.TreeScope_Subtree, null, _menuHandler);
+                _logger.Info("[MENU] subscribed to UIA MenuOpened/MenuClosed (global subtree)");
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning($"[MENU] subscribe failed: {ex.GetType().Name}: {ex.Message}");
+                _menuHandler = null;
+            }
+        }
+
+        // COM worker thread — marshal to UI, then handle.
+        private void OnMenuEvent(IUIAutomationElement sender, int eventId)
+        {
+            if (_disposed || !ChainingEnabled) return;
+            try { _overlay.BeginInvoke(() => HandleMenuOnUi(sender, eventId)); }
+            catch (ObjectDisposedException) { }
+            catch (InvalidOperationException) { }
+        }
+
+        private void HandleMenuOnUi(IUIAutomationElement sender, int eventId)
+        {
+            if (_disposed) return;
+            bool opened = eventId == UIA_MenuOpenedEventId;
+
+            // PROTOTYPE #77 (diagnostic): log EVERY menu event with the state that gates it,
+            // BEFORE any guard — so at Info level we can see whether MenuOpened fires during an
+            // active chain and what blocks the menu path (mode / live reconcile generation).
+            _logger.Info($"[MENU] event={(opened ? "opened" : "closed")} mode={_stateManager.CurrentMode} chainGen={_chainGeneration} menuActive={_menuActive} filtering={!string.IsNullOrEmpty(_stateManager.FilterText)}");
+
+            // PROTOTYPE #77 (change #5): robust gate — honor the menu if hints are showing OR a
+            // commit happened very recently (the commit→reactivate gap). Timestamp-based, so it
+            // cannot get "stuck cleared" the way the _chainActive flag did (intermittent ignores).
+            bool sessionLive = _stateManager.CurrentMode != HintMode.Inactive
+                               || (DateTime.UtcNow - _lastCommitUtc).TotalMilliseconds < MenuCommitGraceMs;
+            if (!sessionLive)
+            {
+                _logger.Debug($"[MENU] {(opened ? "opened" : "closed")} ignored — no active session");
+                return;
+            }
+
+            if (opened)
+            {
+                if (sender == null) { _logger.Warning("[MENU] opened with null sender — ignoring"); return; }
+
+                string name = "?", ct = "?";
+                try { name = sender.CurrentName ?? ""; } catch { }
+                try { ct = sender.CurrentControlType.ToString(); } catch { }
+                int menuHwnd = NativeWindowHandle(sender);
+
+                // PROTOTYPE #77 (change #3): menu-scoped PROGRESSIVE settle. hwnd-less WinUI/XAML
+                // flyouts fire MenuOpened BEFORE their item peers are in the UIA tree, so a single
+                // scan races population (viaElement=0). Instead, poll the sender's OWN subtree
+                // (change-#1 element overload) on a short interval, showing items as they appear and
+                // settling when stable — the #73/D reconcile pattern scoped to the menu element.
+                // Classic Win32 menus (Explorer, real HWND) settle on poll #1. Each MenuOpened
+                // supersedes the prior via ++_menuGeneration, so multi-fire re-entrancy chases the
+                // latest sender rather than churning; labels persist across fires via _menuLabels.
+                // The WINDOW event watch is already subscribed for the session (change #7); a menu
+                // session just sets its scan roots + flags. Its events drive rescans while active.
+                _chainGeneration++;         // supersede any in-flight foreground reconcile
+                _menuRoot = sender;         // primary scan root for the event-driven rescans
+                _menuAuxRoot = null;
+                _menuActive = true;
+                _menuSettled = false;
+                _menuLastSig = "";
+                System.Threading.Interlocked.Exchange(ref _menuDirty, 0);
+                int menuGen = ++_menuGeneration;
+                _logger.Info($"[MENU] opened — exe={ForegroundExe()} name='{name}' ct={ct} menuHwnd={menuHwnd} → settling (menuGen={menuGen}, chainGen→{_chainGeneration})");
+                MenuSettleReconcile(sender, menuGen);
+            }
+            else // MenuClosed
+            {
+                _logger.Info($"[MENU] closed (menuActive={_menuActive})");
+                if (_menuActive)
+                {
+                    _menuActive = false;
+                    _menuSettled = false;
+                    _menuGeneration++;          // stop any running settle loop / supersede events
+                    _menuRoot = null;
+                    _menuAuxRoot = null;
+                    _menuLabels.Clear();        // fresh labels for the next menu session
+                    _menuNextLabel = 0;
+                    _menuLastSig = "";
+                    // Resume: re-hint the foreground app (the menu is gone). The window watch stays.
+                    _chainOriginPid = GetForegroundPid();
+                    ChainReScanReconcile(++_chainGeneration);
+                }
+            }
+        }
+
+        // PROTOTYPE #77 (change #3): INITIAL settle only — poll the menu's OWN subtree until items
+        // appear and stabilize (fixes the hwnd-less-flyout race where MenuOpened fires before item
+        // peers populate). Once settled, hands off to the EVENT-DRIVEN watch (change #5): no more
+        // polling — StructureChanged + PropertyChanged drive subsequent re-hints. Bails when
+        // superseded (menuGen), disposed, the menu closed, or the user filters.
+        private async void MenuSettleReconcile(IUIAutomationElement menu, int menuGen)
+        {
+            int stableStreak = 0;
+            try
+            {
+                for (int attempt = 1; attempt <= MenuSettleMaxAttempts; attempt++)
+                {
+                    if (_disposed || menuGen != _menuGeneration || !_menuActive) return;
+                    if (!string.IsNullOrEmpty(_stateManager.FilterText))
+                    {
+                        _logger.Info($"[MENU] settle stop — user is typing a filter (menuGen={menuGen})");
+                        return;
+                    }
+
+                    var hints = BuildMenuHintsViaContainers(out int count, out string sig, out _);
+                    if (_disposed || menuGen != _menuGeneration || !_menuActive) return;
+
+                    if (hints.Count > 0)
+                    {
+                        bool changed = sig != _menuLastSig;
+                        if (changed)
+                        {
+                            if (_stateManager.CurrentMode == HintMode.Inactive)
+                                _stateManager.Activate(HintSource.ForegroundWindow);
+                            _overlay.EnsureTopmost();
+                            _stateManager.SetHints(hints);
+                            _menuLastSig = sig;
+                        }
+                        _logger.Debug($"[MENU] settle poll #{attempt} — containers→{count}, shown={hints.Count}, changed={changed}");
+
+                        if (!changed)
+                        {
+                            if (++stableStreak >= MenuSettleStableStreak)
+                            {
+                                _menuSettled = true;
+                                _logger.Info($"[MENU] settled at {hints.Count} items after {attempt} polls — handing off to EVENT watch (menuGen={menuGen})");
+                                return;
+                            }
+                        }
+                        else { stableStreak = 0; }
+                    }
+                    else
+                    {
+                        _logger.Debug($"[MENU] settle poll #{attempt} — empty, waiting for items to populate");
+                    }
+
+                    await System.Threading.Tasks.Task.Delay(MenuSettlePollMs).ConfigureAwait(true);
+                }
+                // Never fully stabilized within the budget — hand off to events anyway (they may
+                // still fire as the menu changes). Mark settled so event rescans are honored.
+                _menuSettled = true;
+                _logger.Info($"[MENU] settle budget reached — handing off to EVENT watch (menuGen={menuGen})");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("[MENU] settle loop error", ex);
+            }
+        }
+
+        // PROTOTYPE #77 (change #7): scan each root's subtree (+ any expanded item's subtree) and
+        // reconcile into the session-labeled hint list. Roots = the menu element and, when a submenu
+        // opened elsewhere, the event sender. Shared by settle and the event-driven watch.
+        private List<HintItem> BuildMenuHints(IReadOnlyList<IUIAutomationElement> roots, out int baseCount, out int subCount, out string sig, out HashSet<string> seen)
+        {
+            baseCount = 0; subCount = 0;
+            var hints = new List<HintItem>();
+            seen = new HashSet<string>();
+
+            foreach (var root in roots)
+            {
+                if (root == null) continue;
+                IReadOnlyList<Services.ClickableElement> baseEls;
+                try { baseEls = _uiaService.FindClickableElements(root); }
+                catch (Exception ex) { _logger.Warning($"[MENU] scan failed: {ex.GetType().Name}: {ex.Message}"); baseEls = System.Array.Empty<Services.ClickableElement>(); }
+                baseCount += baseEls.Count;
+                ReconcileMenuInto(baseEls, hints, seen);
+
+                // If any item is Expanded, also merge its own subtree (submenu items may attach there).
+                foreach (var e in baseEls)
+                {
+                    if (!IsExpanded(e.Element)) continue;
+                    IReadOnlyList<Services.ClickableElement> subEls;
+                    try { subEls = _uiaService.FindClickableElements(e.Element); }
+                    catch { subEls = System.Array.Empty<Services.ClickableElement>(); }
+                    subCount += subEls.Count;
+                    ReconcileMenuInto(subEls, hints, seen);
+                }
+            }
+
+            sig = string.Join("|", seen.OrderBy(x => x, StringComparer.Ordinal));
+            return hints;
+        }
+
+        private void ReconcileMenuInto(IReadOnlyList<Services.ClickableElement> els, List<HintItem> hints, HashSet<string> seen)
+        {
+            foreach (var e in els)
+            {
+                string? rid = RuntimeIdKey(e.Element);
+                if (rid == null || !seen.Add(rid)) continue;
+                if (!_menuLabels.TryGetValue(rid, out var label))
+                {
+                    if (_menuLabelPool.Length == 0) _menuLabelPool = LabelGenerator.Generate(ChainReconcileLabelPool);
+                    if (_menuNextLabel >= _menuLabelPool.Length) continue;
+                    label = _menuLabelPool[_menuNextLabel++];
+                    _menuLabels[rid] = label;
+                }
+                hints.Add(new HintItem { Rect = e.Bounds, Element = e.Element, Label = label, CurrentOpacity = 1.0f, TargetOpacity = 1.0f });
+            }
+        }
+
+        // ── PROTOTYPE #77 (change #8): ExpandCollapse-on-MenuItem menu watch ───
+        // Distilled to the one clean signal: a MenuItem's ExpandCollapse → Expanded means a menu or
+        // submenu just opened (fires for BOTH the menubar item AND submenu parents — the case
+        // MenuOpened misses). Subscribe ONLY PropertyChanged[ExpandCollapse] on the foreground window
+        // subtree (dropped StructureChanged — firehose/pollution — and IsEnabled). MenuOpened+settle
+        // still handles the INITIAL open (populates + gives the menu root); ExpandCollapse catches
+        // in-place submenus. Events just flag dirty (cheap, UIA thread); the tick does the rescan.
+        private void SubscribeWindowWatch()
+        {
+            try
+            {
+                if (_watchedMenu != null) return; // already subscribed this session
+                var hwnd = _windowManager.GetForegroundWindow();
+                if (!_windowManager.IsWindowValid(hwnd)) { _logger.Debug("[MENU][evt] no valid foreground window to watch"); return; }
+                IUIAutomationElement? win = null;
+                try { win = _menuUia.ElementFromHandle(hwnd); }
+                catch (Exception ex) { _logger.Debug($"[MENU][evt] ElementFromHandle: {ex.Message}"); }
+                if (win == null) return;
+                _watchedMenu = win;
+
+                _mecExpand = 0;
+                _menuEvtDetailBudget = 200; // generous for the Notepad/VSCode diagnostic drive
+                _menuEvtTick = 0;
+                System.Threading.Interlocked.Exchange(ref _menuDirty, 0);
+                _menuPropHandler = new PropertyChangedHandler((s, pid, val) => OnMenuWatchProperty(s, pid, val));
+                _menuUia.AddPropertyChangedEventHandler(win, TreeScope.TreeScope_Subtree, null, _menuPropHandler,
+                    new int[] { UIA_PropertyIds.UIA_ExpandCollapseExpandCollapseStatePropertyId });
+                // Single coalescing tick — the ONLY thing that touches the UI thread. Events just flag
+                // dirty (cheap, on the UIA thread); this drives at most one rescan per ~120ms.
+                _menuEvtTimer = new System.Threading.Timer(_ => MenuWatchTick(), null, MenuEventDebounceMs, MenuEventDebounceMs);
+                _logger.Info($"[MENU][evt] window watch subscribed (exe={ForegroundExe()}, hwnd={hwnd}) — PropertyChanged[ExpandCollapse] on MenuItems, TreeScope_Subtree");
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning($"[MENU][evt] window watch subscribe failed: {ex.GetType().Name}: {ex.Message}");
+                UnsubscribeWindowWatch();
+            }
+        }
+
+        private void UnsubscribeWindowWatch()
+        {
+            try { _menuEvtTimer?.Dispose(); } catch { }
+            _menuEvtTimer = null;
+            var target = _watchedMenu;
+            if (target != null)
+            {
+                try { if (_menuPropHandler != null) _menuUia.RemovePropertyChangedEventHandler(target, _menuPropHandler); }
+                catch (Exception ex) { _logger.Debug($"[MENU][evt] remove property handler: {ex.Message}"); }
+            }
+            _menuPropHandler = null; _watchedMenu = null; _menuRoot = null; _menuAuxRoot = null;
+        }
+
+        // A chain session is live (hints showing, or a commit within the grace window). Menus/submenus
+        // are hinted only during a session — but NOT gated on _menuActive, so ExpandCollapse can START
+        // the menu hinting even when no MenuOpened fired (the VS-submenu-via-commit case).
+        private bool IsSessionLive()
+        {
+            try
+            {
+                return _stateManager.CurrentMode != HintMode.Inactive
+                    || (DateTime.UtcNow - _lastCommitUtc).TotalMilliseconds < MenuCommitGraceMs;
+            }
+            catch { return false; }
+        }
+
+        // COM worker thread — ONLY cheap, non-blocking work: filter to a MenuItem, stash the sender,
+        // flag dirty. No BeginInvoke here (that per-event flood hung the UI thread); the tick rescans.
+        private void OnMenuWatchProperty(IUIAutomationElement sender, int propertyId, object newValue)
+        {
+            if (_disposed) return;
+            if (propertyId != UIA_PropertyIds.UIA_ExpandCollapseExpandCollapseStatePropertyId) return;
+            if (!IsSessionLive()) return; // only during a chain session (NOT gated on _menuActive)
+
+            // Log EVERY ExpandCollapse (with control type) BEFORE filtering — so we can see what
+            // Notepad/VSCode senders look like even when they aren't UIA MenuItems.
+            int ctRaw = -1; try { ctRaw = sender.CurrentControlType; } catch { }
+            int ctLog = ctRaw;
+            MenuEvtDetail(() => { string n = ""; try { n = sender?.CurrentName ?? ""; } catch { } return $"[MENU][evt] ExpandCollapse={FormatEventValue(newValue)} ct={ctLog} on '{n}'"; });
+
+            // Filter to MENU-related elements: the watch also hears ExpandCollapse from non-menu
+            // widgets (e.g. VS toolbar dropdowns). Native menu bars use Buttons for File/Edit, so we
+            // accept a Menu/MenuBar/MenuItem OR anything with a Menu/MenuBar ancestor (change #9).
+            if (!IsMenuRelated(sender)) return;
+            System.Threading.Interlocked.Increment(ref _mecExpand);
+            System.Threading.Interlocked.Exchange(ref _menuDirty, 1);
+        }
+
+        private void MenuEvtDetail(Func<string> msg)
+        {
+            if (System.Threading.Interlocked.Decrement(ref _menuEvtDetailBudget) < 0) return;
+            try { lock (_menuEvtLock) { _logger.Info(msg()); } } catch { }
+        }
+
+        // Threadpool tick (~120ms): flush counts each ~1s, and — the ONLY UI-thread hop — do at most
+        // ONE coalesced rescan when events have flagged dirty. This is what fixes the AppHang.
+        private void MenuWatchTick()
+        {
+            if (_disposed) return;
+            if ((++_menuEvtTick % 8) == 0)
+            {
+                long ex = System.Threading.Interlocked.Exchange(ref _mecExpand, 0);
+                if (ex != 0) _logger.Info($"[MENU][evt] ~1s — ExpandCollapse(MenuItem)={ex}");
+            }
+
+            if (_menuDirty != 1) return;
+            if (!IsSessionLive()) { System.Threading.Interlocked.Exchange(ref _menuDirty, 0); return; } // stale; drop
+            System.Threading.Interlocked.Exchange(ref _menuDirty, 0);
+            try { _overlay.BeginInvoke(() => EnsureMenuAndRescan("expand")); }
+            catch (ObjectDisposedException) { }
+            catch (InvalidOperationException) { }
+        }
+
+        // UI thread: an ExpandCollapse flagged a menu/submenu open. Establish the menu session if
+        // needed (superseding the foreground reconcile so it can't hint the whole window), then
+        // rescan via the menu CONTAINERS in the window (change #9 — framework-agnostic).
+        private void EnsureMenuAndRescan(string reason)
+        {
+            if (_disposed || !IsSessionLive()) return;
+            if (!_menuActive)
+            {
+                _menuActive = true;
+                _chainGeneration++;   // supersede any in-flight foreground reconcile (whole-window scan)
+                _menuLabels.Clear(); _menuNextLabel = 0;
+                _menuLastSig = "";
+                _logger.Info($"[MENU][evt] menu session started from ExpandCollapse (exe={ForegroundExe()}, {reason})");
+            }
+            _menuSettled = true;      // the menu is already open — no poll-settle needed
+            DoMenuRescan(_menuGeneration, reason);
+        }
+
+        // Walk up to the outermost Menu/MenuBar ancestor so a scan gets the whole open menu chain.
+        private IUIAutomationElement FindMenuRoot(IUIAutomationElement el)
+        {
+            try
+            {
+                var walker = _menuUia.ControlViewWalker;
+                var cur = el;
+                var best = el;
+                for (int i = 0; i < 8 && cur != null; i++)
+                {
+                    int ct; try { ct = cur.CurrentControlType; } catch { break; }
+                    if (ct == 50009 || ct == 50010) best = cur; // Menu / MenuBar → candidate root
+                    if (ct == 50032) break;                     // Window → stop
+                    var parent = walker.GetParentElement(cur);
+                    if (parent == null) break;
+                    cur = parent;
+                }
+                return best;
+            }
+            catch { return el; }
+        }
+
+        private static string FormatEventValue(object v)
+        {
+            try
+            {
+                if (v is double[] r && r.Length == 4) return $"[{r[0]:0},{r[1]:0},{r[2]:0},{r[3]:0}]";
+                return v?.ToString() ?? "null";
+            }
+            catch { return "?"; }
+        }
+
+        // UI thread (posted at most once per tick). Rescan via the menu CONTAINERS in the window
+        // (change #9): everything clickable inside a Menu/MenuBar, regardless of item control type.
+        private void DoMenuRescan(int menuGen, string reason)
+        {
+            if (_disposed || menuGen != _menuGeneration || !_menuActive) return;
+            if (!_menuSettled) { _logger.Debug($"[MENU][evt] rescan deferred (not settled) ({reason})"); return; }
+            if (!string.IsNullOrEmpty(_stateManager.FilterText)) { _logger.Debug($"[MENU][evt] rescan skipped — filtering ({reason})"); return; }
+
+            var hints = BuildMenuHintsViaContainers(out int count, out string sig, out _);
+            if (_disposed || menuGen != _menuGeneration || !_menuActive) return;
+            if (hints.Count == 0)
+            {
+                // No menu containers → menu is gone. End the session and resume normal chaining.
+                _logger.Info($"[MENU][evt] rescan ({reason}) → 0 items — ending menu session, resuming foreground");
+                _menuActive = false;
+                _menuGeneration++;
+                _menuLabels.Clear(); _menuNextLabel = 0; _menuLastSig = "";
+                _chainOriginPid = GetForegroundPid();
+                ChainReScanReconcile(++_chainGeneration);
+                return;
+            }
+            if (sig == _menuLastSig) { _logger.Debug($"[MENU][evt] rescan ({reason}) — unchanged"); return; }
+
+            _menuLastSig = sig;
+            if (_stateManager.CurrentMode == HintMode.Inactive) _stateManager.Activate(HintSource.ForegroundWindow);
+            _overlay.EnsureTopmost();
+            _stateManager.SetHints(hints);
+            _logger.Info($"[MENU][evt] rescan ({reason}) → {hints.Count} items (containers→{count}) (menuGen={menuGen})");
+        }
+
+        // Scan the watched window's Menu/MenuBar containers → all clickable items inside them.
+        private List<HintItem> BuildMenuHintsViaContainers(out int count, out string sig, out HashSet<string> seen)
+        {
+            seen = new HashSet<string>();
+            var hints = new List<HintItem>();
+            IReadOnlyList<Services.ClickableElement> els = _watchedMenu != null
+                ? _uiaService.FindMenuClickableElements(_watchedMenu)
+                : System.Array.Empty<Services.ClickableElement>();
+            ReconcileMenuInto(els, hints, seen);
+            count = els.Count;
+            sig = string.Join("|", seen.OrderBy(x => x, StringComparer.Ordinal));
+            return hints;
+        }
+
+        // Is this element part of a menu — a Menu/MenuBar/MenuItem itself, OR (native menu bars use
+        // Buttons for File/Edit) an element with a Menu/MenuBar ancestor within a few levels.
+        private bool IsMenuRelated(IUIAutomationElement? el)
+        {
+            if (el == null) return false;
+            if (IsMenuElement(el)) return true;
+            try
+            {
+                var walker = _menuUia.ControlViewWalker;
+                var cur = walker.GetParentElement(el);
+                for (int i = 0; i < 6 && cur != null; i++)
+                {
+                    int ct; try { ct = cur.CurrentControlType; } catch { break; }
+                    if (ct == 50009 || ct == 50010) return true; // Menu / MenuBar ancestor
+                    if (ct == 50032) break;                       // Window → stop
+                    cur = walker.GetParentElement(cur);
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        // PROTOTYPE #77 (change #7): is this element part of a menu (a submenu parent, not a toolbar
+        // dropdown)? Menu=50009, MenuBar=50010, MenuItem=50011. Fails closed (false) on any error.
+        private static bool IsMenuElement(IUIAutomationElement? el)
+        {
+            if (el == null) return false;
+            try
+            {
+                int ct = el.CurrentControlType;
+                return ct == 50009 || ct == 50010 || ct == 50011;
+            }
+            catch { return false; }
+        }
+
+        // PROTOTYPE #77 (change #4): live-read the ExpandCollapse state; Expanded means this menu
+        // item's submenu is currently open. Fails closed (false) on any error.
+        private static bool IsExpanded(IUIAutomationElement el)
+        {
+            try
+            {
+                var v = el.GetCurrentPropertyValue(UIA_PropertyIds.UIA_ExpandCollapseExpandCollapseStatePropertyId);
+                return v is int state && state == 1; // ExpandCollapseState_Expanded
+            }
+            catch { return false; }
+        }
+
+        private static int NativeWindowHandle(IUIAutomationElement? element)
+        {
+            if (element == null) return 0;
+            try
+            {
+                var v = element.GetCurrentPropertyValue(UIA_PropertyIds.UIA_NativeWindowHandlePropertyId);
+                return v is int i ? i : 0;
+            }
+            catch { return 0; }
         }
 
         private void OnPreferencesRequested(object? sender, EventArgs e)
@@ -977,6 +1603,8 @@ namespace WindowsHinting
             _autoHideTimer.Dispose();
             // PROTOTYPE #73/D: progressive-reconcile holds no timers/COM to tear down;
             // the generation guard + _disposed short-circuit any in-flight reconcile loop.
+            try { UnsubscribeWindowWatch(); } catch { }            // PROTOTYPE #77 change #7
+            try { _menuUia?.RemoveAllEventHandlers(); } catch { } // PROTOTYPE #77
             //_namedPipeService.Dispose();
             _keyboardService.Stop();
             _updateService.Dispose();
