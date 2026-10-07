@@ -101,6 +101,28 @@ re-read cleanly with correct new geometry.
 - The large raw counts (613 STRUCT / 476 BRECT) are dominated by **out-of-scope transient
   surfaces** (drag visuals, context menus, tooltips), not taskbar content.
 
+### Transient HOVER surfaces also fire — must be filtered by identity, not just debounced
+
+Merely moving the mouse over the taskbar/tray generates structure events on the *same* parents
+we subscribe to, with **no content change at all**:
+- **Hover a tray icon → a `ToolTip` appears/disappears**: `ChildAdded`/`ChildRemoved`,
+  controlType `50022` (`UIA_ToolTipControlTypeId`), on the `TaskbarFrameAutomationPeer`
+  (20 such fires in run 1). Start/Search/Task View hover tooltips look the same.
+- **Hover a taskbar app button → the window-preview thumbnail** appears as an
+  `Xaml_WindowedPopupClass` / `PopupHost` / `PopupRoot` windowed popup — the **same class
+  family** as the right-click context-menu flyout, so it can't be told apart by *where* it
+  fires, only by *what* it is.
+
+Implication for Probe 2a: a timing debounce alone is not enough — these fire on bare hover and
+would trigger needless re-reads (and worse, the overlay itself may sit over the taskbar and
+provoke hovers). The reconcile must **filter structure/geometry events by sender identity**:
+react only when the sender is a real content element — `Taskbar.TaskListButtonAutomationPeer`
+(app row) or a `SystemTray.*Button` (tray) — or one of the container panes
+(`MSTaskSwWClass` / `TrayNotifyWnd` / `Shell_TrayWnd`). **Ignore** senders of controlType
+ToolTip (50022), Menu/MenuItem (50009/50011), and class `Xaml_WindowedPopupClass` / `PopupRoot`
+/ `PopupHost` / `DragVisualWnd` — those are transient overlays owned by maps #44/#72, never
+persistent-overlay content.
+
 ---
 
 ## Verdict / off-ramp call
@@ -125,9 +147,13 @@ So:
    `TrayNotifyWnd` / `Shell_TrayWnd`), **and** `SystemEvents.DisplaySettingsChanged`.
 2. **React with**: a debounced **full re-enumerate + re-read of child bounds**, then reconcile
    overlays **by RuntimeId** (reuse, move, add, remove). Not an event-follow.
-3. **Debounce is load-bearing**: dedup the 2–4× duplicate structure fires; swallow the
-   `DragVisualWnd` BRECT flood; wait out the ~400–600 ms display-settle lag before the
-   re-read on gate E.
+3. **Filter by sender identity, then debounce** (see "Transient HOVER surfaces" above):
+   react only to real content senders (`TaskListButtonAutomationPeer`, `SystemTray.*Button`)
+   or the container panes; **ignore** ToolTip (50022), Menu/MenuItem (50009/50011), and
+   `Xaml_WindowedPopupClass`/`PopupRoot`/`PopupHost`/`DragVisualWnd` — bare hover alone raises
+   ToolTip + window-preview events on the subscribed parents. Then dedup the 2–4× duplicate
+   structure fires, swallow the `DragVisualWnd` BRECT flood, and wait out the ~400–600 ms
+   display-settle lag before the gate-E re-read.
 4. Subscribe `Subtree` on `Shell_TrayWnd` once per signal (blankets both parents cleanly);
    MTA thread + cache request (per #48/#82) as this probe did.
 
