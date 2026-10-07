@@ -133,9 +133,18 @@ namespace WindowsHinting
         private const int ExpandCollapse_Expanded = 1;
         private const int ExpandCollapse_PartiallyExpanded = 2;
         private const int MenuBarLabelPoolSize = 400;
-        private IUIAutomationCacheRequest? _menuBarCache;          // bounds + ExpandCollapseState + activation patterns
+        // Bounded-walk depth cap for the item scan: deep enough for bar → dropdown → open cascade
+        // (allowing a structural Pane/Group wrapper at each level), shallow enough that an unbounded
+        // Descendants over-collect (VS: everything nested under one MenuBar) can't recur without limit.
+        private const int MenuWalkMaxDepth = 6;
+        // Fixed delay after an expandable press before the re-hint settle loop begins (lets slow openers
+        // like Visual Studio populate the dropdown + flip the parent to Expanded first). Tunable.
+        private const int MenuBarRehintFloorMs = 500;
+        private IUIAutomationCacheRequest? _menuBarCache;          // bounds + ExpandCollapseState + activation patterns (Element scope)
+        private IUIAutomationCacheRequest? _menuBarSubtreeCache;   // same props, Subtree scope — one BuildUpdatedCache per container, walked in-process
         private IUIAutomationCondition? _menuBarItemCondition;     // menu-ish clickable control types, enabled + onscreen
         private IUIAutomationCondition? _menuBarContainerCondition;// MenuBar OR Menu
+        private IUIAutomationCondition? _menuBarTrueCondition;     // matches all children (bounded-walk traversal)
         private bool _menuBarActive;                              // a menubar auto-hint session is live
         private bool _menuBarSawExpansion;                       // at least one item has been expanded this session
         private bool _menuBarPressExpandable;                    // the just-pressed item supports ExpandCollapse (plan a re-hint)
@@ -1174,6 +1183,14 @@ namespace WindowsHinting
         // PROTOTYPE #73/D: stable identity for an element across reconcile scans.
         private static string? RuntimeIdKey(IUIAutomationElement element)
         {
+            // Prefer the CACHED runtime id (snapshot elements from the subtree walk carry it) so no
+            // cross-process call is made; fall back to a live GetRuntimeId for non-cached callers.
+            try
+            {
+                if (element.GetCachedPropertyValue(UIA_PropertyIds.UIA_RuntimeIdPropertyId) is int[] cached && cached.Length > 0)
+                    return string.Join(".", cached);
+            }
+            catch { /* property not in this element's cache — fall through to live */ }
             try
             {
                 var rid = element.GetRuntimeId();
@@ -1215,21 +1232,42 @@ namespace WindowsHinting
                 var onscreen = _menuUia.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false);
                 var statusAnd = _menuUia.CreateAndCondition(enabled, onscreen);
                 _menuBarItemCondition = _menuUia.CreateAndCondition(statusAnd, typeOr);
+                _menuBarTrueCondition = _menuUia.CreateTrueCondition();
+
+                void AddMenuBarCacheProps(IUIAutomationCacheRequest c)
+                {
+                    c.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+                    c.AddProperty(UIA_PropertyIds.UIA_ClickablePointPropertyId);
+                    c.AddProperty(UIA_PropertyIds.UIA_ControlTypePropertyId);
+                    c.AddProperty(UIA_PropertyIds.UIA_NamePropertyId);
+                    c.AddProperty(UIA_PropertyIds.UIA_RuntimeIdPropertyId);        // cached identity → in-process RuntimeIdKey
+                    c.AddProperty(UIA_PropertyIds.UIA_IsEnabledPropertyId);        // bounded walk reads these cached (was a FindAll condition before)
+                    c.AddProperty(UIA_PropertyIds.UIA_IsOffscreenPropertyId);
+                    c.AddProperty(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId);
+                    c.AddProperty(UIA_PropertyIds.UIA_ExpandCollapseExpandCollapseStatePropertyId); // the key signal
+                    c.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
+                    c.AddProperty(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId);
+                    c.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
+                    c.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
+                    c.AddPattern(UIA_PatternIds.UIA_LegacyIAccessiblePatternId);
+                }
 
                 var cache = _menuUia.CreateCacheRequest();
                 cache.TreeScope = TreeScope.TreeScope_Element;
-                cache.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
-                cache.AddProperty(UIA_PropertyIds.UIA_ClickablePointPropertyId);
-                cache.AddProperty(UIA_PropertyIds.UIA_ControlTypePropertyId);
-                cache.AddProperty(UIA_PropertyIds.UIA_NamePropertyId);
-                cache.AddProperty(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId);
-                cache.AddProperty(UIA_PropertyIds.UIA_ExpandCollapseExpandCollapseStatePropertyId); // the key signal
-                cache.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
-                cache.AddProperty(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId);
-                cache.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
-                cache.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
-                cache.AddPattern(UIA_PatternIds.UIA_LegacyIAccessiblePatternId);
+                AddMenuBarCacheProps(cache);
                 _menuBarCache = cache;
+
+                // Subtree cache for the item walk: ONE BuildUpdatedCache per container pulls its whole
+                // menu subtree (structure + EC state + display props) in a single cross-process round-trip,
+                // then WalkCachedMenuItems traverses GetCachedChildren entirely in-process (atomic snapshot,
+                // no per-node marshaling). TreeFilter is TrueCondition — the walk needs the structural nodes
+                // (Menu/Pane/Group) and their EC state to decide which branches are open.
+                var subtreeCache = _menuUia.CreateCacheRequest();
+                subtreeCache.TreeScope = TreeScope.TreeScope_Subtree;
+                subtreeCache.TreeFilter = _menuBarTrueCondition;
+                AddMenuBarCacheProps(subtreeCache);
+                _menuBarSubtreeCache = subtreeCache;
+
                 _logger.Info("[MENUBAR] cache request + conditions built");
             }
             catch (Exception ex)
@@ -1462,6 +1500,12 @@ namespace WindowsHinting
         {
             int gen = ++_menuBarGeneration; // supersede any prior in-flight rehint loop (one loop at a time)
             bool paintedAny = false;
+            // Fixed floor before the settle loop: some apps (Visual Studio) open a dropdown with a
+            // populate latency (~750 ms) and only THEN report the parent item Expanded — so the bounded
+            // walk (which descends only into open menus) finds nothing on the early polls. Waiting a
+            // beat lets the menu populate + flip to Expanded before the first rescan.
+            await System.Threading.Tasks.Task.Delay(MenuBarRehintFloorMs).ConfigureAwait(true);
+            if (_disposed || !_menuBarActive || gen != _menuBarGeneration) return;
             // Keep reconciling across a settle window: the bar paints immediately (attempt #1), and the
             // LATE-opening submenu is ADDED as it appears (progressive reconcile keeps bar labels stable).
             // We do NOT stop at the first paint — that was the bug where VS showed only the root menu.
@@ -1498,6 +1542,113 @@ namespace WindowsHinting
             catch (System.Runtime.InteropServices.COMException ex) { _logger.Warning($"[MENUBAR] FindFirst container failed: {ex.Message}"); return null; }
         }
 
+        // Depth-bounded replacement for a per-container TreeScope_Descendants item scan. Descendants
+        // over-collects on apps that nest every menu under a single MenuBar (Visual Studio): a deep
+        // cascade submenu that is merely POPULATED but not yet opened gets scooped, so the raw item
+        // count flickers (e.g. 61→33) and the debounce has to paper over it. This walk instead only
+        // DESCENDS through structural containers (Menu/MenuBar/Pane/Group) and through menu items whose
+        // dropdown is actually OPEN (Expanded/PartiallyExpanded) — so an unopened deep cascade is never
+        // reached, while a genuinely-open dropdown still is. Returns item-matching elements (caller owns
+        // each and must release any it doesn't keep); every non-collected node is released here.
+        //
+        // Navigation is LIVE per node (FindAllBuildCache Children), NOT a single BuildUpdatedCache(Subtree)
+        // snapshot. A one-shot subtree snapshot UNDER-POPULATES WPF menus (Visual Studio): when a deeper
+        // submenu is the active level, the provider realizes only that level, and the parent dropdown comes
+        // back from the snapshot with a single cached child (proven: cached kids=1 while Accessibility
+        // Insights shows 23). Live per-node navigation forces realization at each level, like an inspector.
+        // Cost stays low because we descend ONLY into open menus — the bar plus the 2-3 open levels, ~4
+        // FindAll calls per scan, not one per node. Per-node property caching (bounds/EC/RuntimeId) is kept.
+        private int _walkDropOffscreen, _walkDropDisabled, _walkItemTypes; // DIAGNOSTIC (temp, #79 up-case)
+        private List<IUIAutomationElement> CollectMenuItemsBounded(IUIAutomationElement root)
+        {
+            var outItems = new List<IUIAutomationElement>();
+            _walkDropOffscreen = _walkDropDisabled = _walkItemTypes = 0;
+            WalkMenuItems(root, 0, outItems);
+            return outItems;
+        }
+
+        private void WalkMenuItems(IUIAutomationElement node, int depth, List<IUIAutomationElement> outItems)
+        {
+            if (depth > MenuWalkMaxDepth || _menuBarTrueCondition == null || _menuBarCache == null) return;
+            IUIAutomationElementArray? kids = null;
+            try { kids = node.FindAllBuildCache(TreeScope.TreeScope_Children, _menuBarTrueCondition, _menuBarCache); } // LIVE — forces realization
+            catch (System.Runtime.InteropServices.COMException) { return; }
+            if (kids == null) return;
+            try
+            {
+                for (int i = 0; i < kids.Length; i++)
+                {
+                    var el = kids.GetElement(i);
+                    if (el == null) continue;
+                    bool keep = false;
+                    try
+                    {
+                        int ct = el.GetCachedPropertyValue(UIA_PropertyIds.UIA_ControlTypePropertyId) is int c ? c : 0;
+                        bool isItemType =
+                            ct == UIA_ControlTypeIds.UIA_MenuItemControlTypeId ||
+                            ct == UIA_ControlTypeIds.UIA_ButtonControlTypeId ||
+                            ct == UIA_ControlTypeIds.UIA_SplitButtonControlTypeId ||
+                            ct == UIA_ControlTypeIds.UIA_CheckBoxControlTypeId ||
+                            ct == UIA_ControlTypeIds.UIA_RadioButtonControlTypeId ||
+                            ct == UIA_ControlTypeIds.UIA_MenuControlTypeId;
+                        bool enabled = el.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsEnabledPropertyId) is bool en && en;
+                        bool onscreen = el.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsOffscreenPropertyId) is not bool off || !off;
+                        if (isItemType)
+                        {
+                            _walkItemTypes++;
+                            if (!enabled) _walkDropDisabled++;
+                            else if (!onscreen) _walkDropOffscreen++;
+                        }
+                        if (isItemType && enabled && onscreen) { outItems.Add(el); keep = true; }
+
+                        // Recurse through structural containers always, and through an item whose dropdown
+                        // is OPEN (ExpandCollapseState). PLUS: at the TOP level (depth 0 = the bar's direct
+                        // items) force one level of descent regardless of ec — VS's WPF main-menu never sets
+                        // ExpandCollapseState=Expanded on its bar items when the dropdown is open (proven:
+                        // File/Edit/… stay ec=0 while open), so an ec-only gate never opens the real menu.
+                        // The IsOffscreen=false item filter above then drops the CLOSED menus' items (their
+                        // children come back offscreen) and keeps the OPEN one's (onscreen). Deeper cascades
+                        // (depth>=1) stay ec-gated so transient unopened submenus aren't scooped — that was
+                        // the old TreeScope_Descendants over-collection (VS 61→33 flicker).
+                        bool structural =
+                            ct == UIA_ControlTypeIds.UIA_MenuControlTypeId ||
+                            ct == UIA_ControlTypeIds.UIA_MenuBarControlTypeId ||
+                            ct == UIA_ControlTypeIds.UIA_PaneControlTypeId ||
+                            ct == UIA_ControlTypeIds.UIA_GroupControlTypeId;
+                        int ec = el.GetCachedPropertyValue(UIA_PropertyIds.UIA_ExpandCollapseExpandCollapseStatePropertyId) is int s ? s : -1;
+                        bool open = ec == ExpandCollapse_Expanded || ec == ExpandCollapse_PartiallyExpanded;
+                        bool forceTopLevel = depth == 0 && isItemType; // bar items: ec unreliable, force one level
+                        bool descend = structural || open || forceTopLevel;
+                        // temp #79 up-case: reveal the tree the walk actually sees at the top levels.
+                        // RACE PROBE: read ExpandCollapseState LIVE (uncached) right next to the cached read.
+                        //   ecLive=1 while ec(cached)=0  → stale cache snapshot (the read-too-early race).
+                        //   ecLive=0 too                 → menu genuinely CLOSED at poll time (dismissed by our scan).
+                        // Also count children LIVE so we can see if the dropdown is realized at this instant.
+                        if (depth <= 2)
+                        {
+                            string nm = ""; try { nm = (el.GetCachedPropertyValue(UIA_PropertyIds.UIA_NamePropertyId) as string) ?? ""; } catch { }
+                            int ecLive = -1; try { ecLive = el.GetCurrentPropertyValue(UIA_PropertyIds.UIA_ExpandCollapseExpandCollapseStatePropertyId) is int sl ? sl : -1; } catch { }
+                            int liveKids = -1;
+                            try { var lk = el.FindAll(TreeScope.TreeScope_Children, _menuBarTrueCondition); liveKids = lk?.Length ?? -1; if (lk != null && System.Runtime.InteropServices.Marshal.IsComObject(lk)) System.Runtime.InteropServices.Marshal.ReleaseComObject(lk); } catch { }
+                            _logger.Info($"[MENUBAR] WALK d{depth} ct={ct} ecCached={ec} ecLive={ecLive} struct={structural} force={forceTopLevel} descend={descend} liveKids={liveKids} name='{nm}'");
+                        }
+                        if (depth < MenuWalkMaxDepth && descend)
+                            WalkMenuItems(el, depth + 1, outItems);
+                    }
+                    catch (System.Runtime.InteropServices.COMException) { }
+                    finally
+                    {
+                        if (!keep && el != null && System.Runtime.InteropServices.Marshal.IsComObject(el))
+                        { try { System.Runtime.InteropServices.Marshal.ReleaseComObject(el); } catch { } }
+                    }
+                }
+            }
+            finally
+            {
+                if (System.Runtime.InteropServices.Marshal.IsComObject(kids)) { try { System.Runtime.InteropServices.Marshal.ReleaseComObject(kids); } catch { } }
+            }
+        }
+
         // UI thread. Scan the current menu items and re-hint (stable labels by RuntimeId). Never paints
         // an empty overlay (keeps the session alive). Termination is decided by presses, not here.
         private void RescanMenuBarOnUi(string reason)
@@ -1521,7 +1672,6 @@ namespace WindowsHinting
             var windowRoots = new List<IUIAutomationElement>();
             var containerRoots = new List<IUIAutomationElement>();
             var containerArrays = new List<IUIAutomationElementArray>();
-            var itemArrays = new List<IUIAutomationElementArray>();
             try
             {
                 uint pid = _menuBarOriginPid != 0 ? _menuBarOriginPid : nowPid;
@@ -1537,6 +1687,7 @@ namespace WindowsHinting
                 try { topWindows = desktop.FindAllBuildCache(TreeScope.TreeScope_Children, pidCond, _menuBarCache); }
                 catch (System.Runtime.InteropServices.COMException ex) { _logger.Warning($"[MENUBAR] top-window FindAll failed: {ex.Message}"); return; }
                 int winCount = topWindows?.Length ?? 0;
+                _logger.Info($"[MENUBAR] DIAG topWindows count={winCount} for pid={pid}"); // temp #79 up-case
                 for (int w = 0; w < winCount; w++)
                 {
                     var win = topWindows!.GetElement(w);
@@ -1546,6 +1697,12 @@ namespace WindowsHinting
                     try { cs = win.FindAllBuildCache(TreeScope.TreeScope_Subtree, _menuBarContainerCondition, _menuBarCache); }
                     catch (System.Runtime.InteropServices.COMException ex) { _logger.Debug($"[MENUBAR] container FindAll failed: {ex.Message}"); continue; }
                     if (cs == null) continue;
+                    // temp #79 up-case: name/ct/classname of every top-level window + how many containers it holds.
+                    int wCt = 0; string wName = "?"; string wClass = "?";
+                    try { wCt = win.GetCachedPropertyValue(UIA_PropertyIds.UIA_ControlTypePropertyId) is int wc ? wc : 0; } catch { }
+                    try { wName = (win.GetCachedPropertyValue(UIA_PropertyIds.UIA_NamePropertyId) as string) ?? ""; } catch { }
+                    try { wClass = win.CurrentClassName ?? ""; } catch { }
+                    _logger.Info($"[MENUBAR] DIAG win[{w}] ct={wCt} class='{wClass}' name='{wName}' containers={cs.Length}");
                     containerArrays.Add(cs);
                     for (int c = 0; c < cs.Length; c++) { var cont = cs.GetElement(c); if (cont != null) containerRoots.Add(cont); }
                 }
@@ -1565,37 +1722,36 @@ namespace WindowsHinting
                 var seen = new HashSet<string>();
                 var candidateKeys = new List<string>();          // key aligned with hints[i] (per-item debounce)
                 var itemNames = new List<string>(); // DIAGNOSTIC (#78): names of hinted items
-                int cIdx = -1;
+                int totalItems = 0, dropNoRect = 0, dropEmptyRect = 0, dropDup = 0; // DIAGNOSTIC (#78): aggregated, reported on the summary line
+                int cDiag = -1;
                 foreach (var container in containerRoots)
                 {
-                    cIdx++;
+                    // Depth-bounded walk (not TreeScope_Descendants) — only descends into OPEN menus, so
+                    // transient deep cascades (VS over-collect) are never scooped. Each candidate is an
+                    // owned COM ref: transferred to a HintItem below, else released in the finally.
+                    var items = CollectMenuItemsBounded(container);
+                    totalItems += items.Count;
 
-                    // DIAGNOSTIC (#78): what container is this?
-                    int cCt = 0; string cName = "?";
-                    try { cCt = container.GetCachedPropertyValue(UIA_PropertyIds.UIA_ControlTypePropertyId) is int cc ? cc : 0; } catch { }
-                    try { cName = (container.GetCachedPropertyValue(UIA_PropertyIds.UIA_NamePropertyId) as string) ?? ""; } catch { }
+                    // DIAGNOSTIC (temp, #79 up-case): what each container contributed.
+                    cDiag++;
+                    int dCt = 0; string dName = "?"; int dEc = -2; int dKids = -1;
+                    try { dCt = container.GetCachedPropertyValue(UIA_PropertyIds.UIA_ControlTypePropertyId) is int cc ? cc : 0; } catch { }
+                    try { dName = (container.GetCachedPropertyValue(UIA_PropertyIds.UIA_NamePropertyId) as string) ?? ""; } catch { }
+                    try { if (container.GetCachedPropertyValue(UIA_PropertyIds.UIA_ExpandCollapseExpandCollapseStatePropertyId) is int es) dEc = es; } catch { }
+                    try { var snap = container.BuildUpdatedCache(_menuBarSubtreeCache); var kk = snap?.GetCachedChildren(); dKids = kk?.Length ?? -1; } catch { }
+                    _logger.Info($"[MENUBAR] container[{cDiag}] ct={dCt} name='{dName}' ec={dEc} directChildren={dKids} itemTypes={_walkItemTypes} dropOffscreen={_walkDropOffscreen} dropDisabled={_walkDropDisabled} walked={items.Count}");
 
-                    IUIAutomationElementArray? items = null;
-                    try { items = container.FindAllBuildCache(TreeScope.TreeScope_Descendants, _menuBarItemCondition, _menuBarCache); }
-                    catch (System.Runtime.InteropServices.COMException ex) { _logger.Debug($"[MENUBAR] item FindAll failed: {ex.Message}"); continue; }
-                    if (items == null) continue;
-                    itemArrays.Add(items);
-                    _logger.Debug($"[MENUBAR]   container[{cIdx}] ct={cCt} name='{cName}' descendantItems={items.Length}");
-
-                    for (int i = 0; i < items.Length; i++)
+                    foreach (var candidate in items)
                     {
-                        IUIAutomationElement? el = null;
+                        IUIAutomationElement? el = candidate;
                         try
                         {
-                            el = items.GetElement(i);
                             if (el == null) continue;
-                            // DIAGNOSTIC (#78): name for drop attribution
-                            string iName = "?"; try { iName = (el.GetCachedPropertyValue(UIA_PropertyIds.UIA_NamePropertyId) as string) ?? ""; } catch { }
                             if (el.GetCachedPropertyValue(UIA_PropertyIds.UIA_BoundingRectanglePropertyId) is not double[] r || r.Length != 4)
-                            { _logger.Debug($"[MENUBAR]     drop '{iName}' — no bounding rect"); continue; }
+                            { dropNoRect++; continue; }
                             var rect = new System.Drawing.Rectangle((int)r[0], (int)r[1], (int)r[2], (int)r[3]);
                             if (rect.Width <= 0 || rect.Height <= 0)
-                            { _logger.Debug($"[MENUBAR]     drop '{iName}' — empty rect ({r[0]},{r[1]},{r[2]},{r[3]})"); continue; }
+                            { dropEmptyRect++; continue; }
 
                             // Identity for stable labels + dedupe: prefer UIA RuntimeId, but some providers
                             // (e.g. Beyond Compare / Qt) return an EMPTY RuntimeId for every menu item —
@@ -1605,7 +1761,7 @@ namespace WindowsHinting
                             string key = !string.IsNullOrEmpty(rid)
                                 ? "r:" + rid
                                 : $"b:{rect.Left},{rect.Top},{rect.Width},{rect.Height}";
-                            if (!seen.Add(key)) { _logger.Debug($"[MENUBAR]     drop '{iName}' — duplicate key '{key}'"); continue; }
+                            if (!seen.Add(key)) { dropDup++; continue; }
                             if (!_menuBarLabels.TryGetValue(key, out var label))
                             {
                                 if (_menuBarNextLabel >= _menuBarLabelPool.Length) continue;
@@ -1642,7 +1798,7 @@ namespace WindowsHinting
                 }
                 _menuBarSeen = newSeen;
 
-                _logger.Info($"[MENUBAR] rescan ({reason}) exe={ForegroundExe()} containers={containerRoots.Count} scanned={hints.Count} shown={shown.Count} → [{string.Join(", ", itemNames)}]");
+                _logger.Info($"[MENUBAR] rescan ({reason}) exe={ForegroundExe()} containers={containerRoots.Count} raw={totalItems} scanned={hints.Count} shown={shown.Count} drops(rect={dropNoRect},empty={dropEmptyRect},dup={dropDup}) → [{string.Join(", ", itemNames)}]");
 
                 if (shown.Count == 0)
                 {
@@ -1676,8 +1832,6 @@ namespace WindowsHinting
             }
             finally
             {
-                foreach (var a in itemArrays)
-                    if (a != null && System.Runtime.InteropServices.Marshal.IsComObject(a)) { try { System.Runtime.InteropServices.Marshal.ReleaseComObject(a); } catch { } }
                 foreach (var cr in containerRoots)
                     if (cr != null && System.Runtime.InteropServices.Marshal.IsComObject(cr)) { try { System.Runtime.InteropServices.Marshal.ReleaseComObject(cr); } catch { } }
                 foreach (var ca in containerArrays)
