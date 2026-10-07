@@ -83,3 +83,9 @@ MonitorFromWindow
 MONITOR_FROM_FLAGS
 GetClassName
 EnumChildWindows
+
+// --- PROTOTYPE (#83, throwaway branch prototype/taskbar-overlay-probe) ---
+// AllocConsole/FreeConsole give the WinExe a live console for the taskbar
+// telemetry probe (TaskbarOverlayProbe). Remove with the probe.
+AllocConsole
+FreeConsole

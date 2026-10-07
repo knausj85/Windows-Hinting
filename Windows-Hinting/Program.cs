@@ -14,6 +14,15 @@ namespace WindowsHinting
         [STAThread]
         static void Main()
         {
+            // PROTOTYPE (#83, branch prototype/taskbar-overlay-probe): run the
+            // throwaway taskbar/tray event telemetry probe instead of the app.
+            // Branches before the single-instance mutex so it can run standalone.
+            if (Array.Exists(Environment.GetCommandLineArgs(), a =>
+                    a.Equals("--probe-taskbar", StringComparison.OrdinalIgnoreCase)))
+            {
+                TaskbarOverlayProbe.Run();
+                return;
+            }
 
             using (Mutex mutex = new Mutex(false, appGuid))
             {
