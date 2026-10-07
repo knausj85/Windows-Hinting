@@ -24,6 +24,15 @@ namespace WindowsHinting
                 return;
             }
 
+            // PROTOTYPE (#84): run the throwaway event-driven TRAY OVERLAY probe
+            // (Probe 2a) — reuses the real OverlayManager; no content poll.
+            if (Array.Exists(Environment.GetCommandLineArgs(), a =>
+                    a.Equals("--probe-tray-overlay", StringComparison.OrdinalIgnoreCase)))
+            {
+                TaskbarOverlayProbe2a.Run();
+                return;
+            }
+
             using (Mutex mutex = new Mutex(false, appGuid))
             {
                 if (!mutex.WaitOne(0, false))

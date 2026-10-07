@@ -33,6 +33,12 @@ namespace WindowsHinting.Forms
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public HintPosition HintPosition { get; set; } = HintPosition.UpperLeft;
 
+        // Multiplier on the label font size. Default 1.0 = unchanged app behaviour.
+        // Added for the taskbar-overlay prototype (#84) to make numbers readable;
+        // harmless to the real app at its default.
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public float FontScale { get; set; } = 1.0f;
+
         public OverlayForm(Screen screen, ILogger logger)
         {
             _screen = screen ?? throw new ArgumentNullException(nameof(screen));
@@ -129,7 +135,7 @@ namespace WindowsHinting.Forms
             // under PerMonitorV2).
             var baseFont = SystemFonts.CaptionFont;
             float dpi = DeviceDpi > 0 ? DeviceDpi : 96f;
-            float pixelSize = baseFont.SizeInPoints * dpi / 72f;
+            float pixelSize = baseFont.SizeInPoints * dpi / 72f * (FontScale > 0 ? FontScale : 1.0f);
             return new Font(baseFont.FontFamily, pixelSize, FontStyle.Bold, GraphicsUnit.Pixel);
         }
 
@@ -139,6 +145,12 @@ namespace WindowsHinting.Forms
             _font = CreateHintFont();
             oldFont.Dispose();
             Invalidate();
+        }
+
+        public void SetFontScale(float scale)
+        {
+            FontScale = scale;
+            RefreshHintFont();
         }
 
         public void SetFilterPrefix(string prefix)

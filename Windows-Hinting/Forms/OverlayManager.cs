@@ -161,6 +161,15 @@ namespace WindowsHinting.Forms
             }
         }
 
+        // Prototype knob (#84): scale label font for readability. Default 1.0 elsewhere.
+        public void ApplyFontScale(float scale)
+        {
+            foreach (var overlay in _overlays)
+            {
+                overlay.SetFontScale(scale);
+            }
+        }
+
         public void Dispose()
         {
             if (_disposed)
