@@ -806,15 +806,24 @@ namespace WindowsHinting
 
             _winEventProc = OnWinEvent; // pin against GC
 
+            // SCOPE (#84 iter 2026-10-08): hook PROCESS-WIDE on explorer.exe
+            // (idProcess=pid, idThread=0) rather than thread-scoped to the taskbar
+            // thread. The Task View toggle's MSAA events fire on the DESKTOP window
+            // (#32769 / WorkerW) — a DIFFERENT explorer thread than Shell_TrayWnd —
+            // so a taskbar-thread-scoped hook missed them, making last session's
+            // "did a WinEvent fire?" ambiguous. Both the tray and the desktop belong
+            // to explorer, so a process-wide hook covers every candidate thread while
+            // still excluding unrelated apps. OnWinEvent logs the source thread id so
+            // we can tell WHICH explorer thread the dependable signal rides.
             // Hook A: CREATE/DESTROY/SHOW/HIDE/REORDER (0x8000..0x8004) — add/remove +
             // the visibility-collapse case (Task View toggle, if it HIDEs the button).
             _winHookObj = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_REORDER,
-                IntPtr.Zero, _winEventProc, 0, tbThread, WINEVENT_OUTOFCONTEXT);
+                IntPtr.Zero, _winEventProc, pid, 0, WINEVENT_OUTOFCONTEXT);
             // Hook B: STATECHANGE (0x800A) — enabled/visible state flips.
             _winHookState = SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
-                IntPtr.Zero, _winEventProc, 0, tbThread, WINEVENT_OUTOFCONTEXT);
+                IntPtr.Zero, _winEventProc, pid, 0, WINEVENT_OUTOFCONTEXT);
 
-            Log($"Subscribed: WinEvents on taskbar thread {tbThread} (pid {pid}) — " +
+            Log($"Subscribed: WinEvents PROCESS-WIDE on explorer pid {pid} (taskbar thread {tbThread}) — " +
                 $"CREATE..REORDER hooked={_winHookObj != IntPtr.Zero}, STATECHANGE hooked={_winHookState != IntPtr.Zero}. " +
                 "Second pipeline for the UIA-StructureChanged-silent cases (e.g. Task View toggle).");
         }
@@ -835,8 +844,8 @@ namespace WindowsHinting
         {
             string cls = GetClassOf(hwnd);
             string name = WinEventName(ev);
-            Log($"  [winevent] {name} hwnd=0x{hwnd.ToInt64():X} {cls} obj={idObject} child={idChild}");
-            FlagReconcile($"WINEVENT {name} {cls}");
+            Log($"  [winevent] {name} thread={thread} hwnd=0x{hwnd.ToInt64():X} {cls} obj={idObject} child={idChild}");
+            FlagReconcile($"WINEVENT {name} {cls} t{thread}");
         }
 
         private static string GetClassOf(IntPtr hwnd)

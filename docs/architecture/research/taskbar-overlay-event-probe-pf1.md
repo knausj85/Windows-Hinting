@@ -164,3 +164,72 @@ A pure reposition with **no** add/remove and **no** container-width change — e
 neighbours — may move elements with **no** event at all. Not exercised here (gate F, rare/manual).
 If it proves real, the reconcile needs a low-frequency backstop re-read (the "event+backstop"
 option b) for that case only — still not the hot poll.
+
+---
+
+# Probe 2a / #84 results — event-triggered re-read reconcile (gates C + E) — 2026-10-08
+
+Probe `TaskbarOverlayProbe2a.cs` (`--probe-tray-overlay`), surface **extended to the whole
+taskbar + tray** (merges the 2a tray rung and the 2b app-row rung). Overlay reuses the real
+`OverlayManager`. Three event triggers, **no content poll**: (1) UIA `StructureChanged` +
+container `BoundingRectangle` on `Shell_TrayWnd`; (2) MSAA `SetWinEventHook`; (3)
+`RegNotifyChangeKeyValue` on `Explorer\Advanced`+`Search`. Reconcile = debounced full
+re-enumerate + re-read, diff by RuntimeId, double-pass (p1 immediate, p2 ~230 ms settle),
+~1815 ms settle cap, ~650 ms gate-E display-settle wait. Transcript
+`tray-overlay-20261008-152702.log` (next to the exe, throwaway).
+
+## Hook-scope fix this session
+
+The #83/`be4329d` WinEvent hook was **thread-scoped to the taskbar thread** and made last
+session's "did a WinEvent fire on the Task View toggle?" ambiguous. Changed to **process-wide
+on explorer** (`SetWinEventHook(..., pid, 0, ...)`) + log the source thread id. This separated
+**signal from noise**: the button add/remove rides `REORDER` on the legacy `ReBarWindow32`
+container on the **taskbar thread**; the `XamlExplorerHostIslandWindow`/`InputSite` flurry is
+Task View *opening* (the flyout) on **other** threads — not the button toggling.
+
+## REVERSAL of the `be4329d` "event-silent toggle" finding
+
+Last session reported the Settings-driven Task View button add/remove as *silent to BOTH UIA
+and WinEvents*. **With the current code it is not silent.** Across the session (43 real button
+transitions: 21 add, 22 remove):
+
+| Signal | Count | Detail |
+|---|---|---|
+| UIA `StructureChanged` **ChildrenInvalidated** on `Shell_TrayWnd'Taskbar'` | 44 (≥ every toggle) | pipeline 1 |
+| MSAA `WINEVENT REORDER` on **`ReBarWindow32`**, taskbar thread, obj=−4 | 41 (≈ every toggle) | pipeline 2 |
+| `REGNOTIFY Explorer\Advanced` | 35 | pipeline 3 |
+
+In the clean ~2.5 s-cadence run every `+1`/`−1` reconcile is preceded within ~50–200 ms by
+*both* the `ReBarWindow32` REORDER *and* the ChildrenInvalidated STRUCT. The three pipelines
+are **mutually redundant** on this case.
+
+## Gate C (add/remove) and gate E (display) — results
+
+- **Gate C** (app launch/close, Task View toggle, etc.): held. Re-reads 29–121 ms, converged,
+  no stale state (operator-confirmed). One `settle cap hit (1815 ms)` in ~5 min of hammering;
+  self-corrected.
+- **Gate E — resolution change**: clean. `DisplaySettingsChanged` → 650 ms settle →
+  `display-change(E)` reconcile, all icons repositioned, 34–50 ms.
+- **Gate E — taskbar auto-hide + alignment (Center↔Left)**: the map predicted these emit *no*
+  display signal and would need `EVENT_OBJECT_LOCATIONCHANGE`/backstop. Instead they came
+  through **`REGNOTIFY Explorer\Advanced` + the UIA structure pipeline** (one `+9/−9`
+  reshuffle on alignment). **Predicted gap closed by an existing trigger**, not left open.
+- **Gate E — primary-monitor scale change (PMv2 process)**: the DPI-change event **and**
+  `DisplaySettingsChanged` were both silent (reported `dpi=96` throughout — the known Windows
+  quirk that a *primary*-scale change does not broadcast to already-running PerMonitorV2
+  processes). The taskbar still rebuilt and the **UIA `structure/brect` pipeline caught it** —
+  slowest re-reads of the session (492–588 ms), converged, no stale.
+
+## Throughline → verdict input for #86
+
+**Every time the expected signal went silent, a redundant pipeline caught it**: toggle (all
+three fired) → auto-hide/alignment (display silent, **RegNotify** caught) → primary-scale
+(DPI + DisplaySettingsChanged silent, **UIA structure** caught). The **event-triggered full
+re-read reconcile holds the whole taskbar + tray glued through gates C + E with no content
+poll and no manual refresh**, and needed **no timeout backstop (option b)** for any case
+tested — the redundancy *is* the robustness.
+
+**Untested residuals** (→ #86 / build spec, not blockers): **cross-monitor DPI** (dragging
+between differently-scaled displays — needs a 2nd monitor); the gate-F pure-reposition case
+(labels/combine, no add/remove, no container-width change) from the #83 residual, still not
+exercised.
