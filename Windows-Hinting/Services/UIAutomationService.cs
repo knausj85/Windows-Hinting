@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using UIAutomationClient;
@@ -329,8 +328,8 @@ namespace WindowsHinting.Services
                     case RootStrategy.ActiveWindow:
                         return [root];
 
-                    //case RootStrategy.FileExplorerCustomStrategy:
-                    //    return ResolveFileExplorerActiveTab(root, windowTitle);
+                    case RootStrategy.FileExplorerCustomStrategy:
+                        return ResolveFileExplorerActiveTab(windowHandle, root);
 
                     case RootStrategy.SearchHostCustomStrategy:
                         {
@@ -373,80 +372,77 @@ namespace WindowsHinting.Services
             return [root];
         }
 
-        private static readonly Regex MoreTabsPattern = new(@"\s+and\s+\d+\s+more\s+tab.*", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        // Win11 File Explorer hosts each tab in a direct child window of this
+        // class. In the UIA tree each tab surfaces as a root child whose
+        // NativeWindowHandle equals that window's handle.
+        private const string ShellTabWindowClass = "ShellTabWindowClass";
 
         /// <summary>
-        /// For File Explorer with tabs, returns only the children that belong to the active tab
-        /// (matched by window title) plus any unnamed children (chrome elements like toolbars/address bar).
-        /// This avoids scanning the UIA subtrees of inactive tabs.
+        /// For File Explorer with tabs, returns the active tab's subtree plus the window
+        /// chrome, dropping the subtrees of inactive tabs (which Windows otherwise exposes
+        /// under the same root — issue #10). The active tab is identified by handle, not by
+        /// window title: each <see cref="ShellTabWindowClass"/> root child is matched against
+        /// the handle of the topmost such child window returned by <see cref="FindActiveExplorerTab"/>.
+        /// This is robust to tabs showing identically-named folders, unlike title matching.
         /// </summary>
-        private List<IUIAutomationElement> ResolveFileExplorerActiveTab(IUIAutomationElement root, string? windowTitle)
+        private List<IUIAutomationElement> ResolveFileExplorerActiveTab(IntPtr windowHandle, IUIAutomationElement root)
         {
             var targets = new List<IUIAutomationElement>();
             var walker = _automation.ControlViewWalker;
 
-            string activeTabName = "";
-            if (!string.IsNullOrEmpty(windowTitle))
-            {
-                activeTabName = windowTitle.Replace("- File Explorer", "").Trim();
-                activeTabName = MoreTabsPattern.Replace(activeTabName, "").Trim();
-            }
+            IntPtr activeTab = FindActiveExplorerTab(windowHandle);
+            _logger.Debug($"FileExplorerActiveTab: active tab hwnd = 0x{activeTab.ToInt64():X}");
 
-            _logger.Debug($"FileExplorerActiveTab: active tab name = \"{activeTabName}\"");
-
-            bool matchFound = false;
             var child = walker.GetFirstChildElement(root);
             while (child != null)
             {
                 // Get next sibling before we potentially release child
                 IUIAutomationElement? next = null;
-                try
+                try { next = walker.GetNextSiblingElement(child); }
+                catch (COMException) { }
+
+                // Keep everything except inactive-tab panes: a child is an inactive tab
+                // when it is a ShellTabWindowClass window whose handle is not the active
+                // one. The active tab pane and all non-tab chrome (title bar, toolbars,
+                // address bar) are kept. When no active tab handle is available (legacy
+                // tab-less Explorer), activeTab is 0 and every child is kept.
+                bool keep = true;
+                if (activeTab != IntPtr.Zero)
                 {
-                    next = walker.GetNextSiblingElement(child);
-                }
-                catch (COMException)
-                {
+                    string childClass;
+                    try { childClass = child.CurrentClassName ?? ""; } catch (COMException) { childClass = ""; }
 
-                }
-
-                //int controlType = 0;
-                //try
-                //{
-                //    controlType = child.CurrentControlType;
-                //}
-                //catch (COMException) { }
-
-                //bool isTabItem = controlType == UIA_ControlTypeIds.UIA_TabItemControlTypeId;
-
-                //if (!isTabItem)
-                //{
-
-                //    targets.Add(child);
-                //}
-                //else
-                {
-                    string childName;
-                    try { childName = child.CurrentName ?? ""; } catch (COMException) { childName = ""; }
-
-                    if (!matchFound
-                        && !string.IsNullOrEmpty(activeTabName)
-                        && childName.Trim().Equals(activeTabName, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(childClass, ShellTabWindowClass, StringComparison.Ordinal))
                     {
-                        _logger.Info($"FileExplorerActiveTab: matched active tab \"{childName}\"");
-                        targets.Add(child);
-                        matchFound = true;
+                        IntPtr childHandle;
+                        try { childHandle = child.CurrentNativeWindowHandle; } catch (COMException) { childHandle = IntPtr.Zero; }
+
+                        keep = childHandle == activeTab;
+                        _logger.Info(keep
+                            ? $"FileExplorerActiveTab: keeping active tab pane (hwnd=0x{childHandle.ToInt64():X})"
+                            : $"FileExplorerActiveTab: skipping inactive tab pane (hwnd=0x{childHandle.ToInt64():X})");
                     }
-                    else
-                    {
-                        _logger.Info($"FileExplorerActiveTab: skipping inactive tab \"{childName}\"");
-                        if (Marshal.IsComObject(child))
-                        {
-                            try { Marshal.ReleaseComObject(child); } catch { }
-                        }
-                    }
+                }
+
+                if (keep)
+                {
+                    targets.Add(child);
+                }
+                else if (Marshal.IsComObject(child))
+                {
+                    try { Marshal.ReleaseComObject(child); } catch { }
                 }
 
                 child = next;
+            }
+
+            _logger.Debug($"FileExplorerActiveTab: resolved {targets.Count} root(s), activeTab=0x{activeTab.ToInt64():X}");
+
+            if (targets.Count == 0)
+            {
+                // No children walked (unexpected) — can't reuse a released root, so keep
+                // the original root and let the caller scan the whole window.
+                return [root];
             }
 
             if (Marshal.IsComObject(root))
@@ -454,16 +450,26 @@ namespace WindowsHinting.Services
                 try { Marshal.ReleaseComObject(root); } catch { }
             }
 
-            _logger.Debug($"FileExplorerActiveTab: resolved {targets.Count} root(s) (matchFound={matchFound})");
-
-            if (targets.Count == 0)
-            {
-                _logger.Debug("FileExplorerActiveTab: no targets found, re-acquiring root");
-                // Can't reuse released root — return empty; caller handles gracefully
-                return targets;
-            }
-
             return targets;
+        }
+
+        /// <summary>
+        /// Returns the window handle of the active File Explorer tab, or <see cref="IntPtr.Zero"/>
+        /// for a tab-less (legacy) Explorer window. The active tab is hosted in the topmost
+        /// <see cref="ShellTabWindowClass"/> child window; <c>FindWindowEx</c> enumerates children
+        /// in z-order, so the first match is the active tab.
+        /// </summary>
+        /// <remarks>
+        /// The window-title argument MUST be <c>null</c> (match any), never an empty string: an
+        /// empty string filters for a window whose title is empty, which would exclude the tab
+        /// (its title is the current folder name).
+        /// </remarks>
+        private static IntPtr FindActiveExplorerTab(IntPtr windowHandle)
+        {
+            if (windowHandle == IntPtr.Zero)
+                return IntPtr.Zero;
+
+            return PInvoke.FindWindowEx((HWND)windowHandle, default, ShellTabWindowClass, null);
         }
 
         private static readonly string[] SearchHostTargetNames = { "Start", "Search" };
