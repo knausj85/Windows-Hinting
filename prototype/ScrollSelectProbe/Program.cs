@@ -40,7 +40,7 @@ internal static class Program
     private const int UIA_ScrollHorizontalScrollPercentPropertyId = 30053, UIA_ScrollHorizontalViewSizePropertyId = 30054;
     private const int UIA_ScrollVerticalScrollPercentPropertyId = 30055, UIA_ScrollVerticalViewSizePropertyId = 30056;
     private const int UIA_ScrollHorizontallyScrollablePropertyId = 30057, UIA_ScrollVerticallyScrollablePropertyId = 30058;
-    private const int UIA_ScrollBarControlTypeId = 50014, UIA_GroupControlTypeId = 50026;
+    private const int UIA_ScrollBarControlTypeId = 50014, UIA_GroupControlTypeId = 50026, UIA_TabControlTypeId = 50018, UIA_TreeControlTypeId = 50023, UIA_ListControlTypeId = 50008;
     private const double NoScroll = -1.0;
 
     private static UIA.IUIAutomation _com = null!;
@@ -283,9 +283,10 @@ internal static class Program
         foreach (var rg in list) if (rg.Sp is not null) paneRects.Add(rg.Rect);
         list.RemoveAll(rg => rg.Sp is null && rg.Rv is not null && OverlapsAny(rg.Rect, paneRects));
 
-        // Slack PWA exposes NO UIA scroll signal (#59), so the generic heuristic finds nothing there.
-        // Instead pick its panes by role/name and drive them with the aimed wheel. Numbered first.
-        if (IsSlack(hwnd)) list.InsertRange(0, CollectSlackPanes(winEl, winRect));
+        // Some apps expose NO (Slack, #59) or partial (VS Code sidebar) UIA scroll signal, so the generic
+        // heuristic misses their panes. Per-app queries pick them by role/name and drive them with the
+        // aimed wheel. Numbered first.
+        list.InsertRange(0, CollectAppPanes(hwnd, winEl, winRect));
 
         for (int i = 0; i < list.Count; i++) { list[i].Number = i + 1; list[i].Color = Palette[i % Palette.Length]; }
         return list;
@@ -333,7 +334,10 @@ internal static class Program
             // GitHub Desktop history rows are Group, 23px tall, v=100 h=51-74. Real horizontal scrollers
             // (tables, editors, panes) are tall. (Vertical overflow needs no such gate — the thin Monaco
             // editor is a legit vertical scroller.)
-            bool hOver = hS && hView < 99.5 && h >= 60;
+            // A Tab strip (VS Code `tabs-container`) is inherently a single-row horizontal scroller, so it
+            // is exempt from the row-height gate (~35px at 100% DPI). Group is NOT exempt — that's the
+            // GitHub Desktop truncation case.
+            bool hOver = hS && hView < 99.5 && (h >= 60 || ctl == UIA_TabControlTypeId);
             if (!(vOver || hOver)) continue;
             if (Math.Max(w, h) < 60) continue;              // long-dimension gate (Monaco editor is 637x24 — thin but long)
             // Accept a real scroll CONTAINER by type (List/Tree/etc.), OR any element with STRONG overflow
@@ -352,45 +356,85 @@ internal static class Program
         }
     }
 
-    // ---- Slack pane detection (app-specific; no UIA scroll signal) ---------
-    // Slack's web client names its view containers as UIA Groups: the left sidebar is a Group whose
-    // LocalizedControlType is "Sidebar" (class p-view_contents--sidebar, Name = workspace view e.g.
-    // "Home"); the primary/secondary views are Groups Named after what they show — "Channel <name>",
-    // "Thread …", "Huddles". Each becomes a wheel-driven region (no Sp/Rv), ordered left→right.
+    // ---- app-specific pane queries (apps with no/partial UIA scroll signal) --
+    // Each query = which window it applies to + a control type to FindAll + a classifier over the
+    // element's (Name, LocalizedControlType, ClassName) that returns a pane kind or null. Matches
+    // become wheel-driven regions (no Sp/Rv), numbered before the generic ones, ordered left→right.
+    // Elements that already expose a ScrollPattern are left to the generic heuristic (no duplicates).
+    // Prototype stand-in for the per-app profile layer's expected-regions section (E #67).
+    private sealed record AppQuery(string App, Func<IntPtr, bool> Matches, int[] ControlTypes, Func<string, string, string, string?> Classify);
+
     private static readonly string[] SlackPanePrefixes = { "Channel", "Thread", "Huddles" };
 
-    private static bool IsSlack(IntPtr hwnd) => Title(hwnd).Contains("Slack", StringComparison.OrdinalIgnoreCase);
+    private static readonly AppQuery[] AppQueries =
+    {
+        // Slack's web client names its view containers as UIA Groups: the left sidebar is a Group whose
+        // LocalizedControlType is "Sidebar" (class p-view_contents--sidebar, Name = workspace view e.g.
+        // "Home"); the primary/secondary views are Groups Named after what they show — "Channel <name>",
+        // "Thread …", "Huddles".
+        new("Slack", h => Title(h).Contains("Slack", StringComparison.OrdinalIgnoreCase), new[] { UIA_GroupControlTypeId },
+            (name, lct, cls) =>
+            {
+                if (lct.Equals("Sidebar", StringComparison.OrdinalIgnoreCase) || cls.Contains("p-view_contents--sidebar")) return "Sidebar";
+                foreach (var p in SlackPanePrefixes)
+                    if (name.StartsWith(p, StringComparison.OrdinalIgnoreCase)) return p;
+                return null;
+            }),
+        // VS Code's sidebar trees/lists (Explorer, Outline, Debug Console…) are `monaco-list` Trees/Lists
+        // whose scroll is smeared across their rows — no ScrollPattern on the container
+        // (microsoft/vscode#336483). Every Tree/List is a pane. Matched by process: VS Code's title is
+        // user-configurable.
+        new("VSCode", h => ProcessName(h).Equals("Code", StringComparison.OrdinalIgnoreCase), new[] { UIA_TreeControlTypeId, UIA_ListControlTypeId },
+            (name, lct, cls) => ""),
+    };
 
-    private static List<Region> CollectSlackPanes(UIA.IUIAutomationElement root, RECT winRect)
+    private static List<Region> CollectAppPanes(IntPtr hwnd, UIA.IUIAutomationElement root, RECT winRect)
     {
         var panes = new List<Region>();
-        UIA.IUIAutomationElementArray found;
-        try { found = root.FindAll(UIA.TreeScope.TreeScope_Subtree, _com.CreatePropertyCondition(UIA_ControlTypePropertyId, UIA_GroupControlTypeId)); }
-        catch { return panes; }
-        int n = found?.Length ?? 0;
-        for (int i = 0; i < n; i++)
+        foreach (var q in AppQueries)
         {
-            UIA.IUIAutomationElement el;
-            try { el = found!.GetElement(i); } catch { continue; }
-            string name = "", lct = "", cls = "";
-            try { name = el.CurrentName ?? ""; } catch { }
-            try { lct = el.CurrentLocalizedControlType ?? ""; } catch { }
-            try { cls = el.CurrentClassName ?? ""; } catch { }
+            if (!q.Matches(hwnd)) continue;
+            UIA.IUIAutomationElementArray found;
+            try { found = root.FindAll(UIA.TreeScope.TreeScope_Subtree, ControlTypeCondition(q.ControlTypes)); }
+            catch { continue; }
+            int n = found?.Length ?? 0;
+            for (int i = 0; i < n; i++)
+            {
+                UIA.IUIAutomationElement el;
+                try { el = found!.GetElement(i); } catch { continue; }
+                string name = "", lct = "", cls = "";
+                try { name = el.CurrentName ?? ""; } catch { }
+                try { lct = el.CurrentLocalizedControlType ?? ""; } catch { }
+                try { cls = el.CurrentClassName ?? ""; } catch { }
 
-            string? kind = null;
-            if (lct.Equals("Sidebar", StringComparison.OrdinalIgnoreCase) || cls.Contains("p-view_contents--sidebar")) kind = "Sidebar";
-            else foreach (var p in SlackPanePrefixes)
-                if (name.StartsWith(p, StringComparison.OrdinalIgnoreCase)) { kind = p; break; }
-            if (kind is null) continue;
+                string? kind = q.Classify(name, lct, cls);
+                if (kind is null) continue;
+                if (kind.Length == 0) { int ct = 0; try { ct = el.CurrentControlType; } catch { } kind = ControlTypeName(ct); } // "" = label by control type
+                if (GetBool(el, UIA_IsScrollPatternAvailablePropertyId)) continue; // generic heuristic owns it
 
-            RECT r = GetRect(el);
-            int w = r.right - r.left, h = r.bottom - r.top;
-            bool onScreen = w >= 60 && h >= 60 && r.left < winRect.right && r.right > winRect.left && r.top < winRect.bottom && r.bottom > winRect.top;
-            if (!onScreen) continue;
-            panes.Add(new Region { Rect = r, VScroll = true, PathLabel = $"Slack {kind} '{name}' (wheel)" });
+                // Virtualized lists report their full content height (Slack's channel Tree is 3421px), so
+                // clip to the window — the wheel aims at the rect center, which must be on-screen.
+                RECT r = GetRect(el);
+                r = new RECT { left = Math.Max(r.left, winRect.left), top = Math.Max(r.top, winRect.top), right = Math.Min(r.right, winRect.right), bottom = Math.Min(r.bottom, winRect.bottom) };
+                if (r.right - r.left < 60 || r.bottom - r.top < 60) continue; // off-screen or too small
+                panes.Add(new Region { Rect = r, VScroll = true, PathLabel = $"{q.App} {kind} '{name}' (wheel)" });
+            }
         }
         panes.Sort((a, b) => a.Rect.left.CompareTo(b.Rect.left));
         return panes;
+    }
+
+    private static UIA.IUIAutomationCondition ControlTypeCondition(int[] types)
+    {
+        UIA.IUIAutomationCondition c = _com.CreatePropertyCondition(UIA_ControlTypePropertyId, types[0]);
+        for (int i = 1; i < types.Length; i++) c = _com.CreateOrCondition(c, _com.CreatePropertyCondition(UIA_ControlTypePropertyId, types[i]));
+        return c;
+    }
+
+    private static string ProcessName(IntPtr hwnd)
+    {
+        try { GetWindowThreadProcessId(hwnd, out uint pid); using var p = Process.GetProcessById((int)pid); return p.ProcessName; }
+        catch { return ""; }
     }
 
     // ---- keyboard hook (active only in scroll mode) ------------------------
@@ -1220,8 +1264,8 @@ internal static class Program
     // ---- small helpers -----------------------------------------------------
     // Control types that are real scroll CONTAINERS (vs. buttons/rows/edits that merely
     // report scrollable). List 50008 · Tree 50023 · DataGrid 50028 · Table 50036 ·
-    // Document 50030 · Pane 50033 · Group 50026 · Custom 50025 · Window 50032.
-    private static readonly HashSet<int> ContainerCtls = new() { 50008, 50023, 50028, 50036, 50030, 50033, 50026, 50025, 50032 };
+    // Document 50030 · Pane 50033 · Group 50026 · Custom 50025 · Window 50032 · Tab 50018.
+    private static readonly HashSet<int> ContainerCtls = new() { 50008, 50023, 50028, 50036, 50030, 50033, 50026, 50025, 50032, 50018 };
     private static bool IsScrollContainer(int ctl) => ContainerCtls.Contains(ctl);
 
     // For wheel-escalation off a bare scrollbar: the bar's own center is the wrong wheel
@@ -1250,7 +1294,7 @@ internal static class Program
     {
         [50008] = "List", [50023] = "Tree", [50028] = "DataGrid", [50036] = "Table", [50030] = "Document",
         [50033] = "Pane", [50026] = "Group", [50025] = "Custom", [50032] = "Window", [50014] = "ScrollBar",
-        [50004] = "Edit", [50000] = "Button", [50011] = "MenuItem", [50007] = "ListItem", [50024] = "TreeItem",
+        [50004] = "Edit", [50000] = "Button", [50011] = "MenuItem", [50007] = "ListItem", [50024] = "TreeItem", [50018] = "Tab",
     };
     private static string ControlTypeName(int ctl) => CtlNames.TryGetValue(ctl, out var n) ? n : ctl.ToString();
 
