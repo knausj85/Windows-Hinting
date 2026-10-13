@@ -40,7 +40,7 @@ internal static class Program
     private const int UIA_ScrollHorizontalScrollPercentPropertyId = 30053, UIA_ScrollHorizontalViewSizePropertyId = 30054;
     private const int UIA_ScrollVerticalScrollPercentPropertyId = 30055, UIA_ScrollVerticalViewSizePropertyId = 30056;
     private const int UIA_ScrollHorizontallyScrollablePropertyId = 30057, UIA_ScrollVerticallyScrollablePropertyId = 30058;
-    private const int UIA_ScrollBarControlTypeId = 50014;
+    private const int UIA_ScrollBarControlTypeId = 50014, UIA_GroupControlTypeId = 50026;
     private const double NoScroll = -1.0;
 
     private static UIA.IUIAutomation _com = null!;
@@ -61,7 +61,12 @@ internal static class Program
         public UIA.IUIAutomationScrollPattern? Sp;
         public UIA.IUIAutomationRangeValuePattern? Rv;
         public bool VScroll, HScroll;
+        public bool IsBar;     // a ScrollBar region — aim the wheel at the content beside it, not the bar
     }
+
+    // Wheel aim rect: a scrollbar's own center is the wrong target, so aim beside it; every other
+    // region (ScrollPattern pane, or a signal-less app pane like Slack's) is aimed at its own center.
+    private static RECT AimRect(Region r) => r.IsBar ? ContentBesideBar(r.Rect) : r.Rect;
 
     private static readonly Color[] Palette =
     {
@@ -278,6 +283,10 @@ internal static class Program
         foreach (var rg in list) if (rg.Sp is not null) paneRects.Add(rg.Rect);
         list.RemoveAll(rg => rg.Sp is null && rg.Rv is not null && OverlapsAny(rg.Rect, paneRects));
 
+        // Slack PWA exposes NO UIA scroll signal (#59), so the generic heuristic finds nothing there.
+        // Instead pick its panes by role/name and drive them with the aimed wheel. Numbered first.
+        if (IsSlack(hwnd)) list.InsertRange(0, CollectSlackPanes(winEl, winRect));
+
         for (int i = 0; i < list.Count; i++) { list[i].Number = i + 1; list[i].Color = Palette[i % Palette.Length]; }
         return list;
     }
@@ -310,7 +319,7 @@ internal static class Program
                 var rv = Get<UIA.IUIAutomationRangeValuePattern>(el, UIA_RangeValuePatternId);
                 double mn = rv is null ? 0 : Try(() => rv.CurrentMinimum), mx = rv is null ? 0 : Try(() => rv.CurrentMaximum);
                 bool vBar = h >= w; // tall = vertical, wide = horizontal
-                list.Add(new Region { Rect = r, Rv = rv, VScroll = vBar, HScroll = !vBar, PathLabel = $"ScrollBar {(vBar ? "V" : "H")} ({mn:F0}..{mx:F0})" });
+                list.Add(new Region { Rect = r, Rv = rv, IsBar = true, VScroll = vBar, HScroll = !vBar, PathLabel = $"ScrollBar {(vBar ? "V" : "H")} ({mn:F0}..{mx:F0})" });
                 continue;
             }
 
@@ -341,6 +350,47 @@ internal static class Program
             if (!IsScrollContainer(ctl) && !strongOverflow) continue;
             list.Add(new Region { Rect = r, Sp = sp, VScroll = vOver, HScroll = hOver, PathLabel = $"ScrollPattern {(vOver ? "V" : "")}{(hOver ? "H" : "")} {ControlTypeName(ctl)} (viewSize v={vView:F0} h={hView:F0})" });
         }
+    }
+
+    // ---- Slack pane detection (app-specific; no UIA scroll signal) ---------
+    // Slack's web client names its view containers as UIA Groups: the left sidebar is a Group whose
+    // LocalizedControlType is "Sidebar" (class p-view_contents--sidebar, Name = workspace view e.g.
+    // "Home"); the primary/secondary views are Groups Named after what they show — "Channel <name>",
+    // "Thread …", "Huddles". Each becomes a wheel-driven region (no Sp/Rv), ordered left→right.
+    private static readonly string[] SlackPanePrefixes = { "Channel", "Thread", "Huddles" };
+
+    private static bool IsSlack(IntPtr hwnd) => Title(hwnd).Contains("Slack", StringComparison.OrdinalIgnoreCase);
+
+    private static List<Region> CollectSlackPanes(UIA.IUIAutomationElement root, RECT winRect)
+    {
+        var panes = new List<Region>();
+        UIA.IUIAutomationElementArray found;
+        try { found = root.FindAll(UIA.TreeScope.TreeScope_Subtree, _com.CreatePropertyCondition(UIA_ControlTypePropertyId, UIA_GroupControlTypeId)); }
+        catch { return panes; }
+        int n = found?.Length ?? 0;
+        for (int i = 0; i < n; i++)
+        {
+            UIA.IUIAutomationElement el;
+            try { el = found!.GetElement(i); } catch { continue; }
+            string name = "", lct = "", cls = "";
+            try { name = el.CurrentName ?? ""; } catch { }
+            try { lct = el.CurrentLocalizedControlType ?? ""; } catch { }
+            try { cls = el.CurrentClassName ?? ""; } catch { }
+
+            string? kind = null;
+            if (lct.Equals("Sidebar", StringComparison.OrdinalIgnoreCase) || cls.Contains("p-view_contents--sidebar")) kind = "Sidebar";
+            else foreach (var p in SlackPanePrefixes)
+                if (name.StartsWith(p, StringComparison.OrdinalIgnoreCase)) { kind = p; break; }
+            if (kind is null) continue;
+
+            RECT r = GetRect(el);
+            int w = r.right - r.left, h = r.bottom - r.top;
+            bool onScreen = w >= 60 && h >= 60 && r.left < winRect.right && r.right > winRect.left && r.top < winRect.bottom && r.bottom > winRect.top;
+            if (!onScreen) continue;
+            panes.Add(new Region { Rect = r, VScroll = true, PathLabel = $"Slack {kind} '{name}' (wheel)" });
+        }
+        panes.Sort((a, b) => a.Rect.left.CompareTo(b.Rect.left));
+        return panes;
     }
 
     // ---- keyboard hook (active only in scroll mode) ------------------------
@@ -640,7 +690,7 @@ internal static class Program
         if (ai >= 0 && ai < _regions.Count)
         {
             var r = _regions[ai];
-            RECT t = r.Sp is not null ? r.Rect : ContentBesideBar(r.Rect);
+            RECT t = AimRect(r);
             return ((t.left + t.right) / 2, (t.top + t.bottom) / 2);
         }
         RECT wr = GetWinRectHwnd(_targetHwnd);
@@ -648,8 +698,8 @@ internal static class Program
     }
 
     // Polish: is the physical cursor already inside the ACTIVE pane region? Then a wheel lands on the
-    // target without any park — skip the move/debounce/restore entirely. Only for ScrollPattern PANES
-    // (r.Sp != null), where the region rect IS the content; scrollbar/RangeValue regions aim at the
+    // target without any park — skip the move/debounce/restore entirely. Only for PANE regions
+    // (ScrollPattern or Slack app panes — !IsBar), where the region rect IS the content; scrollbar/RangeValue regions aim at the
     // content-beside-bar (not the bar the cursor may be over), so they always park. Window target never
     // qualifies (its point is the window centre; we can't assume the cursor is usefully inside).
     private static bool CursorInsideActivePane()
@@ -657,7 +707,7 @@ internal static class Program
         int ai = _activeIndex;
         if (ai < 0 || ai >= _regions.Count) return false;
         var r = _regions[ai];
-        if (r.Sp is null) return false;
+        if (r.IsBar) return false;
         if (!GetCursorPos(out POINT p)) return false;
         return p.x >= r.Rect.left && p.x < r.Rect.right && p.y >= r.Rect.top && p.y < r.Rect.bottom;
     }
@@ -749,7 +799,7 @@ internal static class Program
         int ai = _activeIndex;
         if (ai < 0 || ai >= _regions.Count) return;
         var r = _regions[ai];
-        WheelFallback(r.Sp is not null ? r.Rect : ContentBesideBar(r.Rect), dx, dy, false);
+        WheelFallback(AimRect(r), dx, dy, false);
     }
 
     // Definitively test whether ANY wheel-family message scrolls a UWP surface. Logs the window
@@ -855,7 +905,7 @@ internal static class Program
             // "stuck until you move the mouse"). SendMessage can't trigger app inertia, so region holds
             // are smooth cadenced stepping, not an inertial fling — this IS the accepted split.
             var r = _regions[ai];
-            RECT tgt = r.Sp is not null ? r.Rect : ContentBesideBar(r.Rect);
+            RECT tgt = AimRect(r);
             int cx = (tgt.left + tgt.right) / 2, cy = (tgt.top + tgt.bottom) / 2;
             IntPtr h = WindowFromPoint(new POINT { x = cx, y = cy });
             if (h == IntPtr.Zero) h = _targetHwnd;
@@ -889,7 +939,7 @@ internal static class Program
                 var r = _regions[_activeIndex];
                 // ALWAYS-WHEEL experiment: region taps/pages actuate via the wheel at the content point too
                 // (pane center, or content-beside-bar for a scrollbar) — no UIA ScrollPattern/RangeValue.
-                WheelFallback(r.Sp is not null ? r.Rect : ContentBesideBar(r.Rect), dx, dy, page);
+                WheelFallback(AimRect(r), dx, dy, page);
                 return;
             }
             // default (window) OR a picked region with no usable pattern → injected wheel

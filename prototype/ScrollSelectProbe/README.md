@@ -23,5 +23,9 @@ overlay). Keys: `0`=window (default/fallback wheel) · `1-9`=pick a UIA region �
 `K/L`=left/right · `PgUp/PgDn`=page · `Esc`=exit. `--target 0x<hwnd>` enters a window directly
 (no hotkey). Console prints each detected region + its actuation path.
 
+**Slack** (window title contains "Slack") exposes no UIA scroll signal, so its panes are found by
+role/name instead and driven by the aimed wheel: the sidebar (Group with localized type `Sidebar`)
+plus Groups named `Channel…`, `Thread…`, `Huddles…`, numbered first, left→right.
+
 Reuses the detection heuristic + COM UIA scaffolding from
 `prototype/ScrollExposureProbe` (branch `prototype/scroll-exposure-probe`).
