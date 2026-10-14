@@ -40,7 +40,7 @@ internal static class Program
     private const int UIA_ScrollHorizontalScrollPercentPropertyId = 30053, UIA_ScrollHorizontalViewSizePropertyId = 30054;
     private const int UIA_ScrollVerticalScrollPercentPropertyId = 30055, UIA_ScrollVerticalViewSizePropertyId = 30056;
     private const int UIA_ScrollHorizontallyScrollablePropertyId = 30057, UIA_ScrollVerticallyScrollablePropertyId = 30058;
-    private const int UIA_ScrollBarControlTypeId = 50014, UIA_GroupControlTypeId = 50026, UIA_TabControlTypeId = 50018, UIA_TreeControlTypeId = 50023, UIA_ListControlTypeId = 50008;
+    private const int UIA_ScrollBarControlTypeId = 50014, UIA_GroupControlTypeId = 50026, UIA_TabControlTypeId = 50018, UIA_TreeControlTypeId = 50023, UIA_ListControlTypeId = 50008, UIA_DataItemControlTypeId = 50029;
     private const double NoScroll = -1.0;
 
     private static UIA.IUIAutomation _com = null!;
@@ -362,7 +362,7 @@ internal static class Program
     // become wheel-driven regions (no Sp/Rv), numbered before the generic ones, ordered left→right.
     // Elements that already expose a ScrollPattern are left to the generic heuristic (no duplicates).
     // Prototype stand-in for the per-app profile layer's expected-regions section (E #67).
-    private sealed record AppQuery(string App, Func<IntPtr, bool> Matches, int[] ControlTypes, Func<string, string, string, string?> Classify);
+    private sealed record AppQuery(string App, Func<IntPtr, bool> Matches, int[] ControlTypes, Func<string, string, string, string?> Classify, bool RegionIsParent = false);
 
     private static readonly string[] SlackPanePrefixes = { "Channel", "Thread", "Huddles" };
 
@@ -386,11 +386,27 @@ internal static class Program
         // user-configurable.
         new("VSCode", h => ProcessName(h).Equals("Code", StringComparison.OrdinalIgnoreCase), new[] { UIA_TreeControlTypeId, UIA_ListControlTypeId },
             (name, lct, cls) => ""),
+        // Teams (new; WebView2, process ms-teams): the chat/team list is a Fluent `fui-Tree` Tree; the
+        // message list is a Group whose classes are hashed build tokens — only its Name identifies it
+        // (#89 probe). Neither exposes a ScrollPattern.
+        new("Teams", h => ProcessName(h).Equals("ms-teams", StringComparison.OrdinalIgnoreCase), new[] { UIA_TreeControlTypeId },
+            (name, lct, cls) => HasClassToken(cls, "fui-Tree") ? "List" : null),
+        new("Teams", h => ProcessName(h).Equals("ms-teams", StringComparison.OrdinalIgnoreCase), new[] { UIA_GroupControlTypeId },
+            (name, lct, cls) => name.Equals("Message List", StringComparison.OrdinalIgnoreCase) ? "Messages" : null),
+        // Teams calendar: the scrolling week grid is an anonymous Group (atomic classes, no name/id/role,
+        // no ScrollPattern) — but its cells are DataItems (role gridcell). The region is their PARENT.
+        new("Teams", h => ProcessName(h).Equals("ms-teams", StringComparison.OrdinalIgnoreCase), new[] { UIA_DataItemControlTypeId },
+            (name, lct, cls) => "Calendar", RegionIsParent: true),
     };
+
+    // Chromium exposes the DOM class list as ClassName ("a b c") — match one whitespace-separated token.
+    private static bool HasClassToken(string cls, string token)
+        => cls.Split(' ', StringSplitOptions.RemoveEmptyEntries).Any(t => t.Equals(token, StringComparison.OrdinalIgnoreCase));
 
     private static List<Region> CollectAppPanes(IntPtr hwnd, UIA.IUIAutomationElement root, RECT winRect)
     {
         var panes = new List<Region>();
+        var parents = new List<UIA.IUIAutomationElement>();
         foreach (var q in AppQueries)
         {
             if (!q.Matches(hwnd)) continue;
@@ -402,6 +418,14 @@ internal static class Program
             {
                 UIA.IUIAutomationElement el;
                 try { el = found!.GetElement(i); } catch { continue; }
+                if (q.RegionIsParent)
+                {
+                    UIA.IUIAutomationElement? par = null;
+                    try { par = _com.ControlViewWalker.GetParentElement(el); } catch { }
+                    if (par is null || parents.Any(p => Same(p, par))) continue; // one region per container
+                    parents.Add(par);
+                    el = par;
+                }
                 string name = "", lct = "", cls = "";
                 try { name = el.CurrentName ?? ""; } catch { }
                 try { lct = el.CurrentLocalizedControlType ?? ""; } catch { }
