@@ -26,6 +26,12 @@ _Avoid_: negative match, blacklist
 What scanning and actuation actually consult for one window: for each **rule section**, the one from the most specific matching **window rule** that has it, layered over the built-in defaults. Rules are never combined *within* a section.
 _Avoid_: resolved profile, active rule
 
+### External tools
+
+**Mode marker**:
+The suffix on the overlay's window title that tells external tools (such as Talon) which mode is active: none when idle, `[Active]` while hints are shown, `[Scroll]` while scrolling. It is the only state the app advertises outward; external tools act by sending the same keystrokes a user would.
+_Avoid_: status title, mode title
+
 ## Relationships
 
 - Many **window rules** may match one window; per **rule section** the most specific wins, and together with the defaults they produce exactly one **effective policy** per window.
