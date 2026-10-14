@@ -1,0 +1,36 @@
+<!--
+  PROTOTYPE — throwaway. Answers wayfinder ticket #89 (populate built-in window rules,
+  parent map #62). NOT part of Windows-Hinting.sln; not
+  referenced by the app; do NOT merge. Headless UIA dump CLI.
+
+  BUILD NOTE: the COMReference (tlbimp) requires FULL-FRAMEWORK MSBuild —
+  `dotnet build`/`dotnet run` fail with MSB4803. Build with VS's MSBuild:
+    & (vswhere -latest -prerelease -find 'MSBuild\**\Bin\MSBuild.exe') -restore prototype\RuleProbe\RuleProbe.csproj
+  then run bin\Debug\net10.0-windows\RuleProbe.exe. See README.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>RuleProbe</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <MSBuildWarningsAsMessages>MSB3305</MSBuildWarningsAsMessages>
+    
+  </PropertyGroup>
+
+  <ItemGroup>
+    <COMReference Include="UIAutomationClient">
+      <WrapperTool>tlbimp</WrapperTool>
+      <VersionMinor>0</VersionMinor>
+      <VersionMajor>1</VersionMajor>
+      <Guid>944de083-8fb8-45cf-bcb7-c477acb2f897</Guid>
+      <Lcid>0</Lcid>
+      <Isolated>false</Isolated>
+      <EmbedInteropTypes>true</EmbedInteropTypes>
+    </COMReference>
+  </ItemGroup>
+
+</Project>

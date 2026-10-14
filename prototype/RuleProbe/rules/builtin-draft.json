@@ -1,0 +1,60 @@
+{
+  "_comment": "DRAFT built-in window rules from I #89 (probe). Schema per E #67 + amendments; region:parent and className-token semantics added by I #89. Not loaded by anything yet.",
+  "apps": [
+    { "name": "Slack",   "alternatives": [ { "exe": "slack.exe" }, { "url": "app.slack.com" } ] },
+    { "name": "Teams",   "alternatives": [ { "exe": "ms-teams.exe", "class": "TeamsWebView" } ] },
+    { "name": "VSCode",  "alternatives": [ { "exe": "Code.exe" } ] },
+    { "name": "Gmail",   "alternatives": [ { "url": "mail.google.com" } ] },
+    { "name": "Explorer","alternatives": [ { "exe": "explorer.exe", "class": "CabinetWClass" } ] }
+  ],
+  "rules": [
+    {
+      "name": "Slack panes",
+      "app": "Slack",
+      "scrollDetection": {
+        "expectedRegions": [
+          { "controlType": "Group", "className": "p-view_contents--sidebar" },
+          { "controlType": "Group", "className": "p-view_contents--primary" },
+          { "controlType": "Group", "className": "p-view_contents--secondary", "_unverified": "thread pane; not observed in probe" }
+        ]
+      },
+      "scrollActuation": { "axisPolicy": "TrustWheel" }
+    },
+    {
+      "name": "Teams panes",
+      "app": "Teams",
+      "scrollDetection": {
+        "expectedRegions": [
+          { "controlType": "Tree", "className": "fui-Tree" },
+          { "controlType": "Group", "name": "Message List", "_note": "English UI only; classes are hashed, nothing else identifies it" },
+          { "controlType": "DataItem", "region": "parent", "_note": "calendar grid: anonymous Group, located via its gridcell children" }
+        ]
+      },
+      "scrollActuation": { "axisPolicy": "TrustWheel" }
+    },
+    {
+      "name": "VS Code lists",
+      "app": "VSCode",
+      "scrollDetection": {
+        "expectedRegions": [
+          { "controlType": "Tree", "className": "monaco-list" },
+          { "controlType": "List", "className": "monaco-list" }
+        ],
+        "_todo": "exclude monaco-breadcrumbs; needs an exclusion selector or not-block on expectedRegions"
+      },
+      "scrollActuation": { "axisPolicy": "TrustWheel" }
+    },
+    {
+      "name": "Gmail folder list",
+      "app": "Gmail",
+      "scrollDetection": {
+        "expectedRegions": [ { "className": "aeN" } ]
+      }
+    },
+    {
+      "name": "Explorer active tab",
+      "app": "Explorer",
+      "root": { "strategy": "FileExplorerCustomStrategy", "_note": "also scopes scroll detection: inactive tabs produce phantom regions" }
+    }
+  ]
+}
