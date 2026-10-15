@@ -4,6 +4,28 @@ A keyboard/voice-driven hinting tool for Windows: it labels on-screen UI element
 
 ## Language
 
+### Sessions and layers
+
+**Session**:
+The one interactive episode in which the app takes the user's input and advertises a **mode marker** — from the hotkey (or an auto-hinted surface) until activation, Esc or dismissal. There is at most one session at a time.
+_Avoid_: hint mode (informal only), active mode
+
+**Chain**:
+A **session** that continues after an activation: it re-hints the changed screen instead of ending, until the user presses Esc.
+_Avoid_: sticky mode, continuous mode
+
+**Ambient layer**:
+Labels the app keeps on screen passively, outside any **session** — e.g. the persistent taskbar numbers a Talon user reads aloud. It never takes input and never sets the **mode marker**.
+_Avoid_: persistent mode, overlay mode, background hints
+
+**Adopted session**:
+A **session** that takes over an **ambient layer** instead of drawing its own labels: the labels the user already read are the labels they select, and the layer's own window receives the keys.
+_Avoid_: attached session, promoted layer
+
+**Element identity**:
+What makes an on-screen element "the same element" across rescans, so it keeps its label while the screen changes. Position alone is not identity.
+_Avoid_: element key, element id (unqualified)
+
 ### Per-app customization
 
 **Window rule**:
@@ -33,6 +55,9 @@ The suffix on the overlay's window title that tells external tools (such as Talo
 _Avoid_: status title, mode title
 
 ## Relationships
+
+- An **ambient layer** may be visible during any **session**; only an **adopted session** takes it over, and its labels hold still until that session ends.
+- A label belongs to an **element identity**, not to a scan: it survives rescans for as long as that element stays on screen.
 
 - Many **window rules** may match one window; per **rule section** the most specific wins, and together with the defaults they produce exactly one **effective policy** per window.
 - A **window rule** has one matcher and one or more **rule sections**.
