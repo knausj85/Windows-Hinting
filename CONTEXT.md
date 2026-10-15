@@ -26,6 +26,31 @@ _Avoid_: negative match, blacklist
 What scanning and actuation actually consult for one window: for each **rule section**, the one from the most specific matching **window rule** that has it, layered over the built-in defaults. Rules are never combined *within* a section.
 _Avoid_: resolved profile, active rule
 
+### Scrolling
+
+**Scroll region**:
+A part of a window that scrolls independently — a list, tree, editor or pane — found by the detector or named by a **window rule**. Shown with a number badge `1`–`9`.
+_Avoid_: scroll area, pane (informal only)
+
+**Scroll target**:
+What the scroll keys currently move: the target window (always number `0`) or one **scroll region**. Exactly one is active at a time.
+_Avoid_: selected region, focus
+
+**Scroll command**:
+What the user asked for, independent of how it is done: an axis, a direction, and an amount (`Line`; later `Page`, `ToStart`, `ToEnd`).
+_Avoid_: wheel event, scroll action
+
+**Actuation mechanism**:
+How a **scroll command** is carried out on a target — a UI Automation scroll call, or an aimed wheel event. Only the actuator knows mechanisms; the engine speaks commands.
+_Avoid_: rung (except for one step of the tap ladder), method
+
+**Tap / hold**:
+A key released within the hold threshold is a **tap** (one step). A key held past it is a **hold**: a momentum fling that glides to a stop after release.
+
+**Aiming**:
+Moving the hidden pointer onto the **scroll target** so a wheel event reaches it. The pointer stays there until the target changes or the mode ends, then goes back where it was.
+_Avoid_: warping, cursor borrow
+
 ### External tools
 
 **Mode marker**:
@@ -37,6 +62,8 @@ _Avoid_: status title, mode title
 - Many **window rules** may match one window; per **rule section** the most specific wins, and together with the defaults they produce exactly one **effective policy** per window.
 - A **window rule** has one matcher and one or more **rule sections**.
 - A matcher may name an **app definition**; one **app definition** serves many **window rules**.
+- A window in scroll mode has one target window (`0`) and up to nine **scroll regions**; one of them is the active **scroll target**.
+- The **effective policy** decides which **scroll regions** are found and which **actuation mechanisms** may be used for them.
 
 ## Example dialogue
 
