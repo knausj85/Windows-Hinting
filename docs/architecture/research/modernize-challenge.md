@@ -1,608 +1,515 @@
-# Research: challenging the modernize plan before execution
+# Research: challenging the modernize plan before execution (merged review)
 
-**Date:** 2026-10-15. **Reviewer stance:** skeptical senior architect. Every finding cites a file,
-commit or issue. **Scope:** the spec in `docs/architecture/` on `modernize` (README,
-`target-architecture.md`, `smoke-test.md`, phases 00–11, `research/winui-preferences-migration.md`,
-`CONTEXT.md`), measured against what has happened since it merged on 2026-08-07: the scroll-regions
-spec (`docs/scroll-regions/` on `spec/scroll-regions`, PR #105), the wayfinder maps #44, #51, #54/#62,
-#72, #81, #94 and #103, the unmerged branches, and current `main` (`e331d0d`).
+**Date:** 2026-10-15. **Scope:** the spec in `docs/architecture/` on `modernize` (`dc4c219`): README,
+`target-architecture.md`, `smoke-test.md`, phases 00–11, `CONTEXT.md`, and
+`research/winui-preferences-migration.md`. It is measured against everything since the spec merged on
+2026-08-07:
 
-**Tags:** **[change-now]** = amend the spec before phases 01–04/06 start, because those phases
-would bake the wrong shape in. **[change-later]** = real, but can wait for the phase that touches
-it. **[keep]** = challenged and still right. **[opportunity]** = unplanned, newly cheap.
+- the scroll-regions spec (`docs/scroll-regions/` on `spec/scroll-regions` `7c40f4c`, PR #105);
+- the wayfinder maps #44, #51, #54/#62, #72, #81, #94 and #103;
+- the unmerged and local-only branches;
+- current `main` (`e331d0d`).
 
-Facts were re-checked on 2026-10-15 against NuGet, GitHub, the .NET release index and Microsoft
-Learn (sources in §3).
+**Provenance.** Two skeptical reviews were written independently on the same day and are merged
+here. The first is `1427a38` on this branch. The second is `2a7078a` on
+`research/modernize-challenge-2026-10-15`. Each original stays in git history and carries more
+citations than this merge. Where they disagreed, this document says so and names the open choice.
+Every finding cites a file, commit or issue. External facts (NuGet, GitHub, the .NET release index,
+Microsoft Learn) were re-checked on 2026-10-15.
 
----
-
-## Executive summary
-
-1. **The gate on phase 10 lifted six weeks ago.** CsWin32 PR #1746 shipped in **v0.3.333
-   (2026-09-03)**; the latest is v0.3.363 (2026-10-14). The spec still says "do not start". Phase 10
-   can be scheduled now, and should come **early**: it deletes the MSBuild/VS Build Tools tax that
-   every scroll slice and every agent session pays today.
-2. **`modernize` is not "main + docs".** It carries `2030b29` (an always-on foreground WinEvent hook,
-   `ForegroundWindowHookService`) that `main` lacks. A competing implementation,
-   `HintDismissalWatcher` (`a324706`), sits on a **local-only** branch that the scroll spec depends
-   on. They conflict textually and semantically. Phase 03 names the one that will not survive.
-3. **The engine's core ideas still hold** (pure `Transition`, one-shot effects, derived
-   `DesiredConditions`, scan tokens, ElementRef seam). Scroll (#63) and auto-hint (#46) both fitted
-   additively. **[keep]**
-4. **The engine's state shape does not hold.** "Three modes, one overlay shown only in a mode" can't
-   express a persistent taskbar overlay (#81), an armed auto-hint watch (#44), chained re-hinting
-   (#72) or scroll (#62) at the same time. Phase 02 must model **orthogonal regions** (one
-   interactive session, plus ambient layers) and a **layered display model**, or each feature will
-   rewrite the engine's core switch.
-5. **There is no shared watch subsystem, and five features each bring their own.** Dismissal,
-   auto-hint SurfaceWatch, chained menu events, taskbar UIA/MSAA/registry triggers and the
-   diagnostics "last active window" tracker each install their own WinEvent hooks, UIA handlers,
-   timers and threads (see §1.4). One `WatchHub` (a dedicated thread with demux, dedup and debounce)
-   is the highest-value new component.
-6. **The threading model puts the low-level keyboard hook on the busiest thread.** Synchronous
-   `SuppressKey` means the hook runs `Submit` on the UI thread. That thread also paints every
-   overlay, runs activation COM calls and hosts settings. Windows silently removes a hook that
-   exceeds the timeout (cap 1000 ms). Move hooks to a dedicated input thread; decide suppression
-   from a published capture snapshot.
-7. **Window rules have outgrown phases 04 and 07.** The scroll spec's `window-rules.md` (sections,
-   app definitions, `url`/`appId`, exclusions, most-specific-wins per section) supersedes
-   `ScanPolicy` and the phase-07 rule format. Phases 04 and 07 must adopt it, not re-invent it. The
-   "no rules UI, not even an open-folder link" rule is now too austere.
-8. **Sequencing:** stop treating `modernize` as a long-lived branch. Run trunk-based on `main`:
-   reconcile the dismissal fork, merge phase 00, **phase 01 next (before scroll slices 01 and 03)**,
-   then phase 10. Scroll slices land leaves in `Core`/`Interop.Uia` with thin throwaway glue. Phases
-   02+03 then absorb scroll glue once, during a short feature freeze.
-9. **CI and testing underweight the hard parts.** UIAccess is never exercised by Debug builds. The
-   scroll actuator's cursor-independence claim is still unproven on bare metal (G #69). The fixture
-   app has no scroll regions, menus or Chromium content. Split phase 05 and move its first half
-   forward as a characterization net.
-10. **Top opportunities, ranked by value/cost:** the WatchHub; a single `UiaWorker` (MTA) that owns
-    COM, ElementRefs and UIA events; serializable intents plus a state snapshot (cheap insurance for
-    the G2 external-channel map); a JSON Schema for rule files; fixture-app expansion; and a reusable
-    probe harness.
+**Tags:**
+- **[change-now]**: amend the spec before phases 01–04/06 start, because those phases would bake the
+  wrong shape in.
+- **[change-later]**: real, but it can wait for the phase that touches it.
+- **[keep]**: challenged, and still right.
+- **[opportunity]**: unplanned, and newly cheap.
 
 ---
 
-## 1. Does the plan still fit?
+## Verdict
 
-### 1.1 [keep] The pure engine, effects-as-one-shots and derived conditions
+1. **The core holds** [keep]. Keep the pure `Transition`, one-shot effects, derived
+   `DesiredConditions`, the scan-token guard, the opaque `ElementRef` seam, the Core/Interop/host
+   split and the testing tiers. Scroll (#63) and auto-hint (#46) both fitted in by addition.
+2. **Execution has not started.** No phase code is on `modernize`. Phase 00 has sat in PR #43 since
+   2026-08-07. The liability is a spec that is drifting, not branch code that is drifting.
+3. **Phase 02's state shape does not hold.** Chained hinting (#72), the persistent taskbar overlay
+   (#81), auto-hint (#44) and scroll (#62) need state that outlives one scan, element identity in
+   Core, successive results per session, and several overlay layers. Built as written, phase 02
+   bakes in "one scan, one hint list, one mode".
+4. **Threading is the largest unexamined risk.** The low-level keyboard hook, the engine, overlay
+   painting and activation COM calls all share the UI thread. Seven features each bring their own
+   watcher or UIA thread.
+5. **Phases 04 and 07 are superseded** by `docs/scroll-regions/window-rules.md`.
+6. **The phase-10 gate lifted on 2026-09-03.** CsWin32 v0.3.333 contains PR #1746.
+7. **An external contract is unprotected.** The overlay title `… [Active]` is what Talon matches.
+   The spec says "External surfaces: None".
+8. **Recommendation:** go trunk-based on `main` and keep the phase content. Order:
+   - reconcile the diverged and local-only commits;
+   - then 00 → 01 → 10;
+   - land the scroll leaves directly in Core/Interop.Uia;
+   - **amend phase 02 before anyone starts it**;
+   - then 03 as the cutover, with a new 03b (UiaWorker + WatchHub).
 
-Two independent features have now been fitted onto the #31/#38 model without breaking it:
+   Don't hand phases 02–04/07 to an implementing model unamended.
 
-- Scroll (`docs/scroll-regions/design.md` §2, decided in A #63) adds a `Scrolling` mode, seven
-  intents, one effect (`ScrollElement`) and one condition (`ScrollDrive`). The velocity loop stays in
-  the actuator, so "nothing continuous is an effect" survives.
-- Auto-hint (`docs/architecture/research/auto-hint-integration.md` on `research/auto-hint-integration`,
-  #46) adds one source discriminant (`AutoSurface`) and one intent (`ShowSurfaceHints`). Effects and
-  the reconciliation model are unchanged.
+---
 
-That is strong evidence the *mechanism* is right. Keep the transition/effect/condition split, the
-scan token, the no-clock rule and the ElementRef seam.
+## 1. Is each decision still sound?
 
-### 1.2 [change-now] Model the state as orthogonal regions, not one mode enum
-
-`target-architecture.md` fixes `Inactive / Scanning / Active`, and phase 02 builds `State` around a
-single `mode`. The features already decided or prototyped need several things to be true **at the
-same time**:
-
-| Feature | What it needs alongside a click session | Evidence |
+| Decision / phase | Status | Evidence |
 |---|---|---|
-| Scroll | A fourth *session* kind, mutually exclusive with click | design.md §2 "Entering it from a click mode supersedes that mode" |
-| Persistent taskbar overlay | Numbers shown **with no session at all**, kept current by events | #81 verdict GO; `prototype/taskbar-overlay-probe` `be4329d`, `1b533bf` |
-| Auto-hint | A watch **armed while Inactive**, which may start a session by itself | #44, #46 blueprint §1.2 |
-| Chained hinting | After `ActivateElement`, the session **re-enters** Scanning instead of ending, until Esc | #72; `prototype/chained-hinting` (local only) |
-| Menu-bar auto-hint | Its own source plus a menu-scoped watch | `28698ff` (#79), `HintSource.MenuBar` |
+| Core/Interop.Uia/host split; neutral-TFM Core (#31/#32/#36); phase 01 | **[keep], more urgent** | Every new feature has a large pure part: the scroll Gate/Suppress/Dedup/Number stages (design.md §3.2), the window-rule matcher and precedence (window-rules.md §2–3), RuntimeId reconcile (#74), and taskbar sender filter + dedup (#86). `HintController.cs` grew +1662 lines on `prototype/chained-hinting` (`6e93282`). |
+| Pure engine, intent funnel, one-shot effects, derived conditions (#31/#38) | **[keep]** | Scroll adds a `Scrolling` mode, seven intents, one effect (`ScrollElement`) and one condition (`ScrollDrive`). The velocity loop stays in the actuator. Auto-hint adds a source (`AutoSurface`) and an intent (`ShowSurfaceHints`). Both are additive. |
+| "Effects are **exactly five**" | **[change-now] wording** | Scroll's `ScrollElement` is the sixth. The principle (one-shots only) holds; the count will mislead an implementer who writes a test for it. It should read "closed per release, extended additively". |
+| Modes `Inactive/Scanning/Active` (phase 02) | **[change-now]** | See §2.1. |
+| Scan token: `ScanCompleted` once per token | **[change-now]** | Progressive reconcile (#74, `b53707f`) delivers many results per session: 150 ms polls, quiet after 4, cap 3 s. Menu settle polls up to 8× (#77). Start-menu redraw rescans on ScrollPattern changes (#49). The *session* token must be separate from the *scan generation*. |
+| Labels assigned as a pure pipeline stage (phase 04) | **[change-now]** | #74: labels must stay stable per RuntimeId across re-scans, so the taskbar numbers must not shuffle. Labels become engine state keyed by identity, or a label-carry stage that takes the previous assignment. Scroll numbering (reading order, ≤9, per scan) is a different model. |
+| Opaque `ElementRef`; ref-table lifetime "per scan generation" (phases 03, 10) | **[change-now]** | Reconcile needs COM-free identity in Core. Bounds-keyed identity failed in #74 (jitter caused dupes, collisions caused misses). Lifetime-per-generation conflicts with reconcile, with scroll (refs held for the whole mode, design.md §3.3) and with the persistent overlay. Scroll regions can have no ref (`Region.ElementRef?`), and G4 OCR targets (#100) are points. |
+| `ScanPolicy` per (source × first-matching rule) (phases 04, 07; #39) | **Superseded** | See §2.5. |
+| Rule matching is pure Core (#39) | **[change-now] amend** | `url` is a lazy UIA read (10–50 ms) that happens only after cheap fields match (window-rules.md §2.1). `appId` needs a shell call. Core needs a `WindowFacts` port with lazy fields. That is a fake, not a mock, so the no-mocks rule survives. |
+| External surface: **None** (#33) | **[change-now] factually wrong** | `OverlayForm.cs:21-22,83` sets the title to `Windows Hinting Overlay [Active]`. Talon's `windows_hinting` scopes on `"[Active]" in win.title`. `CONTEXT.md` now defines the **Mode marker**. The smoke test has no title check. On `main`, the auto-hide timer is a threading timer precisely because a WinForms timer's HWND confused Talon (`HintController.cs:39`): the same contract, found by accident. |
+| Delete the pipe (#33, phase 00) | **[keep]** | #93: the REPL pipe is a NO-GO, talon-rpc is LATER, and the Talon → app direction always needs an app-hosted listener. #33's resume trigger ("Talon ships RPC") is the wrong trigger. It should be "a G1/G2 use case is chosen". |
+| Host serializes intents on the UI thread; the hook reads `SuppressKey` synchronously; "the host owns all threading" | **[change-now]** | See §2.4. |
+| WinForms overlay, one form per screen, composer/presenter (#34, phase 06) | **[keep]; display model needs layers** | See §2.3. |
+| WinForms preferences (#40) | **[keep]** | Re-confirmed by `research/winui-preferences-migration.md` (#104). WPF `ThemeMode` is still experimental (WPF0001) in .NET 10. |
+| No rules editor UI (#40, phase 08 §4) | **[keep], plus diagnostics** | Keep the two read-only tray diagnostics from window-rules.md §5 (*Copy window identity*, *Explain window rules*). **Open question:** review 1 also wants an "Open rules folder" link and a JSON Schema; review 2 would keep #40 strict. On `main` the bridge keeps the rules grid until phase 07 (window-rules.md §4.2), so remove the grid only after 07's migration. |
+| CsWin32 gate (#32, phase 10) | **Gate lifted** | v0.3.333 (2026-09-03) contains PR #1746; the latest is v0.3.363 (2026-10-14); `main` pins 0.3.275. A build that proves UIA generation has not been attempted. |
+| Testing tiers, fixture app (#36, phase 05) | **[keep]; fixture too narrow** | The fixture has no scroll regions, menus/flyouts, Chromium content or lazy children. Every recent bug lived there (#59, #74, #77). See §4.5. |
+| Boundary logging of intents in (phase 09) | **[change-later]** | Intents include every captured key, and in scroll mode that is *all* keys. The scroll spec forbids logging full URLs. A redaction rule is needed, or the opt-in log becomes a keystroke log. |
+| `net10.0` | **[keep]** | .NET 10 LTS is supported until 2028-11-14, and .NET 11 is an STS release. |
+| xUnit v3 | **[change-now], one line** | The `xunit.v3` line is now 4.0.2 (2026-10-09): MTP v2 by default, MTP v1 dropped. Pin 4.x in phase 01. |
+| NetSparkle + WiX | **[change-later]** | The installer is on WiX v6.0.2. WiX v7 enforces the OSMF EULA on every command. Stay on v6 deliberately, and record the position in #35. |
 
-Recommended shape for phase 02:
+---
+
+## 2. New requirements and the seams they need
+
+| Requirement (source) | Seam today? | Section |
+|---|---|---|
+| Session state that outlives a scan or an activation: chaining, menu-aware chaining (#72/#73/#77) | No | §2.1 |
+| Successive snapshots per session; progressive reconcile; stable labels (#74, #76, #49, #81) | No | §2.2 |
+| Persistent, always-on overlay layer (#81) | No | §2.3 |
+| Long-lived UIA/WinEvent subscriptions (#45/#46, #77, #84/#86, design.md §7, #49, window-rules.md §5) | No | §2.4 |
+| Keyboard hook off the busy thread | No | §2.4 |
+| Per-app rule layer with sections (#62 E/H/I/J/K/L) | Partly | §2.5 |
+| Four overlapping per-app concepts (#47, #78, #72, #67) | No owner | §2.6 |
+| Scroll mode (#62) | Yes, by addition | Fold it into phase 02 from day one |
+| Cursor hide as a desktop-wide side effect, with crash recovery (design.md §6.3); `timeBeginPeriod` | No | A `CursorHidden` condition plus a global side-effects registry restored on every exit path; scope `timeBeginPeriod` to holds only |
+| Click dismissal parity (`a324706`) vs `ForegroundWindowHookService` (`2030b29`) | Conflicting | §3 |
+| Mode marker as an external contract | No | Put `ModeMarker` in `DesiredConditions`, unit-tested as a string in Core; add a smoke step; no other window of ours may carry the base title |
+| DPI / multi-monitor: cross-monitor DPI residual (#86), clamped badges (#65), secondary-monitor surfaces (#44) | Partly | Specify the coordinate space at the seam (UIA physical px → Core `Bounds` → per-screen form); add mixed-DPI smoke rows |
+| Outbound state, select-by-name, label schemes (#94: F1/G2, G1, F6) | Partly | Filter as a value type (label prefix now, name text later); label scheme as policy (`Labels.cs` A..Z,AA is not prefix-free); serializable intents + `StateSnapshot` |
+| Non-UIA targets (G4 OCR/CV, #100) | No | A polymorphic `ElementRef`: `Uia(identity)` or `Point/Rect` |
+| Taskbar hint source vs persistent taskbar overlay (#81) | Product question | Decide before phase 02 freezes the source set |
+
+### 2.1 Engine v2: one session plus ambient regions [change-now]
+
+Replace the flat mode enum with orthogonal regions:
 
 ```
 State = {
-  Session: Inactive | Scanning(source, token) | Active(...) | Scrolling(...),
-  Chain:   Off | On(source)          // what Active does after an activation
+  Session: None | Scanning(source, sessionId, gen) | Hinting(...) | Scrolling(...),
+  Chain:   Off | On(source)            // what Hinting does after an activation
   Ambient: { TaskbarBadges: Off|On(snapshotToken), AutoHint: Off|Armed }
   Options
 }
-Transition = per-region reducers composed in one place
-DesiredConditions(state) = union of per-region condition slices
+Transition       = per-region reducers composed in one place
+DesiredConditions = union of per-region slices (incl. ModeMarker, InputCapture, Layers)
 ```
 
-The rest of the design is unchanged: one `Transition`, one funnel, effects stay one-shot. What
-changes is that each feature adds a *region reducer and a condition slice* instead of editing a
-central `switch`. The closed `Intent`/`Effect` sets should be described as "closed per release,
-extended additively". The spec's current wording ("exactly five") is already contradicted by the
-scroll spec's sixth effect.
+- **At most one interactive session.** A `SessionId` survives activation when chaining, so chaining
+  is `Hinting --activate--> Hinting(rescan pending)`, not `Active → Inactive → Scanning`. The
+  prototype needed a `_chainActive` guard across the "commit-gap Inactive" (#77, `55f50f6`).
+- **Ambient regions** never take keyboard capture unless the session does.
+- **Interaction rules to specify:**
+  - the hotkey pressed over an auto-hint session;
+  - a session started while the persistent layer is visible;
+  - which layer owns the digits.
 
-### 1.3 [change-now] The overlay display model must be layered
+Each feature adds a region reducer and a condition slice instead of editing one central `switch`.
 
-`target-architecture.md` § Overlay and phase 06 assume one display model, "overlay visibility +
-hints + filter", visible only in a mode. Three different visual products now ride the overlay:
+### 2.2 Snapshots over time, identity and labels [change-now]
+
+- `HintSource` yields **successive snapshots** for one session, as `ScanProgress(token, snapshot,
+  isFinal)` or a `HintsReconciled(sessionId, generation, items)` intent. Settle and stop policy
+  (150 ms / 4 polls / 3 s, from #74) is **adapter** behaviour, parameterized by a `settle` rule
+  section.
+- `ElementRef` gains a COM-free **identity key**: RuntimeId bytes, with a bounds fallback only where
+  the RuntimeId is empty (#78 prototype note). It also gains a point/rect variant.
+- **Labels:** the engine keeps `label ↔ identity`. Survivors keep their labels, and new identities
+  get fresh ones. This replaces label assignment as a per-scan pure stage for click; scroll keeps
+  per-scan numbering.
+- **Ref-table lifetime.** Review 1 retires a generation when a newer snapshot for the same source
+  supersedes it. Review 2 ties the lifetime to the session or layer. Either way, phase 10's DoD
+  ("refs must not leak COM past their scan generation") must be rewritten. The engine-v2 ticket
+  decides which.
+- PR #87 revives `FileExplorerCustomStrategy` with **multiple roots**, so `HintSource` must accept
+  multi-root resolution.
+
+### 2.3 Layered display model [change-now in the type, change-later in phase 06]
+
+The overlay slice of `DesiredConditions` becomes `Layers[]`, each with a z-rank:
 
 - click hints (session);
-- scroll badges and the active outline (session, `design.md` §6);
-- persistent taskbar/tray numbers (ambient, #81).
+- scroll badges and the active outline (session);
+- persistent taskbar/tray numbers (ambient).
 
-Auto-hint popups and chained re-hints reuse the click layer. Phase 06's composer should take
-`DisplayModel { Layers: [SessionLayer?, AmbientTaskbarLayer?] }` and compose them in a fixed z-order.
-Two follow-on constraints belong in the spec now:
+The composer draws them all, and the presenter is unchanged. The **mode marker is driven only by the
+session**. If ambient numbers live on separate windows (so the full-screen forms can stay hidden),
+those windows carry a different title. They must sit above the topmost taskbar (a real fix in the
+scroll prototype, #61). "Redraw only on state change" still holds: ambient updates are state changes
+that arrive as intents, not timers.
 
-- **The mode marker reads only the session layer.** The `[Active]`/`[Scroll]` title is what Talon
-  matches (`community/apps/windows_hinting`, substring `"[Active]"`; CONTEXT.md "Mode marker"). A
-  persistent ambient layer must never set it. If ambient numbers live on separate windows (for
-  example taskbar-sized windows, so the full-screen per-monitor overlays can stay hidden), those
-  windows need a **different title** so Talon's app/title scope doesn't flicker.
-- **"Redraw only on state change"** still holds. Ambient updates are state changes that arrive from
-  the WatchHub (§1.4). They are not timers.
+### 2.4 Threading: input thread, UiaWorker, WatchHub [change-now]
 
-### 1.4 [change-now] Add a shared watch subsystem (WatchHub)
+**The keyboard hook.** A `WH_KEYBOARD_LL` callback runs on the installing thread, which on `main` is
+the STA UI thread (`NativeInterop/KeyboardHook.cs`, installed from `HintController.OnModeChanged`).
+After this effort, that thread would also:
 
-The spec has exactly one watcher: "foreground watch, started at scan completion". Inventory of what
-is already built or decided:
+- paint N per-monitor bitmaps, plus scroll and ambient layers;
+- run activation UIA calls (already true on `main`: `OnSelectionCommitted` → `_overlay.BeginInvoke`);
+- host settings and the log viewer.
 
-| Consumer | Signals | Lifetime | Where today |
-|---|---|---|---|
-| Click/scroll dismissal | `WH_MOUSE_LL` button-down, `EVENT_SYSTEM_FOREGROUND`, target `EVENT_OBJECT_LOCATIONCHANGE` | while a session is up | `HintDismissalWatcher` (`a324706`, local only); design.md §7 |
-| Foreground auto-hide (competing) | `EVENT_SYSTEM_FOREGROUND` | always-on | `2030b29` on `modernize` |
-| Rule diagnostics | `EVENT_SYSTEM_FOREGROUND` (last non-self, non-taskbar window) | **always-on** | window-rules.md §5, slice 05 |
-| Auto-hint SurfaceWatch | menu/popup WinEvents, classification | **always-on** when enabled | #44, #45, #46 |
-| Chained / menu-aware | UIA `MenuOpened`/`MenuClosed`, `StructureChanged`, 150 ms settle polls by RuntimeId | per chain | `prototype/chained-hinting` `55f50f6`, `b6976b0` |
-| Taskbar overlay | UIA `StructureChanged` + container `BoundingRectangle`, MSAA `REORDER`/`STATECHANGE` on the explorer pid, `RegNotifyChangeKeyValue`, display change + 400–600 ms settle | **always-on** when enabled | `1b533bf`; #81 verdict |
-
-Six consumers. Three are always-on, and four bring their own thread or timer. Built separately,
-each re-solves the same problems: out-of-context hook threads, self-process filtering, injected-event
-filtering, RuntimeId dedup, debounce/coalesce, sender-identity filtering (#81 build caveat) and
-shutdown ordering.
-
-Recommendation: a **WatchHub** in the host (WinEvent and LL-mouse hooks) plus its UIA-event
-counterpart in `Interop.Uia` (§1.6). It should own:
-
-- one dedicated thread with its own message loop for `SetWinEventHook(OUTOFCONTEXT)` and
-  `WH_MOUSE_LL`;
-- reference-counted subscriptions, driven by `DesiredConditions` slices (`DismissalWatch`,
-  `SurfaceWatch`, `TaskbarWatch`, `LastActiveWindowTracking`);
-- coalescing into **intents** (`ForegroundChanged`, `TargetMoved`, `SurfaceAppeared`,
-  `TaskbarDirty`), posted to the funnel.
-
-It also answers the question #46 left open for ticket D: does `SurfaceWatch` "subsume or sit
-beside" phase 03's foreground adapter? It does neither. Both are subscribers to the hub. #46 already
-recommends "one WinEvent source feeding two intent kinds".
-
-This also settles the "foreground watch only after scan" delta (phase 03). An always-on foreground
-subscription exists anyway for diagnostics, so the engine simply ignores `ForegroundChanged` when it
-doesn't care. The ~100 ms accepted delta disappears.
-
-### 1.5 [change-now] Take the low-level hooks off the UI thread
-
-Phase 03 says: "The keyboard-hook adapter reads `SuppressKey` synchronously from the batch `Submit`
-returns". A `WH_KEYBOARD_LL` callback runs on the installing thread. On `main` that is the STA UI
-thread (`NativeInterop/KeyboardHook.cs`, installed by `KeyboardHookService.Start` from
-`HintController.OnModeChanged`). The design therefore requires the engine, the hook and the UI to
-share one thread. After this effort, that thread also:
-
-- composes and paints up to N per-monitor bitmaps (phase 06, plus scroll badges and ambient layers);
-- executes `ActivateElement`. On `main`, activation already runs UIA pattern calls on the UI thread
-  (`OnSelectionCommitted` → `_overlay.BeginInvoke`). A slow `Invoke` on a hung target stalls every
-  later key;
-- hosts the settings window (phase 08) and the log viewer.
-
-Windows silently removes a low-level hook whose callback exceeds `LowLevelHooksTimeout`. The cap is
-1000 ms on Windows 10 1709 and later, and the app is not told
-([LowLevelKeyboardProc](https://learn.microsoft.com/windows/win32/winmsg/lowlevelkeyboardproc)).
-Microsoft's guidance is a dedicated hook thread that returns immediately. The scroll spec already
-learned this the hard way for actuation (design.md §4.1 principle 3).
+Scroll mode captures every key. Windows silently removes a hook that exceeds
+`LowLevelHooksTimeout` (capped at 1000 ms since Windows 10 1709), and the app is never told.
 
 Recommendation:
 
-- Install the keyboard and mouse hooks on a **dedicated input thread**.
-- Phase 02 publishes the `InputCapture` slice of `DesiredConditions` as an immutable snapshot
-  (mode, which keys pass through, whether `HJKL` key-ups are eaten).
-- The hook thread calls a pure Core function, `CaptureDecision(snapshot, keyEvent) → Suppress|Pass`,
-  synchronously, and posts the key intent to the funnel.
+- Install the LL keyboard and mouse hooks on a **dedicated input thread**.
+- Phase 02 publishes an `InputCapture` snapshot (mode, pass-through keys, eaten `HJKL` key-ups).
+- The hook calls a pure Core `CaptureDecision(snapshot, key) → Suppress|Pass` and posts the intent.
 
-`SuppressKey` then stops being an effect: it becomes a pure function over a condition. That is more
-faithful to #38's own principle. It also removes the only reason `Submit` must be callable inside a
-hook.
+`SuppressKey` then stops being an effect: it becomes a pure function over a condition. Name the race
+where a key arrives after a toggle but before the snapshot is republished. It already exists on
+`main`, so it is not a regression.
 
-The race to name explicitly is a key arriving after a toggle but before the snapshot is republished.
-It already exists on `main` (hook install happens after the mode change), so it is not a regression.
+**Injection hygiene.** Tag our own `SendInput` with a `dwExtraInfo` cookie and skip only tagged
+events. **Never drop all `LLKHF_INJECTED`/`LLMHF_INJECTED` events**, because Talon's keys and clicks
+are injected. Design.md §7 currently skips "injected events", so a Talon click would not dismiss
+scroll mode. A shared `InputInjector` serves the scroll actuator, chained hover and the mouse-click
+activator (Neru lesson 6, `research/neru-architecture`).
 
-Related, also **[change-now]**, because it shapes the hook adapter written in phase 03:
+**UiaWorker** (in `Interop.Uia`). Today:
 
-- **Tag our own injection** with a `dwExtraInfo` cookie on every `SendInput`, and skip only tagged
-  events.
-- **Never drop all `LLKHF_INJECTED`/`LLMHF_INJECTED` events.** Talon's keys and clicks are injected.
-  Design.md §7 currently says dismissal skips "injected events", so a Talon-issued click would *not*
-  dismiss scroll mode. The scroll actuator's parked-cursor moves and wheel events, chained hover
-  (`MouseClickService.Hover`) and the mouse-click activator all inject, so a shared, cookie-tagging
-  `InputInjector` is needed anyway (Neru lesson 6 in the gap-register addendum on
-  `research/neru-architecture`).
+- scans run on pool MTA threads, and abandoned timed-out scans keep running
+  (`UIAutomationService.FindClickableElementsAsync`);
+- activation calls MTA-obtained elements from the STA;
+- chained creates a second `CUIAutomation`;
+- the taskbar probe has its own MTA thread;
+- the scroll actuator has its own worker (design.md §8).
 
-### 1.6 [change-now] One UIA worker owns COM, ElementRefs and UIA events
-
-Today:
-
-- Scans run on thread-pool MTA threads, and **an abandoned scan keeps running** after its timeout
-  (`UIAutomationService.FindClickableElementsAsync`).
-- Activation calls those MTA-obtained elements from the STA UI thread.
-- The chained prototype creates a **second `CUIAutomation`** with event handlers.
-- The taskbar probe owns a dedicated MTA thread for UIA handlers.
-- The scroll actuator runs COM on its own worker, "or marshal to the UI thread, as the prototype
-  did" (design.md §8).
-
-Microsoft's UIA client guidance is to keep UIA calls, and especially event-handler registration, off
-UI threads. There is also direct evidence that multiple automation instances hurt. #77 recorded
-cross-instance cache-request HRESULT errors when the sender came from one `CUIAutomation` and the
-cache request from another. #81 requires its subscriptions on an MTA, window-less thread with a
-cache request. The spec says only "a ref-table … owns their lifetime/release" (phase 03).
-
-Recommendation: `Interop.Uia` exposes a **`UiaWorker`**, a small set of MTA threads with one owner of:
+#77 recorded cross-instance cache-request HRESULT errors, and #81 needs MTA, window-less
+subscriptions. One owner should hold:
 
 - the `IUIAutomation` instance;
 - the ElementRef table;
-- UIA event registrations, the counterpart of the WatchHub;
-- the activator chain and the scroll actuator's COM calls, with verify waits off the UI thread.
+- UIA event registrations;
+- activator and actuator COM calls, with verify waits off the UI thread.
 
-Explicitly forbid UIA calls on the UI thread.
+Ban UIA calls on the UI thread. Amend "the host owns all threading" to "the host or its named
+workers".
 
-ElementRef needs **identity**, not only a handle: `{RuntimeId, ScanGeneration}`. Chained
-progressive reconcile (#74), taskbar dedup (#81) and stable labels (gap G8) all key on RuntimeId.
-Phase 10's "refs must not leak COM past their scan generation" rule then becomes "a generation is
-retired when a newer snapshot for the same source supersedes it", which fits continuous sources.
+**WatchHub** (host). Watchers that are built or decided:
 
-### 1.7 [change-now] `HintSource` must yield snapshots over time, not one batch
+| Consumer | Signals | Lifetime | Where |
+|---|---|---|---|
+| Click/scroll dismissal | LL mouse down, `EVENT_SYSTEM_FOREGROUND`, target `LOCATIONCHANGE` | per session | `HintDismissalWatcher` `a324706` (local); design.md §7 |
+| Foreground auto-hide (competing) | `EVENT_SYSTEM_FOREGROUND` | always | `2030b29` on `modernize` |
+| Rule diagnostics: last active window | `EVENT_SYSTEM_FOREGROUND` | always | window-rules.md §5 |
+| Auto-hint SurfaceWatch | menu/popup WinEvents | always, when enabled | #44/#45/#46 |
+| Chained / menu-aware | UIA `MenuOpened/Closed`, `StructureChanged`, settle polls | per chain | `55f50f6`, `b6976b0` |
+| Taskbar overlay | UIA `StructureChanged` + container `BoundingRectangle`, MSAA `REORDER`/`STATECHANGE`, `RegNotifyChangeKeyValue`, display change + 400–600 ms settle | always, when enabled | `1b533bf`; #81 |
+| Start-menu redraw | ScrollPattern changes | per auto-hint session | #49 |
 
-Phase 04 defines `HintSource` as yielding scan targets once per `BeginScan`, completing as one
-`ScanCompleted`. Two decided features need **successive snapshots for one session**:
+Each re-solves the same problems:
 
-- chained progressive settle (150 ms polls, 4 quiet polls, 3 s cap, reconciled by RuntimeId; #74);
-- taskbar event-triggered full re-read reconcile (#81);
-- Start-menu redraw on ScrollPattern percent changes: a 50–100 ms coalesced re-scan while auto
-  hints are up (#49);
-- #76's conclusion: "a live, self-updating overlay, not one-shot settle detection".
+- out-of-context hook threads;
+- self-process and injected filtering;
+- sender identity (#81);
+- RuntimeId dedup;
+- debounce;
+- shutdown ordering.
 
-Recommendation:
+One hub provides:
 
-- Add `ScanProgress(token, snapshot, isFinal)` as an intent, or make `ScanCompleted` repeatable
-  until a final flag.
-- Make the labeling stage accept the **previous assignment**, so surviving elements keep their
-  labels (RuntimeId → label). That stage is pure and lives in Core.
+- a dedicated hook thread;
+- process-wide WinEvent hooks where needed (#84: thread-scoped hooks missed explorer events);
+- ref-counted subscriptions driven by `DesiredConditions` slices (`DismissalWatch`, `SurfaceWatch`,
+  `TaskbarWatch`, `LastActiveWindowTracking`);
+- output as coalesced intents (`ForegroundChanged`, `TargetMoved`, `SurfaceAppeared`,
+  `TaskbarDirty`).
 
-Cost now: a few types and one stage parameter. Cost later: re-cutting the seam that phase 05's
-merge-gating suite has frozen.
+It answers #46's open question for ticket D: SurfaceWatch and the foreground adapter are both
+subscribers. It also removes phase 03's accepted "foreground watch only after scan" delta.
 
-### 1.8 [change-now] Window rules: adopt `window-rules.md` as the policy model
+### 2.5 Window rules supersede phases 04 and 07 [change-now]
 
-Phase 04 grows `WindowRule` into a `ScanPolicy` "resolved per (source × matched window rule)", with
-first-match semantics lifted into Core. Phase 07 defines `rules/` files "each a list of rules
-carrying `ScanPolicy`", resolved by "specificity, then file order". The scroll spec has since
-decided a richer and partly different model (E #67 + 3 amendments, H #88, J #90, K #91, L #92,
-I #89):
+window-rules.md (E #67 + amendments, H #88, I #89, J #90, K #91, L #92) decided:
 
 - **sections** with per-section most-specific-wins and no merging within a section;
-- app definitions (the only OR), exclusions, `url`/`appId` matchers and a URL tie-break;
-- one string syntax;
-- unknown sections kept;
-- files shaped as `{apps, rules}`, with bare arrays still accepted.
+- app definitions (the only OR), `not` exclusions, `url`/`appId` matchers and a URL tie-break;
+- one string syntax; unknown sections kept;
+- files shaped as `{apps, rules}`, with bare arrays still accepted;
+- precedence: matcher-field count, URL tie-break, user over built-in, then file order.
 
-Phases 04 and 07 must be rewritten to **consume that spec** (`ScanPolicy` → the `root` + `click`
-sections; `ScrollDetectionPolicy` → `scrollDetection`). Slice 03 should build the matcher and
-resolver **in Core** (see §2), so phase 04 ports nothing.
+Phase 07's "lifting today's merge semantics" means first-match-wins: the opposite of this.
 
-The same applies to auto-hint. #47 drafted a **separate** embedded `SurfaceRule` catalog that
-reuses `RootStrategy`/`ScanPolicy` value types, and #78 asks for a per-app "command-surface profile"
-(Office ribbon/QAT). Both should be **sections or app definitions in the one rule language**
-(window-rules.md §3.1 already anticipates "`menu`, `settle`" sections). They should not be parallel
-catalogs with their own matcher and precedence. Decide this before ticket D (#44) is written.
+Rules also change **what UIA is asked for**: control-type deltas, `expectedRegions` selectors and
+`region: parent` (I #89). That is harvest-side policy in Interop, not only post-scan stages.
 
-One wrinkle: resolution is not purely data-in/data-out, because `url` is a lazy UIA read (10–50 ms).
-Keep the resolver pure over a `WindowIdentity` with a lazy URL callback, as slice 03 already
-proposes.
+Consequences:
 
-**[change-later] performance:** the built-in `Slack` app definition has a URL-only alternative
-(`{ "url": "app.slack.com" }`), and so does `Gmail`. Per window-rules.md §2.1, the URL read is gated
-only on cheap fields matching and a web-host class. An alternative with *no* cheap fields therefore
-triggers the read on **every Chromium window**: Edge, VS Code, Teams and Slack desktop. That is a
-10–50 ms tax on every click-hint scan there. Measure it in slice 04. The likely fix is to resolve
-only the sections the current consumer needs, and to skip the URL read when no URL-bearing rule
-could change those sections.
+- Phases 04 and 07 consume this spec. `ScanPolicy` maps to the `root` + `click` sections, and
+  `ScrollDetectionPolicy` maps to `scrollDetection`.
+- Slice 03 builds the matcher and resolver in Core, so phase 04 ports nothing.
+- Phase 07 adds the files, the watcher and the v0 migration of the bridged `WindowRules`/`WindowApps`.
 
-### 1.9 [change-now] "External surfaces: None" is factually wrong
+**[change-later] performance.** Built-in `Slack` and `Gmail` have URL-only alternatives. An
+alternative with no cheap fields triggers the 10–50 ms URL read on **every Chromium window**: Edge,
+VS Code, Teams and Slack desktop. Measure it in slice 04. The likely fix is to resolve only the
+sections the consumer needs, and to skip the URL read when no URL-bearing rule could change them.
 
-The overlay window title **is** an external contract. Talon's community `windows_hinting.py` scopes
-on `"[Active]" in win.title`, and CONTEXT.md now defines the **Mode marker**. Both
-`target-architecture.md` § External surfaces and #33 should say:
+### 2.6 One per-app vocabulary [change-now, before #44 ticket D and #78]
 
-- "one surface: the mode marker", derived from `DesiredConditions` and unit-tested in Core as a
-  string;
-- plus "keystrokes in";
-- plus the hard rule that **no other window of ours may carry the base title**.
+There are four overlapping notions:
 
-On `main`, the auto-hide timer is a `System.Threading.Timer` precisely because a WinForms timer's
-HWND confused Talon (`HintController.cs:39`). That is the same contract, discovered by accident.
+- window-rule sections (#67);
+- the `SurfaceRule` catalog (#47);
+- the command-surface profile (#78, Office ribbon/QAT);
+- the settle profile (#72, "confirmed-required").
 
-### 1.10 [keep, with one amendment] No rules editor UI
+Recommendation: make `menu` (#78) and `settle` (#72) **sections** of the window rule, as #67
+anticipates. **Open question on `SurfaceRule`:**
 
-Still right. Rules are hand-authored, richer than ever, and the two diagnostics (Copy window
-identity, Explain window rules; window-rules.md §5) are the right tooling.
+- Review 1 makes it a section too.
+- Review 2 keeps it as an app-locked catalog (its reasons in #47 still hold) that reuses the #67
+  matcher and section value types.
 
-But phase 08 item 4 ("no grid, no file manager, no 'open rules folder' link") now works against
-users. The rules are the main customization surface, and the scroll bridge requires the existing
-grid to round-trip unknown fields until phase 07 (window-rules.md §4.2). **Amend phase 08:** remove
-the grid only after phase 07's migration, and add "Open rules folder" next to the two diagnostics.
-
-### 1.11 [change-later] Scan pipeline details that collide with new work
-
-- **Reading order.** `ReadingOrder.Sort` (`fdec648`, local only) is a pure stage. It belongs in
-  phase 04's stage list, and scroll numbering reuses it (design.md §3.2).
-- **Root strategy.** PR #87 revives `FileExplorerCustomStrategy` and returns **multiple roots**.
-  Phase 04's `HintSource` must accept multi-root resolution.
-- **Bounds-clamp.** The Neru deep dive (lesson 7) notes Chromium reports `IsOffscreen=false` past
-  the window edge. "Bounds-clamp off" is shipped behavior, but a per-rule `click` field for it is
-  the obvious first policy edit.
+Separately, #50 has the app write `surfaceAvailability` into `preferences.json`. That breaks "one
+propagation path" (#39) and the "file is user-authored" assumption. App-owned state belongs in an
+unwatched `state.json`. Write the vocabulary into `CONTEXT.md`.
 
 ---
 
-## 2. Sequencing
+## 3. Sequencing and branch strategy
 
-### 2.1 What the current plan assumes, and what is true
+### 3.1 What is true on 2026-10-15
 
-| Assumption (README "Development branch") | Reality on 2026-10-15 |
+| Assumption (README "Development branch") | Reality |
 |---|---|
-| `modernize` = `main` + docs; `main` stays quiet and shippable | `modernize` carries code (`2030b29`, via the `refactor` merge `f7e7320`). `main` is about to receive five scroll slices. |
-| Phases run back to back | Only phase 00 has a PR (#43, open since 2026-08-07, unreviewed). Feature specs and prototypes have run for 10 weeks. |
-| Phase 10 waits on an external gate | The gate lifted 2026-09-03 (v0.3.333). |
-| Engine behavior spec = "read the current code" (phase 02) | The current code is a moving target: dismissal, reading order, Explorer tab and scroll glue all land in `HintController`/`HintState`/`HintInputHandler` first. |
+| `modernize` = `main` + docs; `main` stays quiet | `modernize` carries `2030b29` (`ForegroundWindowHookService`, via the `refactor` merge `f7e7320`). `main` carries `c36db1b` (#10 Explorer active tab, #87), which `modernize` lacks. Five scroll slices are queued for `main` (PR #105). |
+| Phases run back to back | Only phase 00 has a PR (#43, open since 2026-08-07). Phases 01–11 have not started. |
+| Phase 10 waits on an external gate | The gate lifted 2026-09-03. |
+| "Read the current code as the behavioral spec" (phase 02) | There are two diverged `HintController`s, and dismissal, reading order, Explorer tab and scroll glue all land there first. |
+| Banked work is safe | `feature/hint-dismissal-parity` (`a324706`), `fix/taskbar-hint-reading-order` (`fdec648`) and `prototype/chained-hinting` (`28698ff`/`6e93282`) are **local only**. The specs cite their hashes. |
 
-Every `main` feature written against `HintController` becomes behavior phase 02 must re-derive and
-phase 03 must delete. The conflict analysis (`git merge-tree`) already shows `HintController.cs`
-conflicting between dismissal × chained, modernize × dismissal and modernize × chained.
-`NativeMethods.txt` conflicts in three more pairs.
+`git merge-tree` shows `HintController.cs` conflicting for dismissal × chained, modernize ×
+dismissal and modernize × chained. `NativeMethods.txt` conflicts in three more pairs. Smoke §3
+("foreground-change dismissal") fails on a `main` build, because `main` has no foreground dismissal.
 
-### 2.2 Is "build on main, port later" cheaper?
+### 3.2 What ports cheaply from `main`
 
-It depends on what is ported:
+- **Leaves port almost free.** These include the scroll actuator, hold timer, cursor hide, region
+  harvest and pure stages; the rule matcher and URL parser; `ReadingOrder`; and the dismissal hook
+  code. The scroll spec already writes them as standalone classes.
+- **Glue is thrown away.** This means `ScrollController`, `HintMode.Scrolling`, the scroll branch in
+  `HintInputHandler` and `OverlayForm.SetScrollTargets`. The scroll intent tables are already in
+  engine vocabulary, so the cost of re-deriving it is low.
+- **Thread- and subscription-heavy features are costly on `main`.** Chained, the taskbar overlay
+  and auto-hint would each invent their own watcher and UIA thread. They should not be built on
+  legacy `main`; prototypes stay on prototype branches until 03/03b land.
 
-- **Leaves port almost free:**
-  - the actuator, hold timer, cursor hide, region harvest and pure stages (scroll);
-  - the rule matcher and URL parser (slice 03);
-  - `ReadingOrder`;
-  - `HintDismissalWatcher`'s hook code.
-  
-  The scroll spec already writes these as standalone classes.
-- **Glue is thrown away:** `ScrollController`, `HintMode.Scrolling` in `HintStateManager`, the
-  scroll branch in `HintInputHandler`, `OverlayForm.SetScrollTargets` (design.md §12). Phase 02/03
-  rebuild it from the scroll spec's intent tables, which are already written in engine vocabulary.
-  The re-derivation cost is low.
-- **What is genuinely costlier on `main`** is anything with *threads and subscriptions* (chained,
-  taskbar overlay, auto-hint). Built on `main`, each would invent its own watcher and UIA thread
-  (§1.4, §1.6), and phase 03 would have to untangle them. **Those three should not be built on
-  `main`.**
+### 3.3 Recommended order
 
-So: building scroll on `main` is acceptable **if the leaves are born in their target projects**.
-That requires phase 01 first. Slices 01 and 03 otherwise create a `Windows-Hinting.Tests`
-(`net10.0-windows`, `InternalsVisibleTo`) project that phase 01 must dismantle (slice 01 item 1).
-
-### 2.3 Recommended order
-
-1. **[change-now] Reconcile the dismissal fork.** Choose `HintDismissalWatcher` (a superset: click,
-   foreground and move/resize). Revert `2030b29` on `modernize`, push the three local-only branches
-   (`feature/hint-dismissal-parity`, `fix/taskbar-hint-reading-order`, `prototype/chained-hinting`),
-   and merge dismissal + reading order to `main`.
-2. **Merge phase 00 (#43)**, then **retire the long-lived `modernize` branch**: merge it into `main`
-   and run the remaining phases as PRs to `main`. Each phase is already "no behavior change +
-   smoke", which is exactly what makes trunk-based safe. The README admits gating is identical on
-   both branches, so the branch buys only a merge tax. Keep beta-channel `workflow_dispatch` for
-   risky phases.
-3. **Phase 01** (solution split; mechanical, about one session). Afterwards Core.Tests runs on
-   ubuntu, and scroll's pure helpers and the rule engine land in Core directly.
-4. **Phase 10** (CsWin32 `GeneratedComInterface`): the gate is open. It must follow 01 (the interop
-   leaf exists) and should precede heavy UIA work. It removes `COMReference`, makes the whole
-   solution `dotnet build`-able (agents stop needing VS 18 MSBuild) and replaces ~30 manual
-   `ReleaseComObject` sites before scroll and chained add more. Run it **before** scroll slice 02
-   adds a second UIA harvester. If the generated code proves immature, it is contained in one
-   project, so the fallback is "revert one PR".
-5. **Phase 05a (new): fixture app + characterization smoke** against today's
-   `UIAutomationService`. This is the regression net for 02–04. Include scroll regions in the
-   fixture (§5).
-6. **Scroll slices 03 → 01 → 02** on `main`: leaves in Core/Interop.Uia, glue thin and labeled
-   throwaway.
-7. **Phase 02** with the amended state shape (§1.2), designed with `Scrolling`, `ScrollDrive`,
-   layered display and capture snapshot **from day one**.
-8. **Phase 03 + 06 together** under a short **feature freeze on `main`**. Phase 03 absorbs the click
-   and scroll glue, and phase 06 is needed for the layered overlay. Add the WatchHub and UiaWorker
-   here.
-9. **Phase 04** (rewritten around effective policy and snapshot streams), then **05b** (the smoke
-   suite re-pointed at `HintSource`), then **scroll slices 04–05** on the new seams.
-10. **Then** chained (#72), auto-hint (#44) and taskbar overlay (#81) **on the modernized seams
-    only.**
-11. 07 → 08, with 09 floating. Move 07 earlier if the rules bridge (window-rules.md §4.2)
-    accumulates user data. Every month on the bridge grows the v0 migration surface.
-12. 11 stays optional, though its value rises (§5).
-
-### 2.4 Merge, split, drop
-
-- **Split 05** into 05a (fixture + characterization, early) and 05b (seam contract after 04).
-- **Merge 03 and 06** into one cutover window, or run 06 immediately after 03. A layered display
-  model is part of what 03 reconciles.
-- **Drop** from phase 04 the "grow `WindowRule` into `ScanPolicy`" work item. It is replaced by
-  importing the slice-03 rule engine.
-- **Pull forward** phase 10 (§2.3 step 4).
-- **Keep 09** floating. It is independent.
-
----
-
-## 3. Stale or wrong assumptions
-
-| # | Spec says | Now | Tag |
-|---|---|---|---|
-| 3.1 | Phase 10 gated; "v0.3.296 predates it; do not start" | PR #1746 ("Fix PreserveSig COM source generation") is in every tag from **v0.3.333 (2026-09-03)**. Latest is **v0.3.363 (2026-10-14)**. `main` pins 0.3.275. ([releases](https://github.com/microsoft/CsWin32/releases), [PR](https://github.com/microsoft/CsWin32/pull/1746)) | **[change-now]** |
-| 3.2 | `modernize` = `main` + docs (README; also this review's brief) | `2030b29` code is on `modernize` only | **[change-now]** |
-| 3.3 | Phase 03 adapts `ForegroundWindowHookService`; smoke §3 "foreground-change dismissal" | That service exists only on `modernize`. `main` has no foreground dismissal at all, so smoke §3 fails on a `main` build. `HintDismissalWatcher` is the intended successor. | **[change-now]** |
-| 3.4 | Phase 01 moves code into `Interop.Uia`; references `HintStateManager` semantics | The class lives in `Services/HintState.cs`. Harmless, but phase files should name files that exist. | [change-later] |
-| 3.5 | `net10.0` everywhere | .NET 10 LTS is supported until **2028-11-14**. .NET 11 (STS) is at RC2 with GA expected at .NET Conf, 10–12 Nov 2026. Stay on 10. .NET 11 WinForms adds `VisualStylesMode`, `FormRevealMode.Deferred` and `SystemVisualSettingsChanged`, which are tempting for phase 08 but not worth an STS hop. ([releases-index](https://builds.dotnet.microsoft.com/dotnet/release-metadata/releases-index.json), [WinForms .NET 11](https://learn.microsoft.com/dotnet/desktop/winforms/whats-new/net110)) | [keep] |
-| 3.6 | "xUnit v3" | The `xunit.v3` package line is now **4.0.2** (2026-10-09). 4.0 defaults to Microsoft.Testing.Platform v2 and drops MTP v1. `main` still carries `xunit.v3.extensibility.core` 3.2.2 (phase 00 deletes it). Pin **4.x + MTP v2** in phase 01 rather than 3.x. ([4.0.0 notes](https://xunit.net/releases/v3/4.0.0)) | [change-now] (one line) |
-| 3.7 | "NetSparkle + WiX stay; installer unchanged" | NetSparkle 3.1.0 is still current (3.1.1 is in preview). The installer is on **WiX v6.0.2**. WiX **v7.0.0** (2026-04) **enforces the Open Source Maintenance Fee EULA** on every command (OSMF v1.1: sponsorship required above US$10k annual revenue). Decide deliberately whether to stay on v6 or accept the v7 EULA in CI. ([OSMF](https://docs.firegiant.com/wix/osmf/)) | [change-later] |
-| 3.8 | WinForms overlay, `TransparencyKey`; ULW optional | Still right for a click-through, zero-UIA-footprint overlay. Scroll badges, ambient taskbar numbers and soft outlines all render over arbitrary content, so color-key fringing shows more often. That raises phase 11's value without making it mandatory. `WDA_EXCLUDEFROMCAPTURE` (gap G14) interacts with gaze-ocr screenshots, so it stays off by default. | [keep] |
-| 3.9 | Settings UI in modern WinForms (#40) | Re-confirmed by `research/winui-preferences-migration.md` (#104): WinForms dark mode left experimental in .NET 10. WPF's `ThemeMode` is **still experimental (WPF0001)** in .NET 10, which weakens the #103 WPF Fluent fallback. | [keep] |
-| 3.10 | "No external surface; returns when Talon ships RPC" (#33) | Talon 1.0 shipped a *preliminary* `talon-rpc`, but it is Talon-hosted (others drive Talon). The Talon → app direction is always an app-hosted listener, whatever Talon ships (`research/talon-direct-channel`, #93). The trigger in #33 is therefore the wrong trigger. The competitive register proposes **G2: outbound hint state + event stream**, plus G1 select-by-name and G3 external targets. Phase 00's deletion is still right (the code is dead, and the hardened-pipe blueprint survives). What to change now is making intents and the state snapshot **plain serializable data** (§5, O3) so G2 stays an adapter. | [change-now] (cheap); the G2 decision itself is [change-later] |
-| 3.11 | "No rules UI; README documents `rules/`" (#40) | The rules are now a sectioned policy language with URL syntax and selectors. Keep no editor; add an open-folder link, the diagnostics and a JSON Schema (§1.10, §5). | [change-later] |
-| 3.11a | "One propagation path; the settings UI has no privileged write path" (#39) | #50 has the **app** writing an app-owned `surfaceAvailability` block into `preferences.json`. That makes the watcher react to the app's own writes and blurs "the file is user-authored". App-owned state belongs in a separate `state.json` that is not watched. | [change-later] (before #44 ticket D) |
-| 3.12 | Debug builds behave like installed builds | Debug uses `app.debug.manifest` (no UIAccess). Several new behaviors differ under UIAccess (§4.1). | [change-now] (test plan) |
-| 3.13 | Scroll design: "Elevated target windows block `SendInput` (UIPI)" (design.md §4.4, §11) | True for the **non-UIAccess** Debug/portable builds. A UIAccess process is exempt from UIPI for input injection, so the installed build should be able to hold-scroll elevated windows. This is unverified. Record the limit per build flavor. | [change-later] |
+1. **Reconcile the forks.** Choose one dismissal watcher. `HintDismissalWatcher` is a superset
+   (click + foreground + move/resize), so either revert `2030b29` or merge it and supersede it.
+   Bring `c36db1b` to `modernize` or retire the branch. Push the three local-only branches. Merge
+   dismissal + reading order to `main`.
+2. **Merge phase 00 (#43) and retire the long-lived `modernize` branch.** Merge its docs into `main`
+   and run the remaining phases as PRs to `main`. Each phase is "no behavior change + smoke", so
+   trunk-based is safe. Keep the beta-channel `workflow_dispatch` for risky phases.
+3. **Phase 01** before scroll slices 01/03, so scroll's pure code and the rule engine are born in
+   Core with ubuntu-run tests. Otherwise slice 01 creates a throwaway `Windows-Hinting.Tests`
+   project.
+4. **Phase 10** right after 01, before scroll slice 02 adds a second harvester. It removes
+   `COMReference` and the VS 18 MSBuild tax from every later agent session, and replaces about 30
+   manual `ReleaseComObject` sites. If generation is immature, revert one PR.
+5. **Phase 05a (new):** fixture + characterization smoke against today's scanner, as the regression
+   net for 02–04.
+6. **Scroll slices 03 → 01 → 02** on `main`, with leaves in Core/Interop.Uia and glue thin and
+   labelled throwaway.
+7. **Phase 02 (engine v2)**, amended per §2.1–2.3, with scroll, layers and the capture snapshot from
+   day one.
+8. **Phase 03 + 06 under a short feature freeze**, with **03b UiaWorker + WatchHub** immediately
+   after. Phase 03 absorbs the click, scroll, dismissal and chain glue.
+9. **Phase 04** (rewritten), then **05b** (seam contract), then scroll slices 04–05 on the new seams.
+10. Then chained (#72), auto-hint (#44) and the taskbar overlay (#81) **on the modernized seams
+    only**.
+11. 07 → 08, with 09 floating. Move 07 earlier if the rules bridge accumulates user data. Phase 11
+    stays optional; its value rises with soft outlines and badges over arbitrary content.
 
 ---
 
 ## 4. Risks the plan underweights
 
-### 4.1 UIAccess is the shipping configuration and is never exercised in development
-
-Only Release/MSI builds carry `uiAccess="true"` (`app.manifest:16`), and only when signed and
-installed under Program Files. Smoke §10 runs only before a release.
-
-Behaviors that change under UIAccess:
-
-- z-order above Start and elevated surfaces;
-- LL hooks seeing input while an elevated window is focused;
-- `SendInput`/`SetCursorPos` into elevated windows (scroll parking and holds, mouse-click
-  activation);
-- WinEvent/UIA access to elevated processes.
-
-Mitigation:
-
-- a documented "UIAccess dev install" lane (signed Debug-Beta MSI to a VM snapshot);
-- smoke §10 extended with scroll, dismissal and taskbar rows, made part of the done criteria for
-  phase 03 and scroll slice 01.
-
-### 4.2 Hook timeouts are silent
-
-See §1.5. The failure mode is "hints stop responding to typing until restart", with no log line. Add:
-
-- the dedicated input thread;
-- a hook-latency histogram in boundary logging (phase 09);
-- a cheap **liveness probe**: on entering a capture mode, verify that the hook handle still receives
-  events, and reinstall if not.
-
-### 4.3 COM apartments and lifetime
-
-`main` already mixes apartments: elements come from MTA scans and are activated on the STA UI
-thread. Abandoned timed-out scans keep running (`Task.Run(...).WaitAsync`), so two harvesters can
-overlap on one window.
-
-Scroll adds an actuator worker plus a ticker, chained adds a second `CUIAutomation` plus event
-handlers, and the taskbar overlay adds an MTA handler thread. Without the UiaWorker (§1.6) this
-becomes four independent COM owners with four release policies, right before phase 10 rewrites
-lifetime to ComWrappers.
-
-### 4.4 VM versus bare metal
-
-The scroll actuator's central claim is that the parked hidden-cursor wheel reaches the target
-wherever the user's mouse is. It was tested **only in a VM** (design.md "Open items", G #69 item 1),
-and the spec makes bare metal part of slice 01's done criteria.
-
-Chained and taskbar timings (150 ms polls, 400–600 ms display settle) were measured on specific
-machines. CI runners are VMs. The smoke suite therefore must never assert wheel-based scrolling, and
-timing constants must stay named, policy-overridable values (as `scrollActuation` already does)
-rather than CI-asserted ones.
-
-### 4.5 CI testing of UIA-heavy features
-
-The plan's tier 2 is a dozen tests against a **WinForms** fixture. The features at risk live in
-Chromium/Electron (warm-up retry, axis lies, URL read), WinUI/XAML (Settings, taskbar), WPF (VS) and
-Office. A WinForms-only fixture proves the seam, not the behavior.
-
-Accept that limit, but:
-
-- add a WebView2 page to the fixture. It is cheap, ships with Windows 11, and exercises the Chromium
-  provider, `RootWebArea` URL reads and `className` tokens;
-- add a scrollable list, tree and nested panes;
-- add a context menu, for chained and auto-hint.
-
-### 4.6 Process risks
-
-- **Local-only branches.** Three branches hold banked findings and code that the specs cite by hash
-  (`a324706`, `fdec648`, `28698ff`). One disk failure loses them.
-- **Two spec trees disagree.** `docs/architecture/` says three modes and five effects;
-  `docs/scroll-regions/` says four and six. Every agent session that reads only one tree gets the
-  wrong picture. Amend `target-architecture.md` (see the decisions below) rather than letting
-  follow-on specs override it by reference.
-- **Phase 00 PR #43 has been open for 10 weeks.** Stale PRs on a spec branch are a smell that the
-  branch strategy isn't working (§2.3 step 2).
-
-### 4.7 Desktop-global side effects
-
-`SetSystemCursor` (scroll cursor hide) and `timeBeginPeriod(1)` (scroll ticker) change system-wide
-state. The spec's crash marker covers the cursor. `timeBeginPeriod` should be scoped to holds only,
-not the whole mode. Both belong in a single "global side-effects" registry restored on every exit
-path. That registry should be shared with any future feature (for example G14 display affinity).
+1. **UIAccess is the shipping configuration and is never exercised in development.** Debug builds use
+   `app.debug.manifest`. Under UIAccess, z-order above Start, hooks over elevated windows, and
+   `SendInput`/`SetCursorPos` into elevated targets all change, and the scroll spec's UIPI limit
+   (design.md §4.4) differs per build flavor. Add a UIAccess lane: a signed Debug-Beta MSI on bare
+   metal. Make smoke §10, extended with scroll, dismissal and taskbar rows, part of done for phase 03
+   and scroll slice 01. Document the portable-mode UIPI gap.
+2. **Hook timeouts are silent.** Add a hook-latency histogram in boundary logging. Add a liveness
+   probe that reinstalls the hook when a capture mode is entered and the hook is dead.
+3. **COM apartments and lifetime.** Without the UiaWorker there will be four COM owners with four
+   release policies, right before phase 10 rewrites lifetime to ComWrappers.
+4. **VM vs bare metal.** The parked hidden-cursor wheel claim is VM-tested only (G #69). CI runners
+   are VMs. Never assert wheel scrolling in the smoke suite. Keep timing constants as named,
+   policy-overridable values.
+5. **A WinForms-only fixture proves the seam, not the behavior.** Add a WebView2 page (the Chromium
+   provider, `RootWebArea` URL, `className` tokens), scroll panes, nested trees, a context menu, a
+   slow-settle panel and an elevated-instance switch.
+6. **Process risks:**
+   - two spec trees disagree (three modes and five effects vs four and six);
+   - local-only branches;
+   - a ten-week-old PR;
+   - the decision table stops at #40, while #45–#50, #63–#69, #74, #77, #86 and #88–#93 constrain
+     the spec but are reachable only through map bodies.
+7. **Privacy:** the `url` read, the cursor-hidden marker and intent logging are new on-disk and log
+   data. No spec covers privacy as a whole.
 
 ---
 
-## 5. New opportunities (ranked by value ÷ cost)
+## 5. Handoff readiness: what an implementing model would stumble on
 
-| Rank | Opportunity | Value | Cost | Notes |
-|---|---|---|---|---|
-| O1 | **WatchHub**: one hook thread with ref-counted WinEvent/LL-mouse subscriptions → coalesced intents; `DesiredConditions` slices drive subscriptions | High: serves dismissal, diagnostics, auto-hint, chained, taskbar; removes the foreground-watch delta | M (one component, ~300 lines, consolidates `HintDismissalWatcher`) | §1.4. Build it in phase 03. |
-| O2 | **UiaWorker** in Interop.Uia: owns `IUIAutomation`, the ElementRef table (RuntimeId + generation), UIA event registrations, activator and actuator COM calls | High: correctness under phase 10 lifetime rules; one place for timeouts | M | §1.6. Pairs with phase 10. |
-| O3 | **Serializable intents + `StateSnapshot`** in Core (plain records, System.Text.Json source-gen-friendly; a pure `Snapshot(state)` → labels, names, roles, rects, mode) | Medium-high: G2 (outbound state/events), G1 one-shot verbs and G3 external targets become adapters; also free structured logs for phase 09 | **S now**, L to retrofit | Doesn't reverse #33. It keeps the option open. |
-| O4 | **Input thread + capture snapshot + `InputInjector` with cookie** | High (reliability) | S–M | §1.5. |
-| O5 | **JSON Schema for rule files** (embedded and published; `$schema` in examples) | Medium: editor validation and IntelliSense for a hand-edited policy language, offsetting "no rules UI" | S (generate from the Core types) | Pairs with Explain window rules. |
-| O6 | **Fixture-app expansion**: WebView2 page, scroll panes, nested trees, context menu, a "slow settle" panel, an elevated-instance switch for UIPI tests | Medium-high: lets scroll detection, chained settle and auto-hint have tier-2 tests | S–M | §4.5. |
-| O7 | **Reusable probe/diagnostic library**: the UiaWorker and WatchHub exposed so a probe is ~100 lines that emits JSONL timelines (event, sender identity, RuntimeId, Δt) | Medium: every map since #44 hand-built a probe (`AutoHintDetectionProbe`, `ScrollExposureProbe`, `ScrollSelectProbe`, `RuleProbe`, `TaskbarOverlayProbe`, ~5,000 lines in total), each with its own UIA COMReference | M | #51 charters a *forked standalone* tool and rules out an in-app diagnostic. That still fits: after phase 10, the fork references `Interop.Uia` (plain `dotnet build`) instead of re-implementing hooks. #52 found the "latency/gap between events" view is a genuine gap in Accessibility Insights, AccEvent and Inspect. |
-| O8 | **Label stability stage** (RuntimeId → label carry-over) | Medium: chained, taskbar (numbers must not shuffle), G8 marks | S in phase 04 | §1.7. |
-| O9 | **Talon-facing state beyond the title**: a second, stable title token for source (`[Active] [Taskbar]`) | Low-medium: lets Talon scope commands per source without an RPC | S | Design.md §6.4 already reserves trailing tokens. |
-| O10 | **Global side-effects registry** (cursor, timer resolution, display affinity) with a crash marker | Medium (safety) | S | §4.7. |
-| O11 | **CsWin32-everywhere → NativeAOT trial** for startup time and footprint of a tray app | Low-medium | M | Enabled by phase 10. Explicitly out of scope there, so it is a follow-on. |
+1. **README:** PRs target `modernize`, while PR #105 says `main`. One rule is needed.
+2. **Phase 00:** done but unmerged, so a fresh agent would redo it.
+3. **Phase 01:**
+   - It doesn't say whether new Core code (rules, scroll stages) may land before 02.
+   - `IUIAutomationService.cs` gained members in `2030b29`.
+   - `HintStateManager` lives in `Services/HintState.cs`.
+4. **Phase 02:**
+   - "exactly five effects";
+   - no `Scrolling`, no session/generation split, no `ElementRef` identity;
+   - label location ambiguous;
+   - the hook-thread question unanswered;
+   - no mode marker;
+   - two diverged "current code" baselines.
+5. **Phase 03:**
+   - no dismissal condition beyond foreground;
+   - ref-table lifetime undefined;
+   - no instructions for porting scroll and rule code that landed on `main`;
+   - `HintMode.Selecting` is still referenced by `TrayIconManager.cs:195`, so both ends need
+     deleting.
+6. **Phase 04:**
+   - "grow `WindowRule` into `ScanPolicy`" contradicts window-rules.md;
+   - no harvest-side policy;
+   - no `ReadingOrder` stage (`fdec648`);
+   - still lists #10 as future work, but `c36db1b` fixed it.
+7. **Phase 05:** the fixture lacks the content classes that matter.
+8. **Phase 07:**
+   - file shape and precedence;
+   - v0 migration of the bridged sections;
+   - reserving `surfaces`/`surfaceAvailability` (#47/#50).
+9. **Phase 08:**
+   - keep the diagnostics tray items;
+   - list the bridge-era rules grid it removes;
+   - the #103 spike follows.
+10. **Phase 09:** intent-log redaction (keys, URLs).
+11. **Phase 10:** the gate text is stale, and the lifetime DoD depends on §2.2.
+12. **Smoke test:** add the title marker, scroll mode, cursor restore after a kill, chained
+    re-hint, menu open and mixed-DPI rows.
+13. **Shared code to unify:** `ElementDeduplicator` and the scroll Dedup stage should be one Core
+    function. Reading order and label assignment should be one ordering stage.
 
 ---
 
-## Decisions the owner should make next
+## 6. Opportunities (ranked by value ÷ cost)
 
-Each is phrased as a question with a recommended answer. Each could become a wayfinder ticket.
+| Rank | Opportunity | Cost | Notes |
+|---|---|---|---|
+| O1 | WatchHub | M | §2.4. It consolidates `HintDismissalWatcher`. |
+| O2 | UiaWorker (one `IUIAutomation`, ref table, events, activator/actuator COM) | M | §2.4; pairs with phase 10. |
+| O3 | Serializable intents + `StateSnapshot` in Core | S now, L later | Keeps G1/G2/G3 (#94) and a talon-rpc adapter purely additive, and gives phase 09 structured logs for free. |
+| O4 | Input thread + capture snapshot + cookie-tagged `InputInjector` | S–M | §2.4. |
+| O5 | Fixture expansion (WebView2, scroll panes, menus, slow settle, elevated switch) | S–M | §4.5. |
+| O6 | Label-carry stage (RuntimeId → label) | S | §2.2. |
+| O7 | JSON Schema for rule files | S | Generated from Core types. It offsets "no rules UI" (open question in §1). |
+| O8 | Reusable probe library on UiaWorker/WatchHub | M | Every map since #44 hand-built a probe (about 5,000 lines in total). The #51 forked tool could reference `Interop.Uia` after phase 10. |
+| O9 | A second, stable title token for the source (`[Active] [Taskbar]`) | S | Design.md §6.4 reserves trailing tokens. |
+| O10 | Global side-effects registry (cursor, timer resolution, display affinity) | S | §2 table. |
+| O11 | NativeAOT trial | M | A follow-on, enabled by phase 10. |
 
-1. **Is the CsWin32 gate lifted, and does phase 10 move up?** *Yes. Record v0.3.333+ (use 0.3.363)
-   in phase 10 and schedule it right after phase 01, before scroll slice 02.*
-2. **Which foreground-dismissal implementation survives: `2030b29` (`modernize`) or
-   `HintDismissalWatcher` (`a324706`)?** *`HintDismissalWatcher`. Revert `2030b29` on `modernize`,
-   merge dismissal to `main`, and fix phase 03's and smoke §3's references.*
-3. **Do we keep a long-lived `modernize` branch?** *No. Merge phase 00, merge `modernize` into
-   `main`, and run the remaining phases as PRs to `main`, with one short feature freeze for 03+06.*
-4. **Does phase 01 run before scroll slices 01 and 03?** *Yes, so scroll's pure code and the rule
-   engine are born in `Core` with ubuntu-run tests, and no throwaway test project is created.*
-5. **Does phase 02's state become orthogonal regions (session + chain + ambient) with per-region
-   reducers, and do `Intent`/`Effect` become "closed per release, extended additively"?** *Yes.
-   Amend `target-architecture.md` and phase 02 before 02 starts. Fold in scroll's `Scrolling`,
-   `ScrollElement` and `ScrollDrive` from day one.*
-6. **Is the overlay display model layered (session layer + ambient layers), with the mode marker
-   driven only by the session layer?** *Yes. Amend phase 06. Ambient windows never carry the base
-   title.*
-7. **Do the low-level hooks move to a dedicated input thread, with `SuppressKey` replaced by a pure
-   `CaptureDecision` over a published `InputCapture` snapshot?** *Yes. Amend the threading model and
-   phase 03. Add cookie-tagged injection, and never filter all injected events (Talon).*
-8. **Do we add a WatchHub (host) and a UiaWorker (Interop.Uia) to the target architecture, and ban
-   UIA calls on the UI thread?** *Yes. Both land in phase 03, and every watcher-bearing feature (#44,
-   #72, #81, scroll dismissal, diagnostics) builds on them.*
-9. **Do `HintSource`s emit successive snapshots with RuntimeId-keyed ElementRefs and a label-carry
-   stage?** *Yes. Amend phase 04 before the phase-05 suite freezes the seam.*
-10. **Do phases 04 and 07 adopt `docs/scroll-regions/window-rules.md` as the rule model, retiring
-    `ScanPolicy` as a separate concept?** *Yes. Slice 03 builds the matcher and resolver in Core;
-    phase 04 consumes it, and phase 07 only adds files + watcher + migration.*
-11. **Are chained hinting (#72), auto-hint (#44) and the taskbar overlay (#81) barred from building
-    on legacy `main`?** *Yes. They are watcher-heavy, and building them on `HintController` doubles
-    the porting cost. Prototypes stay on prototype branches until phase 03 lands.*
-12. **Does phase 05 split into 05a (fixture + characterization, right after 01/10) and 05b (seam
-    contract, after 04), and does the fixture gain WebView2, scroll panes and menus?** *Yes.*
-13. **Do we make intents and a `StateSnapshot` plain serializable data now, deferring the G2
-    external-channel decision?** *Yes. Small now, expensive later. Also amend #33's resume trigger
-    from "Talon ships RPC" to "keystrokes demonstrably hurt / a G1/G2 use case is chosen", per
-    #93.*
-14. **Does phase 08 keep an "Open rules folder" link, and is the grid removed only after phase 07's
-    migration?** *Yes. Also ship a JSON Schema for rule files (O5).*
-15. **What is the UIAccess test lane?** *A signed Debug-Beta MSI installed on a bare-metal machine
-    (VM snapshot as secondary). Smoke §10 gains scroll, dismissal and taskbar rows and becomes part
-    of the done criteria for phase 03 and scroll slice 01.*
-16. **WiX: stay on v6 or move to v7 under its enforced OSMF EULA?** *Stay on v6 until a v7-only
-    feature is needed. Record the licensing position in #35.*
-17. **Should the three local-only branches be pushed today?** *Yes. Specs cite their hashes.*
-18. **Do auto-hint surfaces (#47 `SurfaceRule`) and command-surface profiles (#78) become sections
-    of the one window-rule language rather than parallel catalogs, and does app-owned state (#50
-    `surfaceAvailability`) live outside `preferences.json`?** *Yes to both. Settle this before #44
-    ticket D is written.*
+---
+
+## 7. Proposed amendments and tickets (prioritized)
+
+**P0: before any engine work is handed off** (each is a decision ticket on map #26):
+
+1. **Branch strategy and fork reconciliation:**
+   - trunk-based on `main`, or not;
+   - which dismissal watcher survives (`2030b29` vs `a324706`);
+   - bring over `c36db1b`, `fdec648` and `a324706`;
+   - push the local-only branches;
+   - retarget PRs #43 and #105;
+   - phase order 00 → 01 → 10, and whether 01 precedes scroll slices 01/03;
+   - bar #44/#72/#81 from legacy `main`.
+
+   Covers §3.
+2. **Threading model:**
+   - a dedicated input thread and `CaptureDecision` over an `InputCapture` snapshot (replacing the
+     `SuppressKey` effect);
+   - cookie-tagged injection, never filtering all injected input;
+   - the UiaWorker owning COM, refs and UIA events, with UIA calls banned on the UI thread;
+   - the WatchHub as the single owner of WinEvent/LL-mouse subscriptions;
+   - amending "the host owns all threading".
+
+   Covers §2.4.
+3. **Engine v2 amendment** to `target-architecture.md` + phase 02:
+   - session + ambient regions;
+   - `SessionId` vs scan generation;
+   - successive snapshots / `HintsReconciled`;
+   - the `ElementRef` identity key, point variant and ref-table lifetime unit;
+   - labels as engine state;
+   - the layered display slice and mode marker in `DesiredConditions`;
+   - `Scrolling`/`ScrollElement`/`ScrollDrive` folded in;
+   - "one-shots only" wording;
+   - serializable intents + snapshot.
+
+   Covers §2.1–2.3. It depends on 2, because `SuppressKey`'s fate changes the effect set.
+
+**P1: before phases 03/04/07**
+
+4. A new phase 03b, UiaWorker + WatchHub, with unified dismissal as its first consumer.
+5. Rewrite phase 04 around window-rules.md: `WindowFacts` port, harvest policy, `ScrollRegionSource`,
+   multi-root, `ReadingOrder`; drop "#10 future".
+6. Rewrite phase 07: file shape, precedence, v0 migration, reserved blocks.
+7. Unify the per-app vocabulary in `CONTEXT.md` (§2.6), including `state.json` for app-owned state.
+8. Phase 10: record the lifted gate (≥ 0.3.333, use 0.3.363) and reorder it; confirm with a build.
+9. Phase 01: pin xUnit 4.x + MTP v2.
+
+**P2: within the phases that touch them**
+
+10. Phase 05 split; fixture expansion.
+11. Phase 06: layered display, title marker ownership, z-order above the taskbar.
+12. Phase 08: keep the diagnostics; settle the "Open rules folder" link and JSON Schema question.
+13. Phase 09: redaction.
+14. Smoke test additions (§5.12) and a UIAccess lane (§4.1).
+15. Extend the decision table to #45–#50, #63–#69, #74, #77, #86, #88–#93.
+16. Amend #33's resume trigger. Record the WiX v6/v7 position in #35.
+
+**Product questions**
+
+17. Does the persistent taskbar overlay (#81) replace the `Taskbar` hint source?
+18. Scope the build-spec maps for #44, #72 and #81 against the amended phase 02 and 03b.
+
+---
+
+## What could not be determined
+
+- Whether CsWin32 v0.3.333+ fully covers UIA generation. Only release notes were checked; there was
+  no build.
+- Whether `2030b29` was left off `main` on purpose.
+- The contents of the local-only branches beyond diff stats.
+- Whether UIA work on the UI thread actually caused hook timeouts in the prototypes. This is
+  inferred from design.md §4.1 p.3, not measured.
