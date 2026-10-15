@@ -1,0 +1,3 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+Edge_wheel,#1,WHEEL,LineDown,line,0.153,SP%,0.00%/v1.2,0.19%,-,
+Edge_wheel,#1,WHEELX,LineDown,no-move,0.000,SP%,0.00%/v1.2,0.00%,-,

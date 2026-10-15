@@ -1,0 +1,64 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+Settings,#1,SP,LineDown,line,0.013,SP%,0.00%/v4.1,0.05%,FK,focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#1,SP,PageDown,page,1.000,SP%,0.00%/v4.1,4.22%,FK,focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#1,SP,PageUp,over,-2.987,SP%,12.67%/v4.1,0.05%,FK,focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#1,SP,ToTop,exact,-23.679,SP%,100.00%/v4.1,0.00%,FK,focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#1,SP,ToBottom,part,0.013,SP%,0.00%/v4.1,0.05%,FK,focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#1,WMV,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#1,WMV,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#1,WMV,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,
+Settings,#1,WMV,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,
+Settings,#1,WMV,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#1,SI,LineDown,big,0.990,SP%,0.00%/v4.1,4.18%,-,items=92 vis=0..8 target=9
+Settings,#1,SI,PageDown,over,3.038,SP%,0.00%/v4.1,12.83%,-,items=92 vis=0..8 target=17
+Settings,#1,SI,PageUp,over,-2.024,SP%,12.67%/v4.1,4.12%,-,items=92 vis=13..18 target=7
+Settings,#1,SI,ToTop,no-move,0.000,SP%,92.84%/v4.1,92.84%,-,(prep-bottom?) items=92 vis=89..91 target=0
+Settings,#1,SI,ToBottom,part,21.984,SP%,0.00%/v4.1,92.84%,-,items=92 vis=0..8 target=91
+Settings,#1,RV,LineDown,pix-only,0.000,SP%,0.00%/v4.1,0.00%,FK,v=0.0->0.1 focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#1,RV,PageDown,pix-only,0.000,SP%,0.00%/v4.1,0.00%,FK,v=0.1->1.1 focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#1,RV,PageUp,over,-2.987,SP%,12.67%/v4.1,0.05%,FK,v=1183.5->1182.5 focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#1,RV,ToTop,part,-23.667,SP%,100.00%/v4.1,0.05%,FK,v=9341.5->0.0 focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#1,RV,ToBottom,pix-only,0.000,SP%,0.00%/v4.1,0.00%,FK,v=0.0->9341.5 focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#1,WHEEL,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#2,SP,LineDown,line,0.045,SP%,0.00%/v73.8,12.70%,FK,focus:hwnd 0x0->0x4066C uia ''->'Home' fg->0x60682'Settings'
+Settings,#2,SP,PageDown,part,0.356,SP%,0.00%/v73.8,100.00%,FK,focus:hwnd 0x0->0x4066C uia ''->'Home' fg->0x60682'Settings'
+Settings,#2,SP,PageUp,part,-0.356,SP%,100.00%/v73.8,0.00%,FK,focus:hwnd 0x0->0x4066C uia ''->'Home' fg->0x60682'Settings'
+Settings,#2,SP,ToTop,exact,-0.356,SP%,100.00%/v73.8,0.00%,FK,focus:hwnd 0x0->0x4066C uia ''->'Home' fg->0x60682'Settings'
+Settings,#2,SP,ToBottom,exact,0.356,SP%,0.00%/v73.8,100.00%,FK,focus:hwnd 0x0->0x4066C uia ''->'Home' fg->0x60682'Settings'
+Settings,#2,WMV,LineDown,no-move,0.000,SP%,0.00%/v73.8,0.00%,-,
+Settings,#2,WMV,PageDown,pix-only,0.000,SP%,0.00%/v73.8,0.00%,-,
+Settings,#2,WMV,PageUp,pix-only,0.000,SP%,100.00%/v73.8,100.00%,-,
+Settings,#2,WMV,ToTop,pix-only,0.000,SP%,100.00%/v73.8,100.00%,-,
+Settings,#2,WMV,ToBottom,pix-only,0.000,SP%,0.00%/v73.8,0.00%,-,
+Settings,#2,SI,LineDown,line,0.130,SP%,0.00%/v73.8,36.51%,-,items=12 vis=0..8 target=9
+Settings,#2,SI,PageDown,part,0.356,SP%,0.00%/v73.8,100.00%,-,items=12 vis=0..8 target=11(clamped: not realized?)
+Settings,#2,SI,PageUp,part,-0.356,SP%,100.00%/v73.8,0.00%,-,items=12 vis=3..11 target=0(clamped: not realized?)
+Settings,#2,SI,ToTop,exact,-0.356,SP%,100.00%/v73.8,0.00%,-,items=12 vis=3..11 target=0
+Settings,#2,SI,ToBottom,exact,0.356,SP%,0.00%/v73.8,100.00%,-,items=12 vis=0..8 target=11
+Settings,#2,RV,LineDown,pix-only,0.000,SP%,0.00%/v73.8,0.00%,FK,v=0.0->0.1 focus:hwnd 0x0->0x4066C uia ''->'Home' fg->0x60682'Settings'
+Settings,#2,RV,PageDown,pix-only,0.000,SP%,0.00%/v73.8,0.00%,FK,v=0.1->1.1 focus:hwnd 0x0->0x4066C uia ''->'Home' fg->0x60682'Settings'
+Settings,#2,RV,PageUp,pix-only,0.000,SP%,100.00%/v73.8,100.00%,FK,v=126.0->125.0 focus:hwnd 0x0->0x4066C uia ''->'Home' fg->0x60682'Settings'
+Settings,#2,RV,ToTop,pix-only,0.000,SP%,100.00%/v73.8,100.00%,FK,v=125.0->0.0 focus:hwnd 0x0->0x4066C uia ''->'Home' fg->0x60682'Settings'
+Settings,#2,RV,ToBottom,pix-only,0.000,SP%,0.00%/v73.8,0.00%,FK,v=0.0->126.0 focus:hwnd 0x0->0x4066C uia ''->'Home' fg->0x60682'Settings'
+Settings,#2,WHEEL,LineDown,no-move,0.000,SP%,0.00%/v73.8,0.00%,-,
+Settings,#3,SP,LineDown,line,0.041,SP%,0.00%/v4.1,0.17%,FK,focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#3,SP,PageDown,part,0.013,SP%,0.00%/v4.1,0.05%,FK,focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#3,SP,PageUp,over,-2.987,SP%,12.67%/v4.1,0.05%,FK,focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#3,SP,ToTop,exact,-23.679,SP%,100.00%/v4.1,0.00%,FK,focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#3,SP,ToBottom,part,0.013,SP%,0.00%/v4.1,0.05%,FK,focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#3,WMV,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#3,WMV,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#3,WMV,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,
+Settings,#3,WMV,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,
+Settings,#3,WMV,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#3,SI,LineDown,big,0.990,SP%,0.00%/v4.1,4.18%,-,items=87 vis=0..3 target=4
+Settings,#3,SI,PageDown,over,1.502,SP%,0.00%/v4.1,6.34%,-,items=87 vis=0..3 target=7
+Settings,#3,SI,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,items=87 vis=12..13 target=10
+Settings,#3,SI,ToTop,part,-21.520,SP%,92.84%/v4.1,1.96%,-,(prep-bottom?) items=87 vis=86..86 target=0
+Settings,#3,SI,ToBottom,part,21.984,SP%,0.00%/v4.1,92.84%,-,items=87 vis=0..3 target=86
+Settings,#3,RV,LineDown,pix-only,0.000,SP%,0.00%/v4.1,0.00%,FK,v=0.0->0.1 focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#3,RV,PageDown,pix-only,0.000,SP%,0.00%/v4.1,0.00%,FK,v=0.1->1.1 focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#3,RV,PageUp,over,-2.987,SP%,12.67%/v4.1,0.05%,FK,v=1183.5->1182.5 focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#3,RV,ToTop,part,-23.667,SP%,100.00%/v4.1,0.05%,FK,v=9341.5->0.0 focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#3,RV,ToBottom,pix-only,0.000,SP%,0.00%/v4.1,0.00%,FK,v=0.0->9341.5 focus:hwnd 0x0->0x4066C uia ''->'Search' fg->0x60682'Settings'
+Settings,#3,WHEEL,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,

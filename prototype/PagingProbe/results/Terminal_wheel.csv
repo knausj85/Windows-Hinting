@@ -1,0 +1,3 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+Terminal_wheel,#1,WHEEL,LineDown,line,0.100,TXT,ln0/vis30,ln3,-,
+Terminal_wheel,#1,WHEELX,LineDown,no-move,0.000,TXT,ln0/vis30,ln0,-,

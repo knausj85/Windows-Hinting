@@ -1,0 +1,11 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+WpfFixture_TXTT,#1,TXTT,LineDown,line,0.031,SP%,0.00%/v6.5,0.21%,-,2nd line->top (move=1) 'WPF TextBox line 001…'
+WpfFixture_TXTT,#1,TXTT,PageDown,no-move,0.000,SP%,0.00%/v6.5,0.00%,-,line after last->top (move=1) 'WPF TextBox line 033…'
+WpfFixture_TXTT,#1,TXTT,PageUp,no-move,0.000,SP%,20.76%/v6.5,20.76%,-,line first-32->top (move=-32) 'WPF TextBox line 065…'
+WpfFixture_TXTT,#1,TXTT,ToTop,no-move,0.000,SP%,100.00%/v6.5,100.00%,-,"doc-start line, alignTop"
+WpfFixture_TXTT,#1,TXTT,ToBottom,no-move,0.000,SP%,0.00%/v6.5,0.00%,-,"doc-end line, alignTop"
+WpfFixture_TXTT,#2,TXTT,LineDown,line,0.030,SP%,0.00%/v6.6,0.21%,-,2nd line->top (move=1) 'WPF RichTextBox para…'
+WpfFixture_TXTT,#2,TXTT,PageDown,page,1.024,SP%,0.00%/v6.6,7.28%,-,line after last->top (move=1) 'WPF RichTextBox para…'
+WpfFixture_TXTT,#2,TXTT,PageUp,page,-1.013,SP%,21.34%/v6.6,14.14%,-,line first-33->top (move=-33) 'WPF RichTextBox para…'
+WpfFixture_TXTT,#2,TXTT,ToTop,exact,-14.057,SP%,100.00%/v6.6,0.00%,-,"doc-start line, alignTop"
+WpfFixture_TXTT,#2,TXTT,ToBottom,exact,14.057,SP%,0.00%/v6.6,100.00%,-,"doc-end line, alignTop"

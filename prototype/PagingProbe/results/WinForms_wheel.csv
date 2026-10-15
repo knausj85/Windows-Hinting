@@ -1,0 +1,13 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+WinForms_wheel,#1,WHEEL,LineDown,line,0.095,SB,pos0/pg633/max10000,pos60,-,
+WinForms_wheel,#1,WHEELX,LineDown,line,0.095,SB,pos0/pg633/max10000,pos60,-,
+WinForms_wheel,#2,WHEEL,LineDown,line,0.094,SB,pos0/pg32/max499,pos3,-,
+WinForms_wheel,#2,WHEELX,LineDown,line,0.094,SB,pos0/pg32/max499,pos3,-,
+WinForms_wheel,#3,WHEEL,LineDown,line,0.103,SB,pos0/pg29/max499,pos3,-,
+WinForms_wheel,#3,WHEELX,LineDown,line,0.103,SB,pos0/pg29/max499,pos3,-,
+WinForms_wheel,#4,WHEEL,LineDown,line,0.115,SB,pos0/pg26/max499,pos3,-,
+WinForms_wheel,#4,WHEELX,LineDown,line,0.115,SB,pos0/pg26/max499,pos3,-,
+WinForms_wheel,#5,WHEEL,LineDown,line,0.142,SB,pos0/pg613/max14500,pos87,-,
+WinForms_wheel,#5,WHEELX,LineDown,line,0.142,SB,pos0/pg613/max14500,pos87,-,
+WinForms_wheel,#6,WHEEL,LineDown,line,0.097,SB,pos0/pg31/max499,pos3,-,
+WinForms_wheel,#6,WHEELX,LineDown,line,0.097,SB,pos0/pg31/max499,pos3,-,

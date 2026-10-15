@@ -1,0 +1,24 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+VSCode,#1,SP,LineDown,pix-only,0.000,SP%,0.00%/v0.2,0.00%,FK,focus:hwnd 0x0->0x19084E uia ''->'notepad_long.txt' fg->0x19084E'notepad_long.txt'
+VSCode,#1,SP,PageDown,pix-only,0.000,SP%,0.00%/v0.2,0.00%,FK,focus:hwnd 0x0->0x19084E uia ''->'notepad_long.txt' fg->0x19084E'notepad_long.txt'
+VSCode,#1,SP,PageUp,pix-only,0.000,SP%,0.00%/v0.2,0.00%,FK,focus:hwnd 0x0->0x19084E uia ''->'notepad_long.txt' fg->0x19084E'notepad_long.txt'
+VSCode,#1,SP,ToTop,pix-only,0.000,SP%,0.00%/v0.2,0.00%,FK,focus:hwnd 0x0->0x19084E uia ''->'notepad_long.txt' fg->0x19084E'notepad_long.txt'
+VSCode,#1,SP,ToBottom,pix-only,0.000,SP%,0.00%/v0.2,0.00%,FK,focus:hwnd 0x0->0x19084E uia ''->'notepad_long.txt' fg->0x19084E'notepad_long.txt'
+VSCode,#1,WMV,LineDown,pix-only,0.000,SP%,0.00%/v0.2,0.00%,-,
+VSCode,#1,WMV,PageDown,no-move,0.000,SP%,0.00%/v0.0,0.00%,-,
+VSCode,#1,WMV,PageUp,no-move,0.000,SP%,0.04%/v0.0,0.04%,-,
+VSCode,#1,WMV,ToTop,no-move,0.000,SP%,5.34%/v0.0,5.34%,-,(prep-bottom?)
+VSCode,#1,WMV,ToBottom,no-move,0.000,SP%,0.00%/v0.0,0.00%,-,
+VSCode,#1,TXT,LineDown,no-move,0.000,SP%,0.00%/v0.0,0.00%,-,2nd line->top (move=1) 'Left line 0002 - lor…'
+VSCode,#1,TXT,PageDown,no-move,0.000,SP%,0.00%/v0.0,0.00%,-,line after last->top (move=1) 'Left line 0011 - lor…'
+VSCode,#1,TXT,PageUp,no-move,0.000,SP%,0.04%/v0.0,0.04%,-,line before first->bottom (move=-1) 'notepad_long.txt'
+VSCode,#1,TXT,ToTop,no-move,0.000,SP%,5.34%/v0.0,5.34%,-,"(prep-bottom?) doc-start line, alignTop"
+VSCode,#1,TXT,ToBottom,no-move,0.000,SP%,0.00%/v0.0,0.00%,-,"doc-end line, alignBottom"
+VSCode,#1,TXTT,LineDown,no-move,0.000,SP%,0.00%/v0.0,0.00%,-,2nd line->top (move=1) 'Left line 0002 - lor…'
+VSCode,#1,TXTT,PageDown,no-move,0.000,SP%,0.00%/v0.0,0.00%,-,line after last->top (move=1) 'Left line 0011 - lor…'
+VSCode,#1,TXTT,PageUp,no-move,0.000,SP%,0.04%/v0.0,0.04%,-,line first-0->top (move=0) 'Left line 0001 - lor…'
+VSCode,#1,TXTT,ToTop,no-move,0.000,SP%,5.34%/v0.0,5.34%,-,"(prep-bottom?) doc-start line, alignTop"
+VSCode,#1,TXTT,ToBottom,no-move,0.000,SP%,0.00%/v0.0,0.00%,-,"doc-end line, alignTop"
+VSCode,#1,WHEEL,LineDown,pix-only,0.000,SP%,0.00%/v0.0,0.00%,-,
+VSCode,#1,WHEELX,LineDown,no-move,0.000,SP%,0.00%/v0.0,0.00%,-,
+VSCode,#1,WHEELS,LineDown,pix-only,0.000,SP%,0.00%/v0.0,0.00%,-,

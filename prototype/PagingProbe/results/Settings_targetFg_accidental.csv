@@ -1,0 +1,111 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+Settings,#1,SP,LineDown,line,0.041,SP%,0.00%/v4.1,0.17%,-,
+Settings,#1,SP,PageDown,page,1.000,SP%,0.00%/v4.1,4.22%,-,
+Settings,#1,SP,PageUp,page,-1.000,SP%,12.67%/v4.1,8.45%,-,
+Settings,#1,SP,ToTop,exact,-23.679,SP%,100.00%/v4.1,0.00%,-,
+Settings,#1,SP,ToBottom,exact,23.679,SP%,0.00%/v4.1,100.00%,-,
+Settings,#1,WMV,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#1,WMV,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#1,WMV,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,
+Settings,#1,WMV,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,
+Settings,#1,WMV,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#1,SI,LineDown,big,0.990,SP%,0.00%/v4.1,4.18%,-,items=92 vis=0..8 target=9
+Settings,#1,SI,PageDown,over,3.038,SP%,0.00%/v4.1,12.83%,-,items=92 vis=0..8 target=17
+Settings,#1,SI,PageUp,over,-2.024,SP%,12.67%/v4.1,4.12%,-,items=92 vis=13..18 target=7
+Settings,#1,SI,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,items=92 vis=-1..-1 target=0
+Settings,#1,SI,ToBottom,part,21.984,SP%,0.00%/v4.1,92.84%,-,items=92 vis=0..8 target=91
+Settings,#1,RV,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,v=0.0->0.1
+Settings,#1,RV,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,v=0.1->1.1
+Settings,#1,RV,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,v=1183.5->1182.5
+Settings,#1,RV,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,v=9341.5->0.0
+Settings,#1,RV,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,v=0.0->9341.5
+Settings,#1,WHEEL,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#2,SP,LineDown,line,0.045,SP%,0.00%/v73.8,12.70%,-,
+Settings,#2,SP,PageDown,part,0.356,SP%,0.00%/v73.8,100.00%,-,
+Settings,#2,SP,PageUp,part,-0.356,SP%,100.00%/v73.8,0.00%,-,
+Settings,#2,SP,ToTop,exact,-0.356,SP%,100.00%/v73.8,0.00%,-,
+Settings,#2,SP,ToBottom,exact,0.356,SP%,0.00%/v73.8,100.00%,-,
+Settings,#2,WMV,LineDown,no-move,0.000,SP%,0.00%/v73.8,0.00%,-,
+Settings,#2,WMV,PageDown,no-move,0.000,SP%,0.00%/v73.8,0.00%,-,
+Settings,#2,WMV,PageUp,no-move,0.000,SP%,100.00%/v73.8,100.00%,-,
+Settings,#2,WMV,ToTop,no-move,0.000,SP%,100.00%/v73.8,100.00%,-,
+Settings,#2,WMV,ToBottom,no-move,0.000,SP%,0.00%/v73.8,0.00%,-,
+Settings,#2,SI,LineDown,line,0.130,SP%,0.00%/v73.8,36.51%,-,items=12 vis=0..8 target=9
+Settings,#2,SI,PageDown,part,0.356,SP%,0.00%/v73.8,100.00%,-,items=12 vis=0..8 target=11(clamped: not realized?)
+Settings,#2,SI,PageUp,part,-0.356,SP%,100.00%/v73.8,0.00%,-,items=12 vis=3..11 target=0(clamped: not realized?)
+Settings,#2,SI,ToTop,exact,-0.356,SP%,100.00%/v73.8,0.00%,-,items=12 vis=3..11 target=0
+Settings,#2,SI,ToBottom,exact,0.356,SP%,0.00%/v73.8,100.00%,-,items=12 vis=0..8 target=11
+Settings,#2,RV,LineDown,no-move,0.000,SP%,0.00%/v73.8,0.00%,-,v=0.0->0.1
+Settings,#2,RV,PageDown,no-move,0.000,SP%,0.00%/v73.8,0.00%,-,v=0.1->1.1
+Settings,#2,RV,PageUp,no-move,0.000,SP%,100.00%/v73.8,100.00%,-,v=126.0->125.0
+Settings,#2,RV,ToTop,no-move,0.000,SP%,100.00%/v73.8,100.00%,-,v=125.0->0.0
+Settings,#2,RV,ToBottom,no-move,0.000,SP%,0.00%/v73.8,0.00%,-,v=0.0->126.0
+Settings,#2,WHEEL,LineDown,no-move,0.000,SP%,0.00%/v73.8,0.00%,-,
+Settings,#3,SP,LineDown,line,0.041,SP%,0.00%/v4.1,0.17%,-,
+Settings,#3,SP,PageDown,page,1.000,SP%,0.00%/v4.1,4.22%,-,
+Settings,#3,SP,PageUp,page,-1.000,SP%,12.67%/v4.1,8.45%,-,
+Settings,#3,SP,ToTop,exact,-23.679,SP%,100.00%/v4.1,0.00%,-,
+Settings,#3,SP,ToBottom,exact,23.679,SP%,0.00%/v4.1,100.00%,-,
+Settings,#3,WMV,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#3,WMV,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#3,WMV,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,
+Settings,#3,WMV,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,
+Settings,#3,WMV,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#3,SI,LineDown,big,0.990,SP%,0.00%/v4.1,4.18%,-,items=87 vis=0..3 target=4
+Settings,#3,SI,PageDown,over,1.502,SP%,0.00%/v4.1,6.34%,-,items=87 vis=0..3 target=7
+Settings,#3,SI,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,items=87 vis=12..13 target=10
+Settings,#3,SI,ToTop,part,-23.215,SP%,100.00%/v4.1,1.96%,-,items=87 vis=-1..-1 target=0
+Settings,#3,SI,ToBottom,part,21.984,SP%,0.00%/v4.1,92.84%,-,items=87 vis=0..3 target=86
+Settings,#3,RV,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,v=0.0->0.1
+Settings,#3,RV,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,v=0.1->1.1
+Settings,#3,RV,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,v=1183.5->1182.5
+Settings,#3,RV,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,v=9341.5->0.0
+Settings,#3,RV,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,v=0.0->9341.5
+Settings,#3,WHEEL,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#4,SP,LineDown,line,0.041,SP%,0.00%/v4.1,0.17%,-,
+Settings,#4,SP,PageDown,page,1.000,SP%,0.00%/v4.1,4.22%,-,
+Settings,#4,SP,PageUp,page,-1.000,SP%,12.67%/v4.1,8.45%,-,
+Settings,#4,SP,ToTop,exact,-23.679,SP%,100.00%/v4.1,0.00%,-,
+Settings,#4,SP,ToBottom,exact,23.679,SP%,0.00%/v4.1,100.00%,-,
+Settings,#4,WMV,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#4,WMV,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#4,WMV,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,
+Settings,#4,WMV,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,
+Settings,#4,WMV,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#4,TXT,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,2nd line->top (move=0) ''
+Settings,#4,TXT,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,line after last->top (move=0) ''
+Settings,#4,TXT,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,line before first->bottom (move=0) ''
+Settings,#4,TXT,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,"doc-start line, alignTop"
+Settings,#4,TXT,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,"doc-end line, alignBottom"
+Settings,#4,TXTT,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,2nd line->top (move=0) ''
+Settings,#4,TXTT,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,line after last->top (move=0) ''
+Settings,#4,TXTT,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,line first-0->top (move=0) ''
+Settings,#4,TXTT,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,"doc-start line, alignTop"
+Settings,#4,TXTT,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,"doc-end line, alignTop"
+Settings,#4,RV,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,v=0.0->0.1
+Settings,#4,RV,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,v=0.1->1.1
+Settings,#4,RV,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,v=1183.5->1182.5
+Settings,#4,RV,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,v=9341.5->0.0
+Settings,#4,RV,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,v=0.0->9341.5
+Settings,#4,WHEEL,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#5,SP,LineDown,line,0.041,SP%,0.00%/v4.1,0.17%,-,
+Settings,#5,SP,PageDown,page,1.000,SP%,0.00%/v4.1,4.22%,-,
+Settings,#5,SP,PageUp,page,-1.000,SP%,12.67%/v4.1,8.45%,-,
+Settings,#5,SP,ToTop,exact,-23.679,SP%,100.00%/v4.1,0.00%,-,
+Settings,#5,SP,ToBottom,exact,23.679,SP%,0.00%/v4.1,100.00%,-,
+Settings,#5,WMV,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#5,WMV,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#5,WMV,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,
+Settings,#5,WMV,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,
+Settings,#5,WMV,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings,#5,SI,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,items=3 vis=0..2 target=2(clamped: not realized?)
+Settings,#5,SI,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,items=3 vis=0..2 target=2(clamped: not realized?)
+Settings,#5,SI,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,no visible items
+Settings,#5,SI,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,items=3 vis=-1..-1 target=0
+Settings,#5,SI,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,items=3 vis=0..2 target=2
+Settings,#5,RV,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,v=0.0->0.1
+Settings,#5,RV,PageDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,v=0.1->1.1
+Settings,#5,RV,PageUp,no-move,0.000,SP%,12.67%/v4.1,12.67%,-,v=1183.5->1182.5
+Settings,#5,RV,ToTop,no-move,0.000,SP%,100.00%/v4.1,100.00%,-,v=9341.5->0.0
+Settings,#5,RV,ToBottom,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,v=0.0->9341.5
+Settings,#5,WHEEL,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,

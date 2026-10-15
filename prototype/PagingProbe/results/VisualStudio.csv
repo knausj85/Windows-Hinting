@@ -1,0 +1,37 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+VisualStudio,#1,SP,LineDown,line,0.045,SP%,0.00%/v1.5,0.07%,FK,focus:hwnd 0x0->0x30C02 uia ''->'Windows-Hinting' fg->0x30C02'Windows-Hinting - Pr…'
+VisualStudio,#1,SP,PageDown,page,1.000,SP%,0.00%/v1.5,1.50%,FK,focus:hwnd 0x0->0x30C02 uia ''->'Windows-Hinting' fg->0x30C02'Windows-Hinting - Pr…'
+VisualStudio,#1,SP,PageUp,page,-1.000,SP%,4.51%/v1.5,3.01%,FK,focus:hwnd 0x0->0x30C02 uia ''->'Windows-Hinting' fg->0x30C02'Windows-Hinting - Pr…'
+VisualStudio,#1,SP,ToTop,exact,-66.545,SP%,100.00%/v1.5,0.00%,FK,focus:hwnd 0x0->0x30C02 uia ''->'Windows-Hinting' fg->0x30C02'Windows-Hinting - Pr…'
+VisualStudio,#1,SP,ToBottom,exact,66.545,SP%,0.00%/v1.5,100.00%,FK,focus:hwnd 0x0->0x30C02 uia ''->'Windows-Hinting' fg->0x30C02'Windows-Hinting - Pr…'
+VisualStudio,#1,WMV,LineDown,no-move,0.000,SP%,0.00%/v1.5,0.00%,-,
+VisualStudio,#1,WMV,PageDown,no-move,0.000,SP%,0.00%/v1.5,0.00%,-,
+VisualStudio,#1,WMV,PageUp,no-move,0.000,SP%,4.51%/v1.5,4.51%,-,
+VisualStudio,#1,WMV,ToTop,no-move,0.000,SP%,100.00%/v1.5,100.00%,-,
+VisualStudio,#1,WMV,ToBottom,no-move,0.000,SP%,0.00%/v1.5,0.00%,-,
+VisualStudio,#1,SI,LineDown,line,0.045,SP%,0.00%/v1.5,0.07%,-,items=1452 vis=0..21 target=22
+VisualStudio,#1,SI,PageDown,page,1.000,SP%,0.00%/v1.5,1.50%,-,items=1452 vis=0..21 target=43
+VisualStudio,#1,SI,PageUp,page,-1.000,SP%,4.51%/v1.5,3.01%,-,items=1452 vis=66..87 target=44
+VisualStudio,#1,SI,ToTop,exact,-66.545,SP%,100.00%/v1.5,0.00%,-,items=1452 vis=1430..1451 target=0
+VisualStudio,#1,SI,ToBottom,exact,66.545,SP%,0.00%/v1.5,100.00%,-,items=1452 vis=0..21 target=1451
+VisualStudio,#1,WHEEL,LineDown,no-move,0.000,SP%,0.00%/v1.5,0.00%,-,
+VisualStudio,#1,WHEELX,LineDown,no-move,0.000,SP%,0.00%/v1.5,0.00%,-,
+VisualStudio,#1,WHEELS,LineDown,no-move,0.000,SP%,0.00%/v1.5,0.00%,-,
+VisualStudio,#3,WMV,LineDown,no-move,0.000,TXT,ln0/vis32,ln0,-,
+VisualStudio,#3,WMV,PageDown,no-move,0.000,TXT,ln0/vis32,ln0,-,
+VisualStudio,#3,WMV,PageUp,no-move,0.000,TXT,ln104/vis31,ln104,-,
+VisualStudio,#3,WMV,ToTop,no-move,0.000,TXT,ln1355/vis33,ln1355,-,(prep-bottom?)
+VisualStudio,#3,WMV,ToBottom,no-move,0.000,TXT,ln0/vis32,ln0,-,
+VisualStudio,#3,TXT,LineDown,line,0.031,TXT,ln0/vis32,ln1,-,2nd line->top (move=1) '2 // overlay + actua…'
+VisualStudio,#3,TXT,PageDown,page,1.094,TXT,ln0/vis32,ln35,-,line after last->top (move=1) '36     // ---- UIA c…'
+VisualStudio,#3,TXT,PageUp,page,-1.097,TXT,ln104/vis31,ln70,-,line before first->bottom (move=-1) '104         if (forc…'
+VisualStudio,#3,TXT,ToTop,exact,-41.061,TXT,ln1355/vis33,ln0,-,"(prep-bottom?) doc-start line, alignTop"
+VisualStudio,#3,TXT,ToBottom,part,42.344,TXT,ln0/vis32,ln1355,-,"doc-end line, alignBottom"
+VisualStudio,#3,TXTT,LineDown,line,0.031,TXT,ln0/vis32,ln1,-,2nd line->top (move=1) '2 // overlay + actua…'
+VisualStudio,#3,TXTT,PageDown,page,1.094,TXT,ln0/vis32,ln35,-,line after last->top (move=1) '36     // ---- UIA c…'
+VisualStudio,#3,TXTT,PageUp,page,-0.968,TXT,ln104/vis31,ln74,-,line first-30->top (move=-30) '75         Color.Fro…'
+VisualStudio,#3,TXTT,ToTop,exact,-41.061,TXT,ln1355/vis33,ln0,-,"(prep-bottom?) doc-start line, alignTop"
+VisualStudio,#3,TXTT,ToBottom,exact,43.375,TXT,ln0/vis32,ln1388,-,"doc-end line, alignTop"
+VisualStudio,#3,WHEEL,LineDown,no-move,0.000,TXT,ln0/vis32,ln0,-,
+VisualStudio,#3,WHEELX,LineDown,no-move,0.000,TXT,ln0/vis32,ln0,FK,focus:hwnd 0x0->0x30C02 uia ''->'Windows-Hinting' fg->0x30C02'Windows-Hinting - Pr…'
+VisualStudio,#3,WHEELS,LineDown,no-move,0.000,TXT,ln0/vis32,ln0,-,

@@ -1,0 +1,22 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+Edge,#1,SP,LineDown,line,0.061,SP%,0.00%/v1.2,0.08%,FK,focus:hwnd 0x0->0x30A04 uia ''->'PagingProbe long…' fg->0x30A04'PagingProbe long pag…'
+Edge,#1,SP,PageDown,page,1.000,SP%,0.00%/v1.2,1.26%,FK,focus:hwnd 0x0->0x30A04 uia ''->'PagingProbe long…' fg->0x30A04'PagingProbe long pag…'
+Edge,#1,SP,PageUp,page,-1.000,SP%,3.77%/v1.2,2.51%,FK,focus:hwnd 0x0->0x30A04 uia ''->'PagingProbe long…' fg->0x30A04'PagingProbe long pag…'
+Edge,#1,SP,ToTop,exact,-79.576,SP%,100.00%/v1.2,0.00%,FK,focus:hwnd 0x0->0x30A04 uia ''->'PagingProbe long…' fg->0x30A04'PagingProbe long pag…'
+Edge,#1,SP,ToBottom,exact,79.576,SP%,0.00%/v1.2,100.00%,FK,focus:hwnd 0x0->0x30A4A uia ''->'PagingProbe long…' fg->0x30A04'PagingProbe long pag…'
+Edge,#1,WMV,LineDown,pix-only,0.000,SP%,0.00%/v1.2,0.00%,-,
+Edge,#1,WMV,PageDown,pix-only,0.000,SP%,0.00%/v1.2,0.00%,-,
+Edge,#1,WMV,PageUp,page,-0.875,SP%,3.77%/v1.2,2.67%,-,
+Edge,#1,WMV,ToTop,no-move,0.000,SP%,100.00%/v1.2,100.00%,-,
+Edge,#1,WMV,ToBottom,no-move,0.000,SP%,0.00%/v1.2,0.00%,-,
+Edge,#1,TXT,LineDown,no-move,0.000,SP%,0.00%/v1.2,0.00%,-,2nd line->top (move=1) 'Inner scroll box par…'
+Edge,#1,TXT,PageDown,no-move,0.000,SP%,0.00%/v1.2,0.00%,-,line after last->top (move=1) 'Body paragraph 6 - t…'
+Edge,#1,TXT,PageUp,no-move,0.000,SP%,3.77%/v1.2,3.77%,-,line before first->bottom (move=-1) 'Inner scroll box par…'
+Edge,#1,TXT,ToTop,no-move,0.000,SP%,100.00%/v1.2,100.00%,-,"doc-start line, alignTop"
+Edge,#1,TXT,ToBottom,no-move,0.000,SP%,0.00%/v1.2,0.00%,-,"doc-end line, alignBottom"
+Edge,#1,TXTT,LineDown,no-move,0.000,SP%,0.00%/v1.2,0.00%,-,2nd line->top (move=1) 'Inner scroll box par…'
+Edge,#1,TXTT,PageDown,no-move,0.000,SP%,0.00%/v1.2,0.00%,-,line after last->top (move=1) 'Body paragraph 6 - t…'
+Edge,#1,TXTT,PageUp,no-move,0.000,SP%,3.77%/v1.2,3.77%,-,line first-0->top (move=0) 'Inner scroll box par…'
+Edge,#1,TXTT,ToTop,no-move,0.000,SP%,100.00%/v1.2,100.00%,-,"doc-start line, alignTop"
+Edge,#1,TXTT,ToBottom,no-move,0.000,SP%,0.00%/v1.2,0.00%,-,"doc-end line, alignTop"
+Edge,#1,WHEEL,LineDown,line,0.153,SP%,0.00%/v1.2,0.19%,-,

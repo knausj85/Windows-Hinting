@@ -1,0 +1,180 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+WinFormsFixture,#1,SP,LineDown,line,0.032,SB,pos0/pg633/max10000,pos20,FK,focus:hwnd 0x0->0x20A42 elKb False->True uia ''->'RichEdit Control' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#1,SP,PageDown,no-move,0.000,SB,pos0/pg633/max10000,pos0,FK,focus:hwnd 0x0->0x20A42 elKb False->True uia ''->'RichEdit Control' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#1,SP,PageUp,over,-2.938,SB,pos1860/pg633/max10000,pos0,FK,focus:hwnd 0x0->0x20A42 elKb False->True uia ''->'RichEdit Control' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#1,SP,ToTop,exact,-14.798,SB,pos9367/pg633/max10000,pos0,FK,focus:hwnd 0x0->0x20A42 elKb False->True uia ''->'RichEdit Control' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#1,SP,ToBottom,no-move,0.000,SB,pos0/pg633/max10000,pos0,FK,focus:hwnd 0x0->0x20A42 elKb False->True uia ''->'RichEdit Control' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#1,WMV,LineDown,line,0.032,SB,pos0/pg633/max10000,pos20,-,
+WinFormsFixture,#1,WMV,PageDown,page,0.979,SB,pos0/pg633/max10000,pos620,-,
+WinFormsFixture,#1,WMV,PageUp,page,-0.979,SB,pos1860/pg633/max10000,pos1240,-,
+WinFormsFixture,#1,WMV,ToTop,exact,-14.798,SB,pos9367/pg633/max10000,pos0,-,
+WinFormsFixture,#1,WMV,ToBottom,exact,14.798,SB,pos0/pg633/max10000,pos9367,-,
+WinFormsFixture,#1,EMS,LineDown,line,0.032,SB,pos0/pg633/max10000,pos20,-,ret=0x10001
+WinFormsFixture,#1,EMS,PageDown,page,0.979,SB,pos0/pg633/max10000,pos620,-,ret=0x1001F
+WinFormsFixture,#1,EMS,PageUp,page,-0.979,SB,pos1860/pg633/max10000,pos1240,-,ret=0x1FFE1
+WinFormsFixture,#1,TXT,LineDown,line,0.032,SB,pos0/pg633/max10000,pos20,-,2nd line->top (move=1) 'RichTextBox line 001…'
+WinFormsFixture,#1,TXT,PageDown,page,1.011,SB,pos0/pg633/max10000,pos640,-,line after last->top (move=1) 'RichTextBox line 032…'
+WinFormsFixture,#1,TXT,PageUp,page,-0.979,SB,pos1860/pg633/max10000,pos1240,-,line before first->bottom (move=-1) 'RichTextBox line 092…'
+WinFormsFixture,#1,TXT,ToTop,exact,-14.798,SB,pos9367/pg633/max10000,pos0,-,"doc-start line, alignTop"
+WinFormsFixture,#1,TXT,ToBottom,exact,14.799,SB,pos0/pg633/max10000,pos9368,-,"doc-end line, alignBottom"
+WinFormsFixture,#1,TXTT,LineDown,line,0.032,SB,pos0/pg633/max10000,pos20,-,2nd line->top (move=1) 'RichTextBox line 001…'
+WinFormsFixture,#1,TXTT,PageDown,page,1.011,SB,pos0/pg633/max10000,pos640,-,line after last->top (move=1) 'RichTextBox line 032…'
+WinFormsFixture,#1,TXTT,PageUp,page,-0.979,SB,pos1860/pg633/max10000,pos1240,-,line first-31->top (move=-31) 'RichTextBox line 062…'
+WinFormsFixture,#1,TXTT,ToTop,exact,-14.798,SB,pos9367/pg633/max10000,pos0,-,"doc-start line, alignTop"
+WinFormsFixture,#1,TXTT,ToBottom,exact,14.799,SB,pos0/pg633/max10000,pos9368,-,"doc-end line, alignTop"
+WinFormsFixture,#1,RV,LineDown,line,0.147,SB,pos0/pg633/max10000,pos93,FK,v=0.0->1.0 focus:hwnd 0x0->0x20A42 elKb False->True uia ''->'RichEdit Control' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#1,RV,PageDown,over,1.479,SB,pos0/pg633/max10000,pos936,FK,v=0.0->10.0 focus:hwnd 0x0->0x20A42 elKb False->True uia ''->'RichEdit Control' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#1,RV,PageUp,over,-2.938,SB,pos1860/pg633/max10000,pos0,FK,v=19.0->9.0 focus:hwnd 0x0->0x20A42 elKb False->True uia ''->'RichEdit Control' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#1,RV,ToTop,exact,-14.798,SB,pos9367/pg633/max10000,pos0,FK,v=100.0->0.0 focus:hwnd 0x0->0x20A42 elKb False->True uia ''->'RichEdit Control' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#1,RV,ToBottom,exact,14.798,SB,pos0/pg633/max10000,pos9367,FK,v=0.0->100.0 focus:hwnd 0x0->0x20A42 elKb False->True uia ''->'RichEdit Control' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#1,WHEEL,LineDown,line,0.095,SB,pos0/pg633/max10000,pos60,-,
+WinFormsFixture,#1,WHEELX,LineDown,line,0.095,SB,pos0/pg633/max10000,pos60,-,
+WinFormsFixture,#1,WHEELS,LineDown,line,0.095,SB,pos0/pg633/max10000,pos60,-,
+WinFormsFixture,#2,SP,LineDown,line,0.031,SB,pos0/pg32/max499,pos1,FK,focus:hwnd 0x0->0xE0A52 uia ''->'ListBox item 000' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#2,SP,PageDown,page,0.969,SB,pos0/pg32/max499,pos31,FK,focus:hwnd 0x0->0xE0A52 uia ''->'ListBox item 000' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#2,SP,PageUp,page,-0.969,SB,pos93/pg32/max499,pos62,FK,focus:hwnd 0x0->0xE0A52 uia ''->'ListBox item 000' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#2,SP,ToTop,exact,-14.625,SB,pos468/pg32/max499,pos0,FK,focus:hwnd 0x0->0xE0A52 uia ''->'ListBox item 000' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#2,SP,ToBottom,exact,14.625,SB,pos0/pg32/max499,pos468,FK,focus:hwnd 0x0->0xE0A52 uia ''->'ListBox item 000' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#2,WMV,LineDown,line,0.031,SB,pos0/pg32/max499,pos1,-,
+WinFormsFixture,#2,WMV,PageDown,page,0.969,SB,pos0/pg32/max499,pos31,-,
+WinFormsFixture,#2,WMV,PageUp,page,-0.969,SB,pos93/pg32/max499,pos62,-,
+WinFormsFixture,#2,WMV,ToTop,exact,-14.625,SB,pos468/pg32/max499,pos0,-,
+WinFormsFixture,#2,WMV,ToBottom,exact,14.625,SB,pos0/pg32/max499,pos468,-,
+WinFormsFixture,#2,SI,LineDown,line,0.062,SB,pos0/pg32/max499,pos2,-,items=500 vis=0..32 target=33
+WinFormsFixture,#2,SI,PageDown,page,1.062,SB,pos0/pg32/max499,pos34,-,items=500 vis=0..32 target=65
+WinFormsFixture,#2,SI,PageUp,page,-1.031,SB,pos93/pg32/max499,pos60,-,items=500 vis=93..125 target=60
+WinFormsFixture,#2,SI,ToTop,exact,-14.625,SB,pos468/pg32/max499,pos0,-,items=500 vis=468..499 target=0
+WinFormsFixture,#2,SI,ToBottom,exact,14.625,SB,pos0/pg32/max499,pos468,-,items=500 vis=0..32 target=499
+WinFormsFixture,#2,NAT,LineDown,line,0.031,SB,pos0/pg32/max499,pos1,-,LB_SETTOPINDEX(1) per=32 ret=0
+WinFormsFixture,#2,NAT,PageDown,page,1.000,SB,pos0/pg32/max499,pos32,-,LB_SETTOPINDEX(32) per=32 ret=0
+WinFormsFixture,#2,NAT,PageUp,page,-1.000,SB,pos93/pg32/max499,pos61,-,LB_SETTOPINDEX(61) per=32 ret=0
+WinFormsFixture,#2,NAT,ToTop,exact,-14.625,SB,pos468/pg32/max499,pos0,-,LB_SETTOPINDEX(0) per=32 ret=0
+WinFormsFixture,#2,NAT,ToBottom,exact,14.625,SB,pos0/pg32/max499,pos468,-,LB_SETTOPINDEX(499) per=32 ret=0
+WinFormsFixture,#2,RV,LineDown,line,0.125,SB,pos0/pg32/max499,pos4,FK,v=0.0->1.0 focus:hwnd 0x0->0xE0A52 uia ''->'ListBox item 000' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#2,RV,PageDown,over,1.438,SB,pos0/pg32/max499,pos46,FK,v=0.0->10.0 focus:hwnd 0x0->0xE0A52 uia ''->'ListBox item 000' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#2,RV,PageUp,over,-1.594,SB,pos93/pg32/max499,pos42,FK,v=19.0->9.0 focus:hwnd 0x0->0xE0A52 uia ''->'ListBox item 000' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#2,RV,ToTop,exact,-14.625,SB,pos468/pg32/max499,pos0,FK,v=100.0->0.0 focus:hwnd 0x0->0xE0A52 uia ''->'ListBox item 000' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#2,RV,ToBottom,exact,14.625,SB,pos0/pg32/max499,pos468,FK,v=0.0->100.0 focus:hwnd 0x0->0xE0A52 uia ''->'ListBox item 000' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#2,WHEEL,LineDown,line,0.094,SB,pos0/pg32/max499,pos3,-,
+WinFormsFixture,#2,WHEELX,LineDown,line,0.094,SB,pos0/pg32/max499,pos3,-,
+WinFormsFixture,#2,WHEELS,LineDown,line,0.094,SB,pos0/pg32/max499,pos3,-,
+WinFormsFixture,#3,SP,LineDown,line,0.034,SB,pos0/pg29/max499,pos1,FK,focus:hwnd 0x0->0x809C8 uia ''->'WfTreeView' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#3,SP,PageDown,page,0.966,SB,pos0/pg29/max499,pos28,FK,focus:hwnd 0x0->0x809C8 uia ''->'WfTreeView' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#3,SP,PageUp,page,-0.966,SB,pos84/pg29/max499,pos56,FK,focus:hwnd 0x0->0x809C8 uia ''->'WfTreeView' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#3,SP,ToTop,exact,-16.241,SB,pos471/pg29/max499,pos0,FK,focus:hwnd 0x0->0x809C8 uia ''->'WfTreeView' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#3,SP,ToBottom,exact,16.241,SB,pos0/pg29/max499,pos471,FK,focus:hwnd 0x0->0x809C8 uia ''->'WfTreeView' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#3,WMV,LineDown,line,0.034,SB,pos0/pg29/max499,pos1,-,
+WinFormsFixture,#3,WMV,PageDown,page,0.966,SB,pos0/pg29/max499,pos28,-,
+WinFormsFixture,#3,WMV,PageUp,page,-0.966,SB,pos84/pg29/max499,pos56,-,
+WinFormsFixture,#3,WMV,ToTop,exact,-16.241,SB,pos471/pg29/max499,pos0,-,
+WinFormsFixture,#3,WMV,ToBottom,exact,16.241,SB,pos0/pg29/max499,pos471,-,
+WinFormsFixture,#3,SI,LineDown,no-move,0.000,SB,pos0/pg29/max499,pos0,-,items=500 vis=0..28 target=29
+WinFormsFixture,#3,SI,PageDown,over,1.966,SB,pos0/pg29/max499,pos57,-,items=500 vis=0..28 target=57
+WinFormsFixture,#3,SI,PageUp,page,-1.000,SB,pos84/pg29/max499,pos55,-,items=500 vis=84..112 target=55
+WinFormsFixture,#3,SI,ToTop,exact,-16.241,SB,pos471/pg29/max499,pos0,-,items=500 vis=471..499 target=0
+WinFormsFixture,#3,SI,ToBottom,exact,16.241,SB,pos0/pg29/max499,pos471,-,items=500 vis=0..28 target=499
+WinFormsFixture,#3,NAT,LineDown,line,0.034,SB,pos0/pg29/max499,pos1,-,TVM_SELECTITEM(FIRSTVISIBLE) visCount=29 ok=1
+WinFormsFixture,#3,NAT,PageDown,page,1.000,SB,pos0/pg29/max499,pos29,-,TVM_SELECTITEM(FIRSTVISIBLE) visCount=29 ok=1
+WinFormsFixture,#3,NAT,PageUp,page,-1.000,SB,pos84/pg29/max499,pos55,-,TVM_SELECTITEM(FIRSTVISIBLE) visCount=29 ok=1
+WinFormsFixture,#3,NAT,ToTop,exact,-16.241,SB,pos471/pg29/max499,pos0,-,TVM_SELECTITEM(FIRSTVISIBLE) visCount=29 ok=1
+WinFormsFixture,#3,NAT,ToBottom,exact,16.241,SB,pos0/pg29/max499,pos471,-,TVM_SELECTITEM(FIRSTVISIBLE) visCount=29 ok=1
+WinFormsFixture,#3,RV,LineDown,no-move,0.000,SB,pos0/pg29/max499,pos0,FK,v=0.0->1.0 focus:hwnd 0x0->0x809C8 uia ''->'WfTreeView' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#3,RV,PageDown,no-move,0.000,SB,pos0/pg29/max499,pos0,FK,v=0.0->10.0 focus:hwnd 0x0->0x809C8 uia ''->'WfTreeView' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#3,RV,PageUp,no-move,0.000,SB,pos84/pg29/max499,pos84,FK,v=17.0->7.0 focus:hwnd 0x0->0x809C8 uia ''->'WfTreeView' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#3,RV,ToTop,no-move,0.000,SB,pos471/pg29/max499,pos471,FK,v=100.0->0.0 focus:hwnd 0x0->0x809C8 uia ''->'WfTreeView' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#3,RV,ToBottom,no-move,0.000,SB,pos0/pg29/max499,pos0,FK,v=0.0->100.0 focus:hwnd 0x0->0x809C8 uia ''->'WfTreeView' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#3,WHEEL,LineDown,line,0.103,SB,pos0/pg29/max499,pos3,-,
+WinFormsFixture,#3,WHEELX,LineDown,line,0.103,SB,pos0/pg29/max499,pos3,-,
+WinFormsFixture,#3,WHEELS,LineDown,line,0.103,SB,pos0/pg29/max499,pos3,-,
+WinFormsFixture,#4,SP,LineDown,line,0.038,SB,pos0/pg26/max499,pos1,FK,focus:hwnd 0x0->0xC0932 uia ''->'ListView item 00…' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#4,SP,PageDown,page,1.000,SB,pos0/pg26/max499,pos26,FK,focus:hwnd 0x0->0xC0932 uia ''->'ListView item 00…' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#4,SP,PageUp,page,-1.000,SB,pos78/pg26/max499,pos52,FK,focus:hwnd 0x0->0xC0932 uia ''->'ListView item 00…' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#4,SP,ToTop,exact,-18.231,SB,pos474/pg26/max499,pos0,FK,focus:hwnd 0x0->0xC0932 uia ''->'ListView item 00…' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#4,SP,ToBottom,exact,18.231,SB,pos0/pg26/max499,pos474,FK,focus:hwnd 0x0->0xC0932 uia ''->'ListView item 00…' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#4,WMV,LineDown,line,0.038,SB,pos0/pg26/max499,pos1,-,
+WinFormsFixture,#4,WMV,PageDown,page,1.000,SB,pos0/pg26/max499,pos26,-,
+WinFormsFixture,#4,WMV,PageUp,page,-1.000,SB,pos78/pg26/max499,pos52,-,
+WinFormsFixture,#4,WMV,ToTop,exact,-18.231,SB,pos474/pg26/max499,pos0,-,
+WinFormsFixture,#4,WMV,ToBottom,exact,18.231,SB,pos0/pg26/max499,pos474,-,
+WinFormsFixture,#4,GRIDGET,LineDown,no-move,0.000,SB,pos0/pg26/max499,pos0,-,rows=500 vis=0..25 target=26
+WinFormsFixture,#4,GRIDGET,PageDown,no-move,0.000,SB,pos0/pg26/max499,pos0,-,rows=500 vis=0..25 target=51
+WinFormsFixture,#4,GRIDGET,PageUp,no-move,0.000,SB,pos78/pg26/max499,pos78,-,rows=500 vis=77..103 target=50
+WinFormsFixture,#4,GRIDGET,ToTop,no-move,0.000,SB,pos474/pg26/max499,pos474,-,rows=500 vis=473..499 target=0
+WinFormsFixture,#4,GRIDGET,ToBottom,no-move,0.000,SB,pos0/pg26/max499,pos0,-,rows=500 vis=0..25 target=499
+WinFormsFixture,#4,GRIDSI,LineDown,no-move,0.000,SB,pos0/pg26/max499,pos0,-,rows=500 vis=0..25 target=26 cell=null
+WinFormsFixture,#4,GRIDSI,PageDown,no-move,0.000,SB,pos0/pg26/max499,pos0,-,rows=500 vis=0..25 target=51 cell=null
+WinFormsFixture,#4,GRIDSI,PageUp,no-move,0.000,SB,pos78/pg26/max499,pos78,-,rows=500 vis=77..103 target=50 cell=null
+WinFormsFixture,#4,GRIDSI,ToTop,no-move,0.000,SB,pos474/pg26/max499,pos474,-,rows=500 vis=473..499 target=0 cell=null
+WinFormsFixture,#4,GRIDSI,ToBottom,no-move,0.000,SB,pos0/pg26/max499,pos0,-,rows=500 vis=0..25 target=499 cell=null
+WinFormsFixture,#4,SI,LineDown,line,0.038,SB,pos0/pg26/max499,pos1,-,items=500 vis=0..25 target=26
+WinFormsFixture,#4,SI,PageDown,page,1.000,SB,pos0/pg26/max499,pos26,-,items=500 vis=0..25 target=51
+WinFormsFixture,#4,SI,PageUp,page,-1.077,SB,pos78/pg26/max499,pos50,-,items=500 vis=77..103 target=50
+WinFormsFixture,#4,SI,ToTop,exact,-18.231,SB,pos474/pg26/max499,pos0,-,items=500 vis=473..499 target=0
+WinFormsFixture,#4,SI,ToBottom,exact,18.231,SB,pos0/pg26/max499,pos474,-,items=500 vis=0..25 target=499
+WinFormsFixture,#4,NAT,LineDown,line,0.038,SB,pos0/pg26/max499,pos1,-,LVM_ENSUREVISIBLE(26) top=0 per=26 ret=1
+WinFormsFixture,#4,NAT,PageDown,page,1.000,SB,pos0/pg26/max499,pos26,-,LVM_ENSUREVISIBLE(51) top=0 per=26 ret=1
+WinFormsFixture,#4,NAT,PageUp,page,-1.000,SB,pos78/pg26/max499,pos52,-,LVM_ENSUREVISIBLE(52) top=78 per=26 ret=1
+WinFormsFixture,#4,NAT,ToTop,exact,-18.231,SB,pos474/pg26/max499,pos0,-,LVM_ENSUREVISIBLE(0) top=474 per=26 ret=1
+WinFormsFixture,#4,NAT,ToBottom,exact,18.231,SB,pos0/pg26/max499,pos474,-,LVM_ENSUREVISIBLE(499) top=0 per=26 ret=1
+WinFormsFixture,#4,RV,LineDown,no-move,0.000,SB,pos0/pg26/max499,pos0,FK,v=0.0->1.0 focus:hwnd 0x0->0xC0932 uia ''->'ListView item 00…' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#4,RV,PageDown,no-move,0.000,SB,pos0/pg26/max499,pos0,FK,v=0.0->10.0 focus:hwnd 0x0->0xC0932 uia ''->'ListView item 00…' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#4,RV,PageUp,no-move,0.000,SB,pos78/pg26/max499,pos78,FK,v=16.0->6.0 focus:hwnd 0x0->0xC0932 uia ''->'ListView item 00…' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#4,RV,ToTop,no-move,0.000,SB,pos474/pg26/max499,pos474,FK,v=100.0->0.0 focus:hwnd 0x0->0xC0932 uia ''->'ListView item 00…' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#4,RV,ToBottom,no-move,0.000,SB,pos0/pg26/max499,pos0,FK,v=0.0->100.0 focus:hwnd 0x0->0xC0932 uia ''->'ListView item 00…' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#4,WHEEL,LineDown,line,0.115,SB,pos0/pg26/max499,pos3,-,
+WinFormsFixture,#4,WHEELX,LineDown,line,0.115,SB,pos0/pg26/max499,pos3,-,
+WinFormsFixture,#4,WHEELS,LineDown,line,0.115,SB,pos0/pg26/max499,pos3,-,
+WinFormsFixture,#5,WMV,LineDown,no-move,0.000,SB,pos0/pg613/max14500,pos0,-,
+WinFormsFixture,#5,WMV,PageDown,no-move,0.000,SB,pos0/pg613/max14500,pos0,-,
+WinFormsFixture,#5,WMV,PageUp,no-move,0.000,SB,pos1827/pg613/max14500,pos1827,-,
+WinFormsFixture,#5,WMV,ToTop,no-move,0.000,SB,pos13888/pg613/max14500,pos13888,-,
+WinFormsFixture,#5,WMV,ToBottom,no-move,0.000,SB,pos0/pg613/max14500,pos0,-,
+WinFormsFixture,#5,WMVCTL,LineDown,line,0.047,SB,pos0/pg613/max14500,pos29,-,->parent 0x50A16[WindowsForms10.Windo…]
+WinFormsFixture,#5,WMVCTL,PageDown,page,0.993,SB,pos0/pg613/max14500,pos609,-,->parent 0x50A16[WindowsForms10.Windo…]
+WinFormsFixture,#5,WMVCTL,PageUp,page,-0.993,SB,pos1827/pg613/max14500,pos1218,-,->parent 0x50A16[WindowsForms10.Windo…]
+WinFormsFixture,#5,WMVCTL,ToTop,exact,-22.656,SB,pos13888/pg613/max14500,pos0,-,->parent 0x50A16[WindowsForms10.Windo…]
+WinFormsFixture,#5,WMVCTL,ToBottom,exact,22.656,SB,pos0/pg613/max14500,pos13888,-,->parent 0x50A16[WindowsForms10.Windo…]
+WinFormsFixture,#5,GRIDGET,LineDown,no-move,0.000,SB,pos0/pg613/max14500,pos0,-,rows=500 vis=0..21 target=22
+WinFormsFixture,#5,GRIDGET,PageDown,no-move,0.000,SB,pos0/pg613/max14500,pos0,-,rows=500 vis=0..21 target=43
+WinFormsFixture,#5,GRIDGET,PageUp,no-move,0.000,SB,pos1827/pg613/max14500,pos1827,-,rows=500 vis=63..84 target=41
+WinFormsFixture,#5,GRIDGET,ToTop,no-move,0.000,SB,pos13888/pg613/max14500,pos13888,-,rows=500 vis=479..499 target=0
+WinFormsFixture,#5,GRIDGET,ToBottom,no-move,0.000,SB,pos0/pg613/max14500,pos0,-,rows=500 vis=0..21 target=499
+WinFormsFixture,#5,GRIDSI,LineDown,no-move,0.000,SB,pos0/pg613/max14500,pos0,-,rows=500 vis=0..21 target=22 no ScrollItem on cell/row
+WinFormsFixture,#5,GRIDSI,PageDown,no-move,0.000,SB,pos0/pg613/max14500,pos0,-,rows=500 vis=0..21 target=43 no ScrollItem on cell/row
+WinFormsFixture,#5,GRIDSI,PageUp,no-move,0.000,SB,pos1827/pg613/max14500,pos1827,-,rows=500 vis=63..84 target=41 no ScrollItem on cell/row
+WinFormsFixture,#5,GRIDSI,ToTop,no-move,0.000,SB,pos13888/pg613/max14500,pos13888,-,rows=500 vis=479..499 target=0 no ScrollItem on cell/row
+WinFormsFixture,#5,GRIDSI,ToBottom,no-move,0.000,SB,pos0/pg613/max14500,pos0,-,rows=500 vis=0..21 target=499 no ScrollItem on cell/row
+WinFormsFixture,#5,WHEEL,LineDown,line,0.142,SB,pos0/pg613/max14500,pos87,-,
+WinFormsFixture,#5,WHEELX,LineDown,line,0.142,SB,pos0/pg613/max14500,pos87,-,
+WinFormsFixture,#5,WHEELS,LineDown,line,0.142,SB,pos0/pg613/max14500,pos87,-,
+WinFormsFixture,#6,SP,LineDown,line,0.032,SB,pos0/pg31/max499,pos1,FK,focus:hwnd 0x0->0x80A40 elKb False->True uia ''->'WfTextBox' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#6,SP,PageDown,page,0.968,SB,pos0/pg31/max499,pos30,FK,focus:hwnd 0x0->0x80A40 elKb False->True uia ''->'WfTextBox' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#6,SP,PageUp,page,-0.968,SB,pos90/pg31/max499,pos60,FK,focus:hwnd 0x0->0x80A40 elKb False->True uia ''->'WfTextBox' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#6,SP,ToTop,exact,-15.129,SB,pos469/pg31/max499,pos0,FK,focus:hwnd 0x0->0x80A40 elKb False->True uia ''->'WfTextBox' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#6,SP,ToBottom,exact,15.129,SB,pos0/pg31/max499,pos469,FK,focus:hwnd 0x0->0x80A40 elKb False->True uia ''->'WfTextBox' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#6,WMV,LineDown,line,0.032,SB,pos0/pg31/max499,pos1,-,
+WinFormsFixture,#6,WMV,PageDown,page,0.968,SB,pos0/pg31/max499,pos30,-,
+WinFormsFixture,#6,WMV,PageUp,page,-0.968,SB,pos90/pg31/max499,pos60,-,
+WinFormsFixture,#6,WMV,ToTop,exact,-15.129,SB,pos469/pg31/max499,pos0,-,
+WinFormsFixture,#6,WMV,ToBottom,exact,15.129,SB,pos0/pg31/max499,pos469,-,
+WinFormsFixture,#6,EMS,LineDown,line,0.032,SB,pos0/pg31/max499,pos1,-,ret=0x10001
+WinFormsFixture,#6,EMS,PageDown,page,0.968,SB,pos0/pg31/max499,pos30,-,ret=0x1001E
+WinFormsFixture,#6,EMS,PageUp,page,-0.968,SB,pos90/pg31/max499,pos60,-,ret=0x1FFE2
+WinFormsFixture,#6,TXT,LineDown,line,0.065,SB,pos0/pg31/max499,pos2,-,2nd line->top (move=1) 'TextBox line 002 - t…'
+WinFormsFixture,#6,TXT,PageDown,page,1.097,SB,pos0/pg31/max499,pos34,-,line after last->top (move=1) 'TextBox line 034 - t…'
+WinFormsFixture,#6,TXT,PageUp,page,-1.000,SB,pos90/pg31/max499,pos59,-,line before first->bottom (move=-1) 'TextBox line 089 - t…'
+WinFormsFixture,#6,TXT,ToTop,exact,-15.129,SB,pos469/pg31/max499,pos0,-,"doc-start line, alignTop"
+WinFormsFixture,#6,TXT,ToBottom,exact,15.097,SB,pos0/pg31/max499,pos468,-,"doc-end line, alignBottom"
+WinFormsFixture,#6,TXTT,LineDown,line,0.065,SB,pos0/pg31/max499,pos2,-,2nd line->top (move=1) 'TextBox line 002 - t…'
+WinFormsFixture,#6,TXTT,PageDown,page,1.097,SB,pos0/pg31/max499,pos34,-,line after last->top (move=1) 'TextBox line 034 - t…'
+WinFormsFixture,#6,TXTT,PageUp,page,-1.000,SB,pos90/pg31/max499,pos59,-,line first-31->top (move=-31) 'TextBox line 059 - t…'
+WinFormsFixture,#6,TXTT,ToTop,exact,-15.129,SB,pos469/pg31/max499,pos0,-,"doc-start line, alignTop"
+WinFormsFixture,#6,TXTT,ToBottom,exact,15.129,SB,pos0/pg31/max499,pos469,-,"doc-end line, alignTop"
+WinFormsFixture,#6,RV,LineDown,line,0.129,SB,pos0/pg31/max499,pos4,FK,v=0.0->1.0 focus:hwnd 0x0->0x80A40 elKb False->True uia ''->'WfTextBox' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#6,RV,PageDown,over,1.484,SB,pos0/pg31/max499,pos46,FK,v=0.0->10.0 focus:hwnd 0x0->0x80A40 elKb False->True uia ''->'WfTextBox' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#6,RV,PageUp,over,-1.548,SB,pos90/pg31/max499,pos42,FK,v=19.0->9.0 focus:hwnd 0x0->0x80A40 elKb False->True uia ''->'WfTextBox' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#6,RV,ToTop,exact,-15.129,SB,pos469/pg31/max499,pos0,FK,v=100.0->0.0 focus:hwnd 0x0->0x80A40 elKb False->True uia ''->'WfTextBox' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#6,RV,ToBottom,exact,15.129,SB,pos0/pg31/max499,pos469,FK,v=0.0->100.0 focus:hwnd 0x0->0x80A40 elKb False->True uia ''->'WfTextBox' fg->0xF0AA6'PagingFixture WinFor…'
+WinFormsFixture,#6,WHEEL,LineDown,line,0.097,SB,pos0/pg31/max499,pos3,-,
+WinFormsFixture,#6,WHEELX,LineDown,line,0.097,SB,pos0/pg31/max499,pos3,-,
+WinFormsFixture,#6,WHEELS,LineDown,line,0.097,SB,pos0/pg31/max499,pos3,-,

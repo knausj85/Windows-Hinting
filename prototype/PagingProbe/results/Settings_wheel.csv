@@ -1,0 +1,3 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+Settings_wheel,#1,WHEEL,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,
+Settings_wheel,#1,WHEELX,LineDown,no-move,0.000,SP%,0.00%/v4.1,0.00%,-,

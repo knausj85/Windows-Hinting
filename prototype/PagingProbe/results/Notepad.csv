@@ -1,0 +1,52 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+Notepad,#1,SP,LineDown,line,0.029,SB,pos0/pg1176/max68066,pos34,FK,focus:hwnd 0x0->0x20ACC elKb False->True uia ''->'Text editor' fg->0x2707A2'notepad_long.txt - N…'
+Notepad,#1,SP,PageDown,page,0.981,SB,pos0/pg1176/max68066,pos1154,FK,focus:hwnd 0x0->0x20ACC elKb False->True uia ''->'Text editor' fg->0x2707A2'notepad_long.txt - N…'
+Notepad,#1,SP,PageUp,page,-0.983,SB,pos3466/pg1176/max68066,pos2310,FK,focus:hwnd 0x0->0x20ACC elKb False->True uia ''->'Text editor' fg->0x2707A2'notepad_long.txt - N…'
+Notepad,#1,SP,ToTop,exact,-56.879,SB,pos66890/pg1176/max68066,pos0,FK,focus:hwnd 0x0->0x20ACC elKb False->True uia ''->'Text editor' fg->0x2707A2'notepad_long.txt - N…'
+Notepad,#1,SP,ToBottom,exact,56.879,SB,pos0/pg1176/max68066,pos66890,FK,focus:hwnd 0x0->0x20ACC elKb False->True uia ''->'Text editor' fg->0x2707A2'notepad_long.txt - N…'
+Notepad,#1,WMV,LineDown,line,0.029,SB,pos0/pg1176/max68066,pos34,-,
+Notepad,#1,WMV,PageDown,page,0.981,SB,pos0/pg1176/max68066,pos1154,-,
+Notepad,#1,WMV,PageUp,page,-0.983,SB,pos3466/pg1176/max68066,pos2310,-,
+Notepad,#1,WMV,ToTop,exact,-56.879,SB,pos66890/pg1176/max68066,pos0,-,
+Notepad,#1,WMV,ToBottom,exact,56.879,SB,pos0/pg1176/max68066,pos66890,-,
+Notepad,#1,EMS,LineDown,line,0.029,SB,pos0/pg1176/max68066,pos34,-,ret=0x10000
+Notepad,#1,EMS,PageDown,page,0.981,SB,pos0/pg1176/max68066,pos1154,-,ret=0x10021
+Notepad,#1,EMS,PageUp,page,-0.983,SB,pos3466/pg1176/max68066,pos2310,-,ret=0x1FFDE
+Notepad,#1,TXT,LineDown,line,0.056,SB,pos0/pg1176/max68066,pos66,-,2nd line->top (move=1) 'Left line 0002 - lor…'
+Notepad,#1,TXT,PageDown,page,1.010,SB,pos0/pg1176/max68066,pos1188,-,line after last->top (move=1) 'Left line 0035 - lor…'
+Notepad,#1,TXT,PageUp,page,-0.983,SB,pos3466/pg1176/max68066,pos2310,-,line before first->bottom (move=-1) 'Left line 0101 - lor…'
+Notepad,#1,TXT,ToTop,exact,-56.879,SB,pos66890/pg1176/max68066,pos0,-,"doc-start line, alignTop"
+Notepad,#1,TXT,ToBottom,part,56.867,SB,pos0/pg1176/max68066,pos66876,-,"doc-end line, alignBottom"
+Notepad,#1,TXTT,LineDown,line,0.056,SB,pos0/pg1176/max68066,pos66,-,2nd line->top (move=1) 'Left line 0002 - lor…'
+Notepad,#1,TXTT,PageDown,page,1.010,SB,pos0/pg1176/max68066,pos1188,-,line after last->top (move=1) 'Left line 0035 - lor…'
+Notepad,#1,TXTT,PageUp,page,-0.983,SB,pos3466/pg1176/max68066,pos2310,-,line first-34->top (move=-34) 'Left line 0068 - lor…'
+Notepad,#1,TXTT,ToTop,exact,-56.879,SB,pos66890/pg1176/max68066,pos0,-,"doc-start line, alignTop"
+Notepad,#1,TXTT,ToBottom,exact,56.880,SB,pos0/pg1176/max68066,pos66891,-,"doc-end line, alignTop"
+Notepad,#1,RV,LineDown,big,0.568,SB,pos0/pg1176/max68066,pos668,FK,v=0.0->1.0 focus:hwnd 0x0->0x20ACC elKb False->True uia ''->'Text editor' fg->0x2707A2'notepad_long.txt - N…'
+Notepad,#1,RV,PageDown,over,5.688,SB,pos0/pg1176/max68066,pos6689,FK,v=0.0->10.0 focus:hwnd 0x0->0x20ACC elKb False->True uia ''->'Text editor' fg->0x2707A2'notepad_long.txt - N…'
+Notepad,#1,RV,PageUp,over,-2.947,SB,pos3466/pg1176/max68066,pos0,FK,v=5.0->-5.0 focus:hwnd 0x0->0x20ACC elKb False->True uia ''->'Text editor' fg->0x2707A2'notepad_long.txt - N…'
+Notepad,#1,RV,ToTop,no-move,0.000,SB,pos66890/pg1176/max68066,pos66890,FK,v=100.0->0.0 focus:hwnd 0x0->0x20ACC elKb False->True uia ''->'Text editor' fg->0x2707A2'notepad_long.txt - N…'
+Notepad,#1,RV,ToBottom,part,1.151,SB,pos0/pg1176/max68066,pos1354,FK,v=0.0->100.0 focus:hwnd 0x0->0x20ACC elKb False->True uia ''->'Text editor' fg->0x2707A2'notepad_long.txt - N…'
+Notepad,#1,WHEEL,LineDown,line,0.114,SB,pos0/pg1176/max68066,pos134,-,
+Notepad,#2,WMV,LineDown,no-move,,PIX,4F4A,4F4A,-,(prep-top?)
+Notepad,#2,WMV,PageDown,no-move,,PIX,4F4A,4F4A,-,(prep-top?)
+Notepad,#2,WMV,PageUp,no-move,,PIX,4F4A,4F4A,-,(prep-mid?)
+Notepad,#2,WMV,ToTop,no-move,,PIX,4F4A,4F4A,-,(prep-bottom?)
+Notepad,#2,WMV,ToBottom,no-move,,PIX,4F4A,4F4A,-,(prep-top?)
+Notepad,#2,WHEEL,LineDown,no-move,,PIX,4F4A,4F4A,-,(prep-top?)
+Notepad,#3,WMV,LineDown,no-move,0.000,TXT,ln0/vis1,ln0,-,
+Notepad,#3,WMV,PageDown,no-move,0.000,TXT,ln0/vis1,ln0,-,
+Notepad,#3,WMV,PageUp,no-move,0.000,TXT,ln0/vis1,ln0,-,(prep-mid FAILED via TXT)
+Notepad,#3,WMV,ToTop,no-move,0.000,TXT,ln0/vis1,ln0,-,
+Notepad,#3,WMV,ToBottom,no-move,0.000,TXT,ln0/vis1,ln0,-,
+Notepad,#3,TXT,LineDown,no-move,0.000,TXT,ln0/vis1,ln0,-,2nd line->top (move=0) 'Plain text'
+Notepad,#3,TXT,PageDown,no-move,0.000,TXT,ln0/vis1,ln0,-,line after last->top (move=0) 'Plain text'
+Notepad,#3,TXT,PageUp,no-move,0.000,TXT,ln0/vis1,ln0,-,(prep-mid FAILED via TXT) line before first->bottom (move=0) 'Plain text'
+Notepad,#3,TXT,ToTop,no-move,0.000,TXT,ln0/vis1,ln0,-,"doc-start line, alignTop"
+Notepad,#3,TXT,ToBottom,no-move,0.000,TXT,ln0/vis1,ln0,-,"doc-end line, alignBottom"
+Notepad,#3,TXTT,LineDown,no-move,0.000,TXT,ln0/vis1,ln0,-,2nd line->top (move=0) 'Plain text'
+Notepad,#3,TXTT,PageDown,no-move,0.000,TXT,ln0/vis1,ln0,-,line after last->top (move=0) 'Plain text'
+Notepad,#3,TXTT,PageUp,no-move,0.000,TXT,ln0/vis1,ln0,-,(prep-mid FAILED via TXT) line first-0->top (move=0) 'Plain text'
+Notepad,#3,TXTT,ToTop,no-move,0.000,TXT,ln0/vis1,ln0,-,"doc-start line, alignTop"
+Notepad,#3,TXTT,ToBottom,no-move,0.000,TXT,ln0/vis1,ln0,-,"doc-end line, alignTop"
+Notepad,#3,WHEEL,LineDown,no-move,0.000,TXT,ln0/vis1,ln0,-,

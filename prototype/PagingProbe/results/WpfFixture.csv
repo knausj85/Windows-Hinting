@@ -1,0 +1,138 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+WpfFixture,#1,SP,LineDown,line,0.024,SP%,0.00%/v5.5,0.14%,FK,focus:hwnd 0x0->0xF0AB2  fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#1,SP,PageDown,page,1.000,SP%,0.00%/v5.5,5.87%,FK,focus:hwnd 0x0->0xF0AB2  fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#1,SP,PageUp,page,-1.000,SP%,17.62%/v5.5,11.75%,FK,focus:hwnd 0x0->0xF0AB2  fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#1,SP,ToTop,exact,-17.027,SP%,100.00%/v5.5,0.00%,FK,focus:hwnd 0x0->0xF0AB2  fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#1,SP,ToBottom,exact,17.027,SP%,0.00%/v5.5,100.00%,FK,focus:hwnd 0x0->0xF0AB2  fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#1,WMV,LineDown,no-move,0.000,SP%,0.00%/v5.5,0.00%,-,
+WpfFixture,#1,WMV,PageDown,no-move,0.000,SP%,0.00%/v5.5,0.00%,-,
+WpfFixture,#1,WMV,PageUp,no-move,0.000,SP%,17.62%/v5.5,17.62%,-,
+WpfFixture,#1,WMV,ToTop,no-move,0.000,SP%,100.00%/v5.5,100.00%,-,
+WpfFixture,#1,WMV,ToBottom,no-move,0.000,SP%,0.00%/v5.5,0.00%,-,
+WpfFixture,#1,SI,LineDown,line,0.012,SP%,0.00%/v5.5,0.07%,-,items=500 vis=0..26 target=27
+WpfFixture,#1,SI,PageDown,page,0.949,SP%,0.00%/v5.5,5.58%,-,items=500 vis=0..26 target=53
+WpfFixture,#1,SI,PageUp,page,-0.907,SP%,17.62%/v5.5,12.29%,-,items=500 vis=84..109 target=58
+WpfFixture,#1,SI,ToTop,part,-17.024,SP%,100.00%/v5.5,0.02%,-,items=500 vis=473..499 target=0
+WpfFixture,#1,SI,ToBottom,exact,17.024,SP%,0.00%/v5.5,99.98%,-,items=500 vis=0..26 target=499
+WpfFixture,#1,RV,LineDown,line,0.000,SP%,0.00%/v5.5,0.00%,FK,v=0.0->0.1 focus:hwnd 0x0->0xF0AB2  fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#1,RV,PageDown,part,0.002,SP%,0.00%/v5.5,0.01%,FK,v=0.0->1.0 focus:hwnd 0x0->0xF0AB2  fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#1,RV,PageUp,part,-0.002,SP%,17.62%/v5.5,17.61%,FK,v=1993.5->1992.5 focus:hwnd 0x0->0xF0AB2  fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#1,RV,ToTop,exact,-17.027,SP%,100.00%/v5.5,0.00%,FK,v=11314.5->0.0 focus:hwnd 0x0->0xF0AB2  fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#1,RV,ToBottom,exact,17.027,SP%,0.00%/v5.5,100.00%,FK,v=0.0->11314.5 focus:hwnd 0x0->0xF0AB2  fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#1,WHEEL,LineDown,pix-only,0.000,SP%,0.00%/v5.5,0.00%,-,
+WpfFixture,#2,SP,LineDown,line,0.037,SP%,0.00%/v5.4,0.21%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#2,SP,PageDown,page,1.000,SP%,0.00%/v5.4,5.71%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#2,SP,PageUp,page,-1.000,SP%,17.12%/v5.4,11.42%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#2,SP,ToTop,exact,-17.519,SP%,100.00%/v5.4,0.00%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#2,SP,ToBottom,exact,17.519,SP%,0.00%/v5.4,100.00%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#2,WMV,LineDown,no-move,0.000,SP%,0.00%/v5.4,0.00%,-,
+WpfFixture,#2,WMV,PageDown,no-move,0.000,SP%,0.00%/v5.4,0.00%,-,
+WpfFixture,#2,WMV,PageUp,no-move,0.000,SP%,17.12%/v5.4,17.12%,-,
+WpfFixture,#2,WMV,ToTop,no-move,0.000,SP%,100.00%/v5.4,100.00%,-,
+WpfFixture,#2,WMV,ToBottom,no-move,0.000,SP%,0.00%/v5.4,0.00%,-,
+WpfFixture,#2,SI,LineDown,line,0.037,SP%,0.00%/v5.4,0.21%,-,items=57 vis=0..26 target=27
+WpfFixture,#2,SI,PageDown,over,17.370,SP%,0.00%/v5.4,99.15%,-,items=58 vis=0..26 target=53
+WpfFixture,#2,SI,PageUp,page,-1.000,SP%,17.12%/v5.4,11.42%,-,items=57 vis=28..54 target=1
+WpfFixture,#2,SI,ToTop,part,-0.037,SP%,100.00%/v5.4,99.79%,-,items=28 vis=1..27 target=0
+WpfFixture,#2,SI,ToBottom,exact,17.519,SP%,0.00%/v5.4,100.00%,-,items=58 vis=0..26 target=57
+WpfFixture,#2,WHEEL,LineDown,line,0.111,SP%,0.00%/v5.4,0.63%,-,
+WpfFixture,#3,SP,LineDown,line,0.037,SP%,0.00%/v5.4,0.21%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#3,SP,PageDown,page,1.000,SP%,0.00%/v5.4,5.71%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#3,SP,PageUp,page,-1.000,SP%,17.12%/v5.4,11.42%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#3,SP,ToTop,exact,-17.519,SP%,100.00%/v5.4,0.00%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#3,SP,ToBottom,exact,17.519,SP%,0.00%/v5.4,100.00%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#3,WMV,LineDown,no-move,0.000,SP%,0.00%/v5.4,0.00%,-,
+WpfFixture,#3,WMV,PageDown,no-move,0.000,SP%,0.00%/v5.4,0.00%,-,
+WpfFixture,#3,WMV,PageUp,no-move,0.000,SP%,17.12%/v5.4,17.12%,-,
+WpfFixture,#3,WMV,ToTop,no-move,0.000,SP%,100.00%/v5.4,100.00%,-,
+WpfFixture,#3,WMV,ToBottom,no-move,0.000,SP%,0.00%/v5.4,0.00%,-,
+WpfFixture,#3,GRIDGET,LineDown,line,0.037,SP%,0.00%/v5.4,0.21%,-,rows=500 vis=0..26 target=27
+WpfFixture,#3,GRIDGET,PageDown,page,1.000,SP%,0.00%/v5.4,5.71%,-,rows=500 vis=0..26 target=53
+WpfFixture,#3,GRIDGET,PageUp,page,-1.074,SP%,17.12%/v5.4,10.99%,-,rows=500 vis=80..107 target=52
+WpfFixture,#3,GRIDGET,ToTop,exact,-17.519,SP%,100.00%/v5.4,0.00%,-,rows=500 vis=472..499 target=0
+WpfFixture,#3,GRIDGET,ToBottom,exact,17.519,SP%,0.00%/v5.4,100.00%,-,rows=500 vis=0..26 target=499
+WpfFixture,#3,GRIDSI,LineDown,line,0.037,SP%,0.00%/v5.4,0.21%,-,rows=500 vis=0..26 target=27 SI(cell)
+WpfFixture,#3,GRIDSI,PageDown,page,1.000,SP%,0.00%/v5.4,5.71%,-,rows=500 vis=0..26 target=53 SI(cell)
+WpfFixture,#3,GRIDSI,PageUp,page,-1.074,SP%,17.12%/v5.4,10.99%,-,rows=500 vis=80..107 target=52 SI(cell)
+WpfFixture,#3,GRIDSI,ToTop,exact,-17.519,SP%,100.00%/v5.4,0.00%,-,rows=500 vis=472..499 target=0 SI(cell)
+WpfFixture,#3,GRIDSI,ToBottom,exact,17.519,SP%,0.00%/v5.4,100.00%,-,rows=500 vis=0..26 target=499 SI(cell)
+WpfFixture,#3,SI,LineDown,line,0.037,SP%,0.00%/v5.4,0.21%,-,items=29 vis=0..26 target=27
+WpfFixture,#3,SI,PageDown,part,0.111,SP%,0.00%/v5.4,0.63%,-,items=30 vis=0..26 target=29(clamped: not realized?)
+WpfFixture,#3,SI,PageUp,part,-0.037,SP%,17.12%/v5.4,16.91%,-,items=30 vis=0..27 target=0(clamped: not realized?)
+WpfFixture,#3,SI,ToTop,part,-0.037,SP%,100.00%/v5.4,99.79%,-,items=28 vis=0..27 target=0
+WpfFixture,#3,SI,ToBottom,part,0.074,SP%,0.00%/v5.4,0.42%,-,items=29 vis=0..26 target=28
+WpfFixture,#3,WHEEL,LineDown,line,0.111,SP%,0.00%/v5.4,0.63%,-,
+WpfFixture,#4,SP,LineDown,line,0.025,SP%,0.00%/v6.5,0.17%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#4,SP,PageDown,page,1.000,SP%,0.00%/v6.5,6.92%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#4,SP,PageUp,page,-1.000,SP%,20.76%/v6.5,13.84%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#4,SP,ToTop,exact,-14.453,SP%,100.00%/v6.5,0.00%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#4,SP,ToBottom,exact,14.453,SP%,0.00%/v6.5,100.00%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#4,WMV,LineDown,no-move,0.000,SP%,0.00%/v6.5,0.00%,-,
+WpfFixture,#4,WMV,PageDown,no-move,0.000,SP%,0.00%/v6.5,0.00%,-,
+WpfFixture,#4,WMV,PageUp,no-move,0.000,SP%,20.76%/v6.5,20.76%,-,
+WpfFixture,#4,WMV,ToTop,no-move,0.000,SP%,100.00%/v6.5,100.00%,-,
+WpfFixture,#4,WMV,ToBottom,no-move,0.000,SP%,0.00%/v6.5,0.00%,-,
+WpfFixture,#4,TXT,LineDown,line,0.031,SP%,0.00%/v6.5,0.21%,-,2nd line->top (move=1) 'WPF TextBox line 001…'
+WpfFixture,#4,TXT,PageDown,no-move,0.000,SP%,0.00%/v6.5,0.00%,-,line after last->top (move=1) 'WPF TextBox line 033…'
+WpfFixture,#4,TXT,PageUp,no-move,0.000,SP%,20.76%/v6.5,20.76%,-,line before first->bottom (move=-1) 'WPF TextBox line 096…'
+WpfFixture,#4,TXT,ToTop,no-move,0.000,SP%,100.00%/v6.5,100.00%,-,"doc-start line, alignTop"
+WpfFixture,#4,TXT,ToBottom,no-move,0.000,SP%,0.00%/v6.5,0.00%,-,"doc-end line, alignBottom"
+WpfFixture,#4,RV,LineDown,line,0.000,SP%,0.00%/v6.5,0.00%,FK,v=0.0->0.1 focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#4,RV,PageDown,part,0.002,SP%,0.00%/v6.5,0.01%,FK,v=0.0->1.0 focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#4,RV,PageUp,part,-0.002,SP%,20.76%/v6.5,20.75%,FK,v=1936.5->1935.5 focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#4,RV,ToTop,exact,-14.453,SP%,100.00%/v6.5,0.00%,FK,v=9329.5->0.0 focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#4,RV,ToBottom,exact,14.453,SP%,0.00%/v6.5,100.00%,FK,v=0.0->9329.5 focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#4,WHEEL,LineDown,line,0.074,SP%,0.00%/v6.5,0.51%,-,
+WpfFixture,#5,SP,LineDown,line,0.024,SP%,0.00%/v6.6,0.17%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#5,SP,PageDown,page,1.000,SP%,0.00%/v6.6,7.11%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#5,SP,PageUp,page,-1.000,SP%,21.34%/v6.6,14.23%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#5,SP,ToTop,exact,-14.057,SP%,100.00%/v6.6,0.00%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#5,SP,ToBottom,exact,14.057,SP%,0.00%/v6.6,100.00%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#5,WMV,LineDown,no-move,0.000,SP%,0.00%/v6.6,0.00%,-,
+WpfFixture,#5,WMV,PageDown,no-move,0.000,SP%,0.00%/v6.6,0.00%,-,
+WpfFixture,#5,WMV,PageUp,no-move,0.000,SP%,21.34%/v6.6,21.34%,-,
+WpfFixture,#5,WMV,ToTop,no-move,0.000,SP%,100.00%/v6.6,100.00%,-,
+WpfFixture,#5,WMV,ToBottom,no-move,0.000,SP%,0.00%/v6.6,0.00%,-,
+WpfFixture,#5,TXT,LineDown,line,0.030,SP%,0.00%/v6.6,0.21%,-,2nd line->top (move=1) 'WPF RichTextBox para…'
+WpfFixture,#5,TXT,PageDown,page,1.024,SP%,0.00%/v6.6,7.28%,-,line after last->top (move=1) 'WPF RichTextBox para…'
+WpfFixture,#5,TXT,PageUp,part,-0.049,SP%,21.34%/v6.6,20.99%,-,line before first->bottom (move=-1) 'WPF RichTextBox para…'
+WpfFixture,#5,TXT,ToTop,exact,-14.057,SP%,100.00%/v6.6,0.00%,-,"doc-start line, alignTop"
+WpfFixture,#5,TXT,ToBottom,exact,14.057,SP%,0.00%/v6.6,100.00%,-,"doc-end line, alignBottom"
+WpfFixture,#5,WHEEL,LineDown,line,0.072,SP%,0.00%/v6.6,0.52%,-,
+WpfFixture,#6,SP,LineDown,line,0.024,SP%,0.00%/v6.6,0.17%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#6,SP,PageDown,page,1.000,SP%,0.00%/v6.6,7.09%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#6,SP,PageUp,page,-1.000,SP%,21.27%/v6.6,14.18%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#6,SP,ToTop,exact,-14.102,SP%,100.00%/v6.6,0.00%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#6,SP,ToBottom,exact,14.102,SP%,0.00%/v6.6,100.00%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#6,WMV,LineDown,no-move,0.000,SP%,0.00%/v6.6,0.00%,-,
+WpfFixture,#6,WMV,PageDown,no-move,0.000,SP%,0.00%/v6.6,0.00%,-,
+WpfFixture,#6,WMV,PageUp,no-move,0.000,SP%,21.27%/v6.6,21.27%,-,
+WpfFixture,#6,WMV,ToTop,no-move,0.000,SP%,100.00%/v6.6,100.00%,-,
+WpfFixture,#6,WMV,ToBottom,no-move,0.000,SP%,0.00%/v6.6,0.00%,-,
+WpfFixture,#6,SI,LineDown,line,0.027,SP%,0.00%/v6.6,0.19%,-,items=500 vis=0..32 target=33
+WpfFixture,#6,SI,PageDown,page,0.963,SP%,0.00%/v6.6,6.83%,-,items=500 vis=0..32 target=64
+WpfFixture,#6,SI,PageUp,page,-0.916,SP%,21.27%/v6.6,14.78%,-,items=500 vis=100..131 target=69
+WpfFixture,#6,SI,ToTop,exact,-14.102,SP%,100.00%/v6.6,0.00%,-,items=500 vis=467..499 target=0
+WpfFixture,#6,SI,ToBottom,exact,14.102,SP%,0.00%/v6.6,100.00%,-,items=500 vis=0..32 target=499
+WpfFixture,#6,WHEEL,LineDown,line,0.073,SP%,0.00%/v6.6,0.52%,-,
+WpfFixture,#7,SP,LineDown,line,0.024,SP%,0.00%/v5.5,0.14%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#7,SP,PageDown,page,1.000,SP%,0.00%/v5.5,5.87%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#7,SP,PageUp,page,-1.000,SP%,17.62%/v5.5,11.75%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#7,SP,ToTop,exact,-17.027,SP%,100.00%/v5.5,0.00%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#7,SP,ToBottom,exact,17.027,SP%,0.00%/v5.5,100.00%,FK,focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#7,WMV,LineDown,no-move,0.000,SP%,0.00%/v5.5,0.00%,-,
+WpfFixture,#7,WMV,PageDown,no-move,0.000,SP%,0.00%/v5.5,0.00%,-,
+WpfFixture,#7,WMV,PageUp,no-move,0.000,SP%,17.62%/v5.5,17.62%,-,
+WpfFixture,#7,WMV,ToTop,no-move,0.000,SP%,100.00%/v5.5,100.00%,-,
+WpfFixture,#7,WMV,ToBottom,no-move,0.000,SP%,0.00%/v5.5,0.00%,-,
+WpfFixture,#7,SI,LineDown,line,0.012,SP%,0.00%/v5.5,0.07%,-,items=500 vis=0..26 target=27
+WpfFixture,#7,SI,PageDown,page,0.949,SP%,0.00%/v5.5,5.58%,-,items=500 vis=0..26 target=53
+WpfFixture,#7,SI,PageUp,page,-0.907,SP%,17.62%/v5.5,12.29%,-,items=500 vis=84..109 target=58
+WpfFixture,#7,SI,ToTop,part,-17.024,SP%,100.00%/v5.5,0.02%,-,items=500 vis=473..499 target=0
+WpfFixture,#7,SI,ToBottom,exact,17.024,SP%,0.00%/v5.5,99.98%,-,items=500 vis=0..26 target=499
+WpfFixture,#7,RV,LineDown,line,0.000,SP%,0.00%/v5.5,0.00%,FK,v=0.0->0.1 focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#7,RV,PageDown,part,0.002,SP%,0.00%/v5.5,0.01%,FK,v=0.0->1.0 focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#7,RV,PageUp,part,-0.002,SP%,17.62%/v5.5,17.61%,FK,v=1993.5->1992.5 focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#7,RV,ToTop,exact,-17.027,SP%,100.00%/v5.5,0.00%,FK,v=11314.5->0.0 focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#7,RV,ToBottom,exact,17.027,SP%,0.00%/v5.5,100.00%,FK,v=0.0->11314.5 focus:hwnd 0x0->0xF0AB2 elKb False->True fg->0xF0AB2'PagingFixture WPF'
+WpfFixture,#7,WHEEL,LineDown,pix-only,0.000,SP%,0.00%/v5.5,0.00%,-,

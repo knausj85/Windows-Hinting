@@ -1,0 +1,48 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+FileExplorer,#1,SP,LineDown,line,0.035,SB,pos0/pg2403/max476699,pos84,FK,focus:hwnd 0x0->0x809F6 uia ''->'0409' fg->0x130A38'System32 - File Expl…'
+FileExplorer,#1,SP,PageDown,page,0.999,SB,pos0/pg2403/max476699,pos2400,FK,focus:hwnd 0x0->0x809F6 uia ''->'0409' fg->0x130A38'System32 - File Expl…'
+FileExplorer,#1,SP,PageUp,page,-0.999,SB,pos7200/pg2403/max476699,pos4800,FK,focus:hwnd 0x0->0x809F6 uia ''->'0409' fg->0x130A38'System32 - File Expl…'
+FileExplorer,#1,SP,ToTop,exact,-195.740,SB,pos474277/pg2423/max476699,pos0,FK,focus:hwnd 0x0->0x809F6 uia ''->'0409' fg->0x130A38'System32 - File Expl…'
+FileExplorer,#1,SP,ToBottom,exact,195.740,SB,pos0/pg2423/max476699,pos474277,FK,focus:hwnd 0x0->0x809F6 uia ''->'0409' fg->0x130A38'System32 - File Expl…'
+FileExplorer,#1,WMV,LineDown,no-move,0.000,SB,pos0/pg2423/max476699,pos0,-,
+FileExplorer,#1,WMV,PageDown,no-move,0.000,SB,pos0/pg2423/max476699,pos0,-,
+FileExplorer,#1,WMV,PageUp,no-move,0.000,SB,pos7200/pg2423/max476699,pos7200,-,
+FileExplorer,#1,WMV,ToTop,no-move,0.000,SB,pos474277/pg2423/max476699,pos474277,-,
+FileExplorer,#1,WMV,ToBottom,no-move,0.000,SB,pos0/pg2423/max476699,pos0,-,
+FileExplorer,#1,WMVCTL,LineDown,line,0.035,SB,pos0/pg2423/max476699,pos84,-,->parent 0x60454[CtrlNotifySink]
+FileExplorer,#1,WMVCTL,PageDown,page,0.991,SB,pos0/pg2423/max476699,pos2400,-,->parent 0x60454[CtrlNotifySink]
+FileExplorer,#1,WMVCTL,PageUp,page,-0.991,SB,pos7200/pg2423/max476699,pos4800,-,->parent 0x60454[CtrlNotifySink]
+FileExplorer,#1,WMVCTL,ToTop,exact,-195.740,SB,pos474277/pg2423/max476699,pos0,-,->parent 0x60454[CtrlNotifySink]
+FileExplorer,#1,WMVCTL,ToBottom,exact,195.740,SB,pos0/pg2423/max476699,pos474277,-,->parent 0x60454[CtrlNotifySink]
+FileExplorer,#1,GRIDGET,LineDown,no-move,0.000,SB,pos0/pg2423/max476699,pos0,-,rows=25 vis=0..23 target=24
+FileExplorer,#1,GRIDGET,PageDown,no-move,0.000,SB,pos0/pg2423/max476699,pos0,-,rows=25 vis=0..23 target=24
+FileExplorer,#1,GRIDGET,PageUp,no-move,0.000,SB,pos7200/pg2423/max476699,pos7200,-,rows=27 vis=1..25 target=0
+FileExplorer,#1,GRIDGET,ToTop,no-move,0.000,SB,pos474277/pg2423/max476699,pos474277,-,rows=27 vis=2..26 target=0
+FileExplorer,#1,GRIDGET,ToBottom,no-move,0.000,SB,pos0/pg2423/max476699,pos0,-,rows=25 vis=0..23 target=24
+FileExplorer,#1,GRIDSI,LineDown,line,0.035,SB,pos0/pg2423/max476699,pos84,-,rows=25 vis=0..23 target=24 SI(row)
+FileExplorer,#1,GRIDSI,PageDown,part,0.035,SB,pos0/pg2423/max476699,pos84,-,rows=25 vis=0..23 target=24 SI(row)
+FileExplorer,#1,GRIDSI,PageUp,over,-2.972,SB,pos7200/pg2423/max476699,pos0,-,rows=27 vis=1..25 target=0 SI(row)
+FileExplorer,#1,GRIDSI,ToTop,exact,-195.740,SB,pos474277/pg2423/max476699,pos0,-,rows=27 vis=2..26 target=0 SI(row)
+FileExplorer,#1,GRIDSI,ToBottom,part,0.035,SB,pos0/pg2423/max476699,pos84,-,rows=25 vis=0..23 target=24 SI(row)
+FileExplorer,#1,SI,LineDown,no-move,0.000,SP%,0.00%/v0.5,0.00%,-,items=25 vis=0..23 target=24
+FileExplorer,#1,SI,PageDown,part,0.035,SP%,0.00%/v0.5,0.02%,-,items=25 vis=0..23 target=24(clamped: not realized?)
+FileExplorer,#1,SI,PageUp,over,-2.996,SP%,1.52%/v0.5,0.00%,-,items=27 vis=1..25 target=0(clamped: not realized?)
+FileExplorer,#1,SI,ToTop,exact,-195.739,SP%,100.00%/v0.5,0.00%,-,items=27 vis=2..26 target=0
+FileExplorer,#1,SI,ToBottom,part,0.035,SP%,0.00%/v0.5,0.02%,-,items=25 vis=0..23 target=24
+FileExplorer,#1,WHEEL,LineDown,line,0.116,SP%,0.00%/v0.5,0.06%,-,
+FileExplorer,#2,WMV,LineDown,no-move,0.000,ITEM,it1/vis21,it1,-,(prep-top?)
+FileExplorer,#2,WMV,PageDown,no-move,0.000,ITEM,it1/vis21,it1,-,(prep-top?)
+FileExplorer,#2,WMV,PageUp,no-move,0.000,ITEM,it1/vis21,it1,-,(prep-mid?)
+FileExplorer,#2,WMV,ToTop,no-move,0.000,ITEM,it1/vis21,it1,-,
+FileExplorer,#2,WMV,ToBottom,no-move,0.000,ITEM,it1/vis21,it1,-,(prep-top?)
+FileExplorer,#2,SI,LineDown,pix-only,0.000,ITEM,it1/vis21,it1,FK,(prep-top?) items=22 vis=1..21 target=21(clamped: not realized?) focus:hwnd 0x0->0x30756 elKb False->True uia ''->'Local Disk (C:)' fg->0x130A38'System32 - File Expl…'
+FileExplorer,#2,SI,PageDown,pix-only,0.000,ITEM,it1/vis21,it1,FK,(prep-top?) items=22 vis=1..21 target=21(clamped: not realized?) focus:hwnd 0x0->0x30756 elKb False->True uia ''->'Local Disk (C:)' fg->0x130A38'System32 - File Expl…'
+FileExplorer,#2,SI,PageUp,pix-only,0.000,ITEM,it1/vis21,it1,FK,(prep-mid?) items=22 vis=1..21 target=0(clamped: not realized?) focus:hwnd 0x0->0x30756 elKb False->True uia ''->'Local Disk (C:)' fg->0x130A38'System32 - File Expl…'
+FileExplorer,#2,SI,ToTop,pix-only,0.000,ITEM,it1/vis21,it1,FK,items=22 vis=1..21 target=0 focus:hwnd 0x0->0x30756 elKb False->True uia ''->'Local Disk (C:)' fg->0x130A38'System32 - File Expl…'
+FileExplorer,#2,SI,ToBottom,pix-only,0.000,ITEM,it1/vis21,it1,FK,(prep-top?) items=22 vis=1..21 target=21 focus:hwnd 0x0->0x30756 elKb False->True uia ''->'Local Disk (C:)' fg->0x130A38'System32 - File Expl…'
+FileExplorer,#2,NAT,LineDown,no-move,0.000,ITEM,it1/vis21,it1,-,(prep-top?) TVM_SELECTITEM(FIRSTVISIBLE) visCount=23 ok=1
+FileExplorer,#2,NAT,PageDown,no-move,0.000,ITEM,it1/vis21,it1,-,(prep-top?) TVM_SELECTITEM(FIRSTVISIBLE) visCount=23 ok=1
+FileExplorer,#2,NAT,PageUp,no-move,0.000,ITEM,it1/vis21,it1,-,(prep-mid?) TVM_SELECTITEM(FIRSTVISIBLE) visCount=23 ok=1
+FileExplorer,#2,NAT,ToTop,no-move,0.000,ITEM,it1/vis21,it1,-,TVM_SELECTITEM(FIRSTVISIBLE) visCount=23 ok=1
+FileExplorer,#2,NAT,ToBottom,no-move,0.000,ITEM,it1/vis21,it1,-,(prep-top?) TVM_SELECTITEM(FIRSTVISIBLE) visCount=23 ok=1
+FileExplorer,#2,WHEEL,LineDown,no-move,0.000,ITEM,it1/vis21,it1,-,(prep-top?)

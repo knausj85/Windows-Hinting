@@ -1,0 +1,22 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+WindowsTerminal,#1,WMV,LineDown,no-move,0.000,TXT,ln0/vis30,ln0,-,
+WindowsTerminal,#1,WMV,PageDown,no-move,0.000,TXT,ln0/vis30,ln0,-,
+WindowsTerminal,#1,WMV,PageUp,no-move,0.000,TXT,ln90/vis30,ln90,-,
+WindowsTerminal,#1,WMV,ToTop,no-move,0.000,TXT,ln2972/vis30,ln2972,-,
+WindowsTerminal,#1,WMV,ToBottom,no-move,0.000,TXT,ln0/vis30,ln0,-,
+WindowsTerminal,#1,TXT,LineDown,line,0.033,TXT,ln0/vis30,ln1,-,2nd line->top (move=1) 'terminal line 2     …'
+WindowsTerminal,#1,TXT,PageDown,page,1.000,TXT,ln0/vis30,ln30,-,line after last->top (move=1) 'terminal line 31    …'
+WindowsTerminal,#1,TXT,PageUp,page,-0.967,TXT,ln90/vis30,ln61,-,line before first->bottom (move=-1) 'terminal line 90    …'
+WindowsTerminal,#1,TXT,ToTop,exact,-99.067,TXT,ln2972/vis30,ln0,-,"doc-start line, alignTop"
+WindowsTerminal,#1,TXT,ToBottom,exact,99.067,TXT,ln0/vis30,ln2972,-,"doc-end line, alignBottom"
+WindowsTerminal,#1,TXTT,LineDown,line,0.033,TXT,ln0/vis30,ln1,-,2nd line->top (move=1) 'terminal line 2     …'
+WindowsTerminal,#1,TXTT,PageDown,page,1.000,TXT,ln0/vis30,ln30,-,line after last->top (move=1) 'terminal line 31    …'
+WindowsTerminal,#1,TXTT,PageUp,page,-0.967,TXT,ln90/vis30,ln61,-,line first-29->top (move=-29) 'terminal line 62    …'
+WindowsTerminal,#1,TXTT,ToTop,exact,-99.067,TXT,ln2972/vis30,ln0,-,"doc-start line, alignTop"
+WindowsTerminal,#1,TXTT,ToBottom,exact,99.067,TXT,ln0/vis30,ln2972,-,"doc-end line, alignTop"
+WindowsTerminal,#1,RV,LineDown,line,0.033,TXT,ln0/vis30,ln1,FK,v=0.0->1.0 focus:hwnd 0x0->0xA075E elKb False->True uia ''->'PPWT' fg->0x11091C'PPWT'
+WindowsTerminal,#1,RV,PageDown,page,0.967,TXT,ln0/vis30,ln29,FK,v=0.0->29.0 focus:hwnd 0x0->0xA075E elKb False->True uia ''->'PPWT' fg->0x11091C'PPWT'
+WindowsTerminal,#1,RV,PageUp,page,-0.967,TXT,ln90/vis30,ln61,FK,v=90.0->61.0 focus:hwnd 0x0->0xA075E elKb False->True uia ''->'PPWT' fg->0x11091C'PPWT'
+WindowsTerminal,#1,RV,ToTop,exact,-99.067,TXT,ln2972/vis30,ln0,FK,v=2972.0->0.0 focus:hwnd 0x0->0xA075E elKb False->True uia ''->'PPWT' fg->0x11091C'PPWT'
+WindowsTerminal,#1,RV,ToBottom,exact,99.067,TXT,ln0/vis30,ln2972,FK,v=0.0->2972.0 focus:hwnd 0x0->0xA075E elKb False->True uia ''->'PPWT' fg->0x11091C'PPWT'
+WindowsTerminal,#1,WHEEL,LineDown,line,0.100,TXT,ln0/vis30,ln3,-,

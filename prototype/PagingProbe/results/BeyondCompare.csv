@@ -1,0 +1,37 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+BeyondCompare,#1,WMV,LineDown,no-move,0.000,SB,pos0/pg28/max284,pos0,-,
+BeyondCompare,#1,WMV,PageDown,no-move,0.000,SB,pos0/pg28/max284,pos0,-,
+BeyondCompare,#1,WMV,PageUp,no-move,0.000,SB,pos84/pg28/max284,pos84,-,
+BeyondCompare,#1,WMV,ToTop,no-move,0.000,SB,pos258/pg27/max284,pos258,-,
+BeyondCompare,#1,WMV,ToBottom,no-move,0.000,SB,pos0/pg28/max284,pos0,-,
+BeyondCompare,#1,WMVCTL,LineDown,line,0.036,SB,pos0/pg28/max284,pos1,-,->parent 0xE709FE[TTextEditor]
+BeyondCompare,#1,WMVCTL,PageDown,page,1.000,SB,pos0/pg28/max284,pos28,-,->parent 0xE709FE[TTextEditor]
+BeyondCompare,#1,WMVCTL,PageUp,page,-1.000,SB,pos84/pg28/max284,pos56,-,->parent 0xE709FE[TTextEditor]
+BeyondCompare,#1,WMVCTL,ToTop,exact,-9.556,SB,pos258/pg27/max284,pos0,-,->parent 0xE709FE[TTextEditor]
+BeyondCompare,#1,WMVCTL,ToBottom,exact,9.214,SB,pos0/pg28/max284,pos258,-,->parent 0xE709FE[TTextEditor]
+BeyondCompare,#1,RV,LineDown,line,0.071,SB,pos0/pg28/max284,pos2,FK,v=0.0->1.0 focus:hwnd 0x0->0x8A0BB6 uia ''->'' fg->0x120B2C'long_left.txt <--> l…'
+BeyondCompare,#1,RV,PageDown,page,0.893,SB,pos0/pg28/max284,pos25,FK,v=0.0->10.0 focus:hwnd 0x0->0x8A0BB6 uia ''->'' fg->0x120B2C'long_left.txt <--> l…'
+BeyondCompare,#1,RV,PageUp,page,-1.000,SB,pos84/pg28/max284,pos56,FK,v=32.0->22.0 focus:hwnd 0x0->0x8A0BB6 uia ''->'' fg->0x120B2C'long_left.txt <--> l…'
+BeyondCompare,#1,RV,ToTop,exact,-9.556,SB,pos258/pg27/max284,pos0,FK,v=100.0->0.0 focus:hwnd 0x0->0x8A0BB6 uia ''->'' fg->0x120B2C'long_left.txt <--> l…'
+BeyondCompare,#1,RV,ToBottom,exact,9.179,SB,pos0/pg28/max284,pos257,FK,v=0.0->100.0 focus:hwnd 0x0->0x8A0BB6 uia ''->'' fg->0x120B2C'long_left.txt <--> l…'
+BeyondCompare,#1,WHEEL,LineDown,line,0.107,SB,pos0/pg28/max284,pos3,-,
+BeyondCompare,#1,WHEELX,LineDown,line,0.107,SB,pos0/pg28/max284,pos3,-,
+BeyondCompare,#1,WHEELS,LineDown,line,0.107,SB,pos0/pg28/max284,pos3,-,
+BeyondCompare,#2,WMV,LineDown,no-move,0.000,SB,pos0/pg28/max284,pos0,-,
+BeyondCompare,#2,WMV,PageDown,no-move,0.000,SB,pos0/pg28/max284,pos0,-,
+BeyondCompare,#2,WMV,PageUp,no-move,0.000,SB,pos84/pg28/max284,pos84,-,
+BeyondCompare,#2,WMV,ToTop,no-move,0.000,SB,pos258/pg27/max284,pos258,-,
+BeyondCompare,#2,WMV,ToBottom,no-move,0.000,SB,pos0/pg28/max284,pos0,-,
+BeyondCompare,#2,WMVCTL,LineDown,line,0.036,SB,pos0/pg28/max284,pos1,-,->parent 0xC90B9A[TTextEditor]
+BeyondCompare,#2,WMVCTL,PageDown,page,1.000,SB,pos0/pg28/max284,pos28,-,->parent 0xC90B9A[TTextEditor]
+BeyondCompare,#2,WMVCTL,PageUp,page,-1.000,SB,pos84/pg28/max284,pos56,-,->parent 0xC90B9A[TTextEditor]
+BeyondCompare,#2,WMVCTL,ToTop,exact,-9.556,SB,pos258/pg27/max284,pos0,-,->parent 0xC90B9A[TTextEditor]
+BeyondCompare,#2,WMVCTL,ToBottom,exact,9.214,SB,pos0/pg28/max284,pos258,-,->parent 0xC90B9A[TTextEditor]
+BeyondCompare,#2,RV,LineDown,line,0.071,SB,pos0/pg28/max284,pos2,FK,v=0.0->1.0 focus:hwnd 0x0->0x10BC0 uia ''->'' fg->0x120B2C'long_left.txt <--> l…'
+BeyondCompare,#2,RV,PageDown,page,0.893,SB,pos0/pg28/max284,pos25,FK,v=0.0->10.0 focus:hwnd 0x0->0x10BC0 uia ''->'' fg->0x120B2C'long_left.txt <--> l…'
+BeyondCompare,#2,RV,PageUp,page,-1.000,SB,pos84/pg28/max284,pos56,FK,v=32.0->22.0 focus:hwnd 0x0->0x10BC0 uia ''->'' fg->0x120B2C'long_left.txt <--> l…'
+BeyondCompare,#2,RV,ToTop,exact,-9.556,SB,pos258/pg27/max284,pos0,FK,v=100.0->0.0 focus:hwnd 0x0->0x10BC0 uia ''->'' fg->0x120B2C'long_left.txt <--> l…'
+BeyondCompare,#2,RV,ToBottom,exact,9.179,SB,pos0/pg28/max284,pos257,FK,v=0.0->100.0 focus:hwnd 0x0->0x10BC0 uia ''->'' fg->0x120B2C'long_left.txt <--> l…'
+BeyondCompare,#2,WHEEL,LineDown,line,0.107,SB,pos0/pg28/max284,pos3,-,
+BeyondCompare,#2,WHEELX,LineDown,line,0.107,SB,pos0/pg28/max284,pos3,-,
+BeyondCompare,#2,WHEELS,LineDown,line,0.107,SB,pos0/pg28/max284,pos3,-,

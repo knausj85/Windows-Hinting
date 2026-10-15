@@ -1,0 +1,3 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+Notepad_wheel,#1,WHEEL,LineDown,line,0.114,SB,pos0/pg1176/max68066,pos134,-,
+Notepad_wheel,#1,WHEELX,LineDown,line,0.114,SB,pos0/pg1176/max68066,pos134,-,

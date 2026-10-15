@@ -1,0 +1,11 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+WinForms_targetFg,#1,SP,LineDown,line,0.031,SB,pos0/pg32/max499,pos1,-,
+WinForms_targetFg,#1,SP,PageDown,page,0.969,SB,pos0/pg32/max499,pos31,-,
+WinForms_targetFg,#1,SP,PageUp,page,-0.969,SB,pos93/pg32/max499,pos62,-,
+WinForms_targetFg,#1,SP,ToTop,exact,-14.625,SB,pos468/pg32/max499,pos0,-,
+WinForms_targetFg,#1,SP,ToBottom,exact,14.625,SB,pos0/pg32/max499,pos468,-,
+WinForms_targetFg,#1,WMV,LineDown,line,0.031,SB,pos0/pg32/max499,pos1,-,
+WinForms_targetFg,#1,WMV,PageDown,page,0.969,SB,pos0/pg32/max499,pos31,-,
+WinForms_targetFg,#1,WMV,PageUp,page,-0.969,SB,pos93/pg32/max499,pos62,-,
+WinForms_targetFg,#1,WMV,ToTop,exact,-14.625,SB,pos468/pg32/max499,pos0,-,
+WinForms_targetFg,#1,WMV,ToBottom,exact,14.625,SB,pos0/pg32/max499,pos468,-,

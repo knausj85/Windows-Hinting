@@ -1,0 +1,3 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+Explorer_wheel,#1,WHEEL,LineDown,line,0.116,SB,pos0/pg2423/max476699,pos282,-,
+Explorer_wheel,#1,WHEELX,LineDown,no-move,0.000,SB,pos0/pg2423/max476699,pos0,-,

@@ -1,0 +1,12 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+WpfFixture_targetFg_focusParked,#1,SP,LineDown,line,0.037,SP%,0.00%/v5.4,0.21%,K,focus:elKb False->True uia 'WpfTextBox'->'WpfListBox'
+WpfFixture_targetFg_focusParked,#1,SP,PageDown,page,1.000,SP%,0.00%/v5.4,5.71%,K,focus:elKb False->True uia 'WpfTextBox'->'WpfListBox'
+WpfFixture_targetFg_focusParked,#1,SP,PageUp,page,-1.000,SP%,17.12%/v5.4,11.42%,K,focus:elKb False->True uia 'WpfTextBox'->'WpfListBox'
+WpfFixture_targetFg_focusParked,#1,SP,ToTop,exact,-17.519,SP%,100.00%/v5.4,0.00%,K,focus:elKb False->True uia 'WpfTextBox'->'WpfListBox'
+WpfFixture_targetFg_focusParked,#1,SP,ToBottom,exact,17.519,SP%,0.00%/v5.4,100.00%,K,focus:elKb False->True uia 'WpfTextBox'->'WpfListBox'
+WpfFixture_targetFg_focusParked,#1,SI,LineDown,line,0.037,SP%,0.00%/v5.4,0.21%,-,items=57 vis=0..26 target=27
+WpfFixture_targetFg_focusParked,#1,SI,PageDown,over,17.370,SP%,0.00%/v5.4,99.15%,-,items=58 vis=0..26 target=53
+WpfFixture_targetFg_focusParked,#1,SI,PageUp,page,-1.000,SP%,17.12%/v5.4,11.42%,-,items=57 vis=28..54 target=1
+WpfFixture_targetFg_focusParked,#1,SI,ToTop,part,-0.037,SP%,100.00%/v5.4,99.79%,-,items=28 vis=1..27 target=0
+WpfFixture_targetFg_focusParked,#1,SI,ToBottom,exact,17.519,SP%,0.00%/v5.4,100.00%,-,items=58 vis=0..26 target=57
+WpfFixture_targetFg_focusParked,#1,WHEEL,LineDown,line,0.111,SP%,0.00%/v5.4,0.63%,-,

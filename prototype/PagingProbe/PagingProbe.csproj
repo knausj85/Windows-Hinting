@@ -1,0 +1,36 @@
+<!--
+  PROTOTYPE — throwaway. Measures cursor-free / focus-free paging mechanisms on a picked,
+  non-foreground scrollable control (feeds #70 / #69; research doc
+  docs/research/uia-paging-without-scrollpattern.md). NOT part of Windows-Hinting.sln.
+
+  BUILD NOTE: the COMReference (tlbimp) needs VS MSBuild (dotnet build fails with MSB4803):
+    MSYS2_ARG_CONV_EXCL='*' "/c/Program Files/Microsoft Visual Studio/18/Insiders/MSBuild/Current/Bin/MSBuild.exe" \
+      prototype/PagingProbe/PagingProbe.csproj -restore -v:minimal -nologo
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>PagingProbe</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <MSBuildWarningsAsMessages>MSB3305</MSBuildWarningsAsMessages>
+    <UseWindowsForms>true</UseWindowsForms>
+    <NoWarn>CS8602;CS8600;CS8604</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <COMReference Include="UIAutomationClient">
+      <WrapperTool>tlbimp</WrapperTool>
+      <VersionMinor>0</VersionMinor>
+      <VersionMajor>1</VersionMajor>
+      <Guid>944de083-8fb8-45cf-bcb7-c477acb2f897</Guid>
+      <Lcid>0</Lcid>
+      <Isolated>false</Isolated>
+      <EmbedInteropTypes>true</EmbedInteropTypes>
+    </COMReference>
+  </ItemGroup>
+
+</Project>

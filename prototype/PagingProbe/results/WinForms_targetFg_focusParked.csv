@@ -1,0 +1,21 @@
+target,cand,mech,cmd,verdict,pages,oracle,before,after,side,note
+WinForms_targetFg_focusParked,#1,SP,LineDown,line,0.031,SB,pos0/pg32/max499,pos1,K,focus:hwnd 0x80A40->0xE0A52 uia 'WfTextBox'->'ListBox item 000'
+WinForms_targetFg_focusParked,#1,SP,PageDown,page,0.969,SB,pos0/pg32/max499,pos31,K,focus:hwnd 0x80A40->0xE0A52 uia 'WfTextBox'->'ListBox item 000'
+WinForms_targetFg_focusParked,#1,SP,PageUp,page,-0.969,SB,pos93/pg32/max499,pos62,K,focus:hwnd 0x80A40->0xE0A52 uia 'WfTextBox'->'ListBox item 000'
+WinForms_targetFg_focusParked,#1,SP,ToTop,exact,-14.625,SB,pos468/pg32/max499,pos0,K,focus:hwnd 0x80A40->0xE0A52 uia 'WfTextBox'->'ListBox item 000'
+WinForms_targetFg_focusParked,#1,SP,ToBottom,exact,14.625,SB,pos0/pg32/max499,pos468,K,focus:hwnd 0x80A40->0xE0A52 uia 'WfTextBox'->'ListBox item 000'
+WinForms_targetFg_focusParked,#1,WMV,LineDown,line,0.031,SB,pos0/pg32/max499,pos1,-,
+WinForms_targetFg_focusParked,#1,WMV,PageDown,page,0.969,SB,pos0/pg32/max499,pos31,-,
+WinForms_targetFg_focusParked,#1,WMV,PageUp,page,-0.969,SB,pos93/pg32/max499,pos62,-,
+WinForms_targetFg_focusParked,#1,WMV,ToTop,exact,-14.625,SB,pos468/pg32/max499,pos0,-,
+WinForms_targetFg_focusParked,#1,WMV,ToBottom,exact,14.625,SB,pos0/pg32/max499,pos468,-,
+WinForms_targetFg_focusParked,#1,SI,LineDown,line,0.062,SB,pos0/pg32/max499,pos2,-,items=500 vis=0..32 target=33
+WinForms_targetFg_focusParked,#1,SI,PageDown,page,1.062,SB,pos0/pg32/max499,pos34,-,items=500 vis=0..32 target=65
+WinForms_targetFg_focusParked,#1,SI,PageUp,page,-1.031,SB,pos93/pg32/max499,pos60,-,items=500 vis=93..125 target=60
+WinForms_targetFg_focusParked,#1,SI,ToTop,exact,-14.625,SB,pos468/pg32/max499,pos0,-,items=500 vis=468..499 target=0
+WinForms_targetFg_focusParked,#1,SI,ToBottom,exact,14.625,SB,pos0/pg32/max499,pos468,-,items=500 vis=0..32 target=499
+WinForms_targetFg_focusParked,#1,RV,LineDown,line,0.125,SB,pos0/pg32/max499,pos4,K,v=0.0->1.0 focus:hwnd 0x80A40->0xE0A52 uia 'WfTextBox'->'ListBox item 000'
+WinForms_targetFg_focusParked,#1,RV,PageDown,over,1.438,SB,pos0/pg32/max499,pos46,K,v=0.0->10.0 focus:hwnd 0x80A40->0xE0A52 uia 'WfTextBox'->'ListBox item 000'
+WinForms_targetFg_focusParked,#1,RV,PageUp,over,-1.594,SB,pos93/pg32/max499,pos42,K,v=19.0->9.0 focus:hwnd 0x80A40->0xE0A52 uia 'WfTextBox'->'ListBox item 000'
+WinForms_targetFg_focusParked,#1,RV,ToTop,exact,-14.625,SB,pos468/pg32/max499,pos0,K,v=100.0->0.0 focus:hwnd 0x80A40->0xE0A52 uia 'WfTextBox'->'ListBox item 000'
+WinForms_targetFg_focusParked,#1,RV,ToBottom,exact,14.625,SB,pos0/pg32/max499,pos468,K,v=0.0->100.0 focus:hwnd 0x80A40->0xE0A52 uia 'WfTextBox'->'ListBox item 000'
