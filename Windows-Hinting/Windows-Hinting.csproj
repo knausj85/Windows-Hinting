@@ -18,9 +18,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- uiAccess=true only for the installed (MSI) Release build; Debug and portable builds can't use it. -->
-    <ApplicationManifest Condition="'$(Configuration)' == 'Release' And '$(PortableBuild)' != 'true'">app.manifest</ApplicationManifest>
-    <ApplicationManifest Condition="'$(ApplicationManifest)' == ''">app.debug.manifest</ApplicationManifest>
+    <!-- ApplicationManifest is chosen in Directory.Build.targets. -->
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <!-- Don't append "+<gitsha>" to AssemblyInformationalVersion. NetSparkle reads
@@ -33,13 +31,6 @@
     <!-- NETSDK1187: NetSparkleUpdater.UI.WinForms.NetCore ships a 'JA' satellite folder;
          the SDK normalizes it to 'ja'. Nothing to fix on our side. -->
     <NoWarn>$(NoWarn);NETSDK1187</NoWarn>
-  </PropertyGroup>
-
-  <!-- Portable (self-contained single-file) builds: build script passes /p:PortableBuild=true.
-       Emits a PORTABLE compile-time constant so UpdateService picks the portable appcast
-       and PortableUpdateInstaller instead of the MSI install path. -->
-  <PropertyGroup Condition="'$(PortableBuild)' == 'true'">
-    <DefineConstants>$(DefineConstants);PORTABLE</DefineConstants>
   </PropertyGroup>
 
   <!-- Update channel is baked into each build. CI passes /p:UpdateChannel=Beta for beta

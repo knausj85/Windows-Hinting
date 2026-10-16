@@ -158,10 +158,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Install WiX Toolset
-        # Version must match WixToolset.Sdk version in Windows-Hinting.Installer.wixproj
-        run: dotnet tool install --global wix --version 6.0.2
-
       - name: Restore NuGet packages
         run: dotnet restore
 
@@ -238,20 +234,10 @@ jobs:
           Write-Host "-------------------------------"
 
       - name: Build MSI (packages the signed binaries)
-        run: |
-          # IMPORTANT: -p:BuildProjectReferences=false so the build does NOT rebuild the
-          # Windows-Hinting project via its ProjectReference. Rebuilding would overwrite
-          # the already-signed Windows-Hinting.exe / Windows-Hinting.dll with fresh
-          # unsigned outputs, and WiX would then harvest those unsigned files into the MSI
-          # (the signed MSI would contain an unsigned managed DLL).
-          $InstallerProject = "Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj"
-          dotnet build $InstallerProject `
-            -c Release `
-            -p:SignOutput=false `
-            -p:BuildProjectReferences=false `
-            -p:UpdateChannel=$env:UPDATE_CHANNEL `
-            -nologo -v:minimal
-          if ($LASTEXITCODE -ne 0) { throw "MSI build failed with exit code $LASTEXITCODE" }
+        # -InstallerOnly builds with BuildProjectReferences=false, so the app is NOT rebuilt
+        # through the installer's ProjectReference. Rebuilding would overwrite the signed
+        # Windows-Hinting.exe / .dll with unsigned outputs and WiX would package those.
+        run: .\build\build-complete.ps1 -Configuration Release -InstallerOnly
 
       - name: Verify signatures AFTER MSI build
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
@@ -307,38 +293,8 @@ jobs:
           Write-Host "----------------------------------"
 
       - name: Build portable self-contained exe for win-x64
-        run: |
-          # Clean bin/obj from MSI build to avoid conflicts
-          Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\bin" -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\obj" -Recurse -Force -ErrorAction SilentlyContinue
-
-          $project = "Windows-Hinting\Windows-Hinting.csproj"
-          $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
-
-          # Restore, build and publish a self-contained single-file package in one step
-          Write-Host "Publishing self-contained single-file package for win-x64..."
-          dotnet publish $project `
-            -c Release `
-            -r win-x64 `
-            --self-contained `
-            -p:ApplicationManifest=app.debug.manifest `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true `
-            -p:PublishReadyToRun=true `
-            -p:DebugType=embedded `
-            -p:PublishDir=$publishDir\ `
-            -p:PortableBuild=true `
-            -p:UpdateChannel=$env:UPDATE_CHANNEL `
-            -nologo -v:minimal
-
-          if ($LASTEXITCODE -ne 0) { throw "Portable x64 publish failed with exit code $LASTEXITCODE" }
-
-          $exePath = Join-Path $publishDir "Windows-Hinting.exe"
-          if (-not (Test-Path $exePath)) { throw "x64 exe not found at $exePath" }
-
-          $exeSize = (Get-Item $exePath).Length / 1MB
-          Write-Host "x64 portable exe published: $exePath ($($exeSize.ToString('0.0')) MB)"
+        # Settings come from Windows-Hinting/Properties/PublishProfiles/Portable-win-x64.pubxml.
+        run: .\build\build-complete.ps1 -Portable -Runtime win-x64 -UpdateChannel $env:UPDATE_CHANNEL
 
       - name: Stage portable x64 binaries for signing
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
@@ -417,38 +373,8 @@ jobs:
           if-no-files-found: error
 
       - name: Build portable self-contained exe for win-x86
-        run: |
-          # Clean bin/obj again for x86 build
-          Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\bin" -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\obj" -Recurse -Force -ErrorAction SilentlyContinue
-
-          $project = "Windows-Hinting\Windows-Hinting.csproj"
-          $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
-
-          # Restore, build and publish a self-contained single-file package in one step
-          Write-Host "Publishing self-contained single-file package for win-x86..."
-          dotnet publish $project `
-            -c Release `
-            -r win-x86 `
-            --self-contained `
-            -p:ApplicationManifest=app.debug.manifest `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true `
-            -p:PublishReadyToRun=true `
-            -p:DebugType=embedded `
-            -p:PublishDir=$publishDir\ `
-            -p:PortableBuild=true `
-            -p:UpdateChannel=$env:UPDATE_CHANNEL `
-            -nologo -v:minimal
-
-          if ($LASTEXITCODE -ne 0) { throw "Portable x86 publish failed with exit code $LASTEXITCODE" }
-
-          $exePath = Join-Path $publishDir "Windows-Hinting.exe"
-          if (-not (Test-Path $exePath)) { throw "x86 exe not found at $exePath" }
-
-          $exeSize = (Get-Item $exePath).Length / 1MB
-          Write-Host "x86 portable exe published: $exePath ($($exeSize.ToString('0.0')) MB)"
+        # Settings come from Windows-Hinting/Properties/PublishProfiles/Portable-win-x86.pubxml.
+        run: .\build\build-complete.ps1 -Portable -Runtime win-x86 -UpdateChannel $env:UPDATE_CHANNEL
 
       - name: Stage portable x86 binaries for signing
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
