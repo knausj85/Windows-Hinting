@@ -159,7 +159,6 @@ if ($BuildMsi) {
         "build"
         $InstallerProject
         "-c", $Configuration
-        "-p:SignOutput=false"
         "-nologo"
         "-v:minimal"
     )

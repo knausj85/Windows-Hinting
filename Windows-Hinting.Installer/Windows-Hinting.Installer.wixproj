@@ -1,13 +1,10 @@
 <Project Sdk="WixToolset.Sdk/6.0.2">
   <PropertyGroup>
-    <ProductVersion>1.0.0.0</ProductVersion>
-    <ProjectGuid>b2c3d4e5-f6a7-8901-bcde-f1234567890a</ProjectGuid>
     <OutputName>Windows-Hinting</OutputName>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <!-- Configure for 64-bit installer -->
     <InstallerPlatform>x64</InstallerPlatform>
-    <!-- Enable digital signing for UIAccess -->
-    <SignOutput>true</SignOutput>
+    <!-- ICE61: MajorUpgrade uses AllowSameVersionUpgrades=yes on purpose, so reinstalling
+         a rebuilt package with the same version upgrades in place. -->
+    <SuppressIces>$(SuppressIces);ICE61</SuppressIces>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="WixToolset.Netfx.wixext" Version="6.0.2" />
