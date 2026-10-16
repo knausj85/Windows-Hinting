@@ -17,36 +17,6 @@
           Name="Windows-Hinting"
           Type="string"
           Value="[INSTALLFOLDER]Windows-Hinting.exe" />
-
-        <!-- Uninstall registry entries -->
-        <RegistryValue
-          Root="HKLM"
-          Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\[ProductName]"
-          Name="DisplayName"
-          Type="string"
-          Value="[ProductName]"
-          KeyPath="no" />
-
-        <RegistryValue
-          Root="HKLM"
-          Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\[ProductName]"
-          Name="DisplayVersion"
-          Type="string"
-          Value="1.0.0.0" />
-
-        <RegistryValue
-          Root="HKLM"
-          Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\[ProductName]"
-          Name="Publisher"
-          Type="string"
-          Value="[Manufacturer]" />
-
-        <RegistryValue
-          Root="HKLM"
-          Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\[ProductName]"
-          Name="InstallLocation"
-          Type="string"
-          Value="[INSTALLFOLDER]" />
       </Component>
 
       <!-- Application Runtime Files -->
@@ -224,10 +194,6 @@
             Name="InstallPath"
             Type="string"
             Value="[INSTALLFOLDER]" />
-          <RegistryValue
-            Name="Version"
-            Type="string"
-            Value="1.0.0.0" />
           <RegistryValue
             Name="UIAccessEnabled"
             Type="integer"
