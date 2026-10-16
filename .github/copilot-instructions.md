@@ -35,6 +35,11 @@ Rules that are easy to break:
   up automatically. Don't list files by hand.
 - CI builds (`GITHUB_ACTIONS=true`) treat warnings as errors. Keep local
   builds at 0 warnings.
+- Code-signing and release secrets live in GitHub Environments (`signing` /
+  `release` for main, `signing-branch` / `release-branch` with required approval for
+  other branches) and are used only by the `sign-binaries`, `sign-msi` and `release`
+  jobs. The signing jobs check out no code and the release job builds nothing; never
+  reference these secrets from a job that runs a build.
 - Formatting is enforced by pre-commit (`.pre-commit-config.yaml`). Run
   `pre-commit install` once so hooks fix files at commit time, or
   `pre-commit run --all-files`. CI runs the same hooks first and only builds once they
