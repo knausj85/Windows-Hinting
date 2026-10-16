@@ -973,21 +973,36 @@ namespace WindowsHinting
             var g = e.Graphics;
             const TextFormatFlags flags = TextFormatFlags.NoPadding | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
             using var bg = new SolidBrush(Color.FromArgb(230, 0, 0, 0));
-            int padX = Math.Max(3, DeviceDpi * 3 / 96), padY = Math.Max(1, DeviceDpi / 96);
+            int padX = Math.Max(1, DeviceDpi * 2 / 96);
             foreach (var (rect, label) in _hints)
             {
-                var size = TextRenderer.MeasureText(g, label, _font, Size.Empty, flags);
-                int w = size.Width + padX * 2, h = size.Height + padY * 2;
-                // Lower-centre of the button, in this window's client coordinates.
-                var box = new Rectangle(rect.Left + (rect.Width - w) / 2 - Left, rect.Bottom - h - Top, w, h);
+                // Bottom-left quarter of the button: the badge is a quarter of the button's
+                // height, so the icon above it stays visible.
+                int h = Math.Max(8, rect.Height / 4);
+                var font = FontForHeight(h);
+                var size = TextRenderer.MeasureText(g, label, font, Size.Empty, flags);
+                var box = new Rectangle(rect.Left - Left, rect.Bottom - h - Top, size.Width + padX * 2, h);
                 g.FillRectangle(bg, box);
-                TextRenderer.DrawText(g, label, _font, new Point(box.X + padX, box.Y + padY), Color.FromArgb(255, 255, 255, 0), flags);
+                TextRenderer.DrawText(g, label, font, box, Color.FromArgb(255, 255, 255, 0),
+                    flags | TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             }
+        }
+
+        // Fonts keyed by badge height; text is sized to fill the badge.
+        private readonly Dictionary<int, Font> _fontsByHeight = new();
+        private Font FontForHeight(int h)
+        {
+            if (!_fontsByHeight.TryGetValue(h, out var f))
+            {
+                f = new Font(SystemFonts.CaptionFont!.FontFamily, h * 0.85f, FontStyle.Bold, GraphicsUnit.Pixel);
+                _fontsByHeight[h] = f;
+            }
+            return f;
         }
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) _font.Dispose();
+            if (disposing) { _font.Dispose(); foreach (var f in _fontsByHeight.Values) f.Dispose(); }
             base.Dispose(disposing);
         }
 
