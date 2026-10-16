@@ -45,6 +45,13 @@ namespace WindowsHinting.Models
         public bool AutoCheckForUpdates { get; set; } = true;
 
         /// <summary>
+        /// Set once the first-run "start with Windows" default has been applied for this
+        /// user (see <see cref="Services.StartupService.EnsureInitialized"/>), so turning
+        /// the setting off later is never undone. Not a user setting.
+        /// </summary>
+        public bool StartupDefaultApplied { get; set; }
+
+        /// <summary>
         /// Optional forced logging settings. When any field is non-null the
         /// corresponding value is applied to the logger at startup, overriding
         /// the default (Info, file logging off). Useful for diagnostics: edit
