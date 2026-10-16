@@ -40,6 +40,36 @@ defaults:
     shell: pwsh
 
 jobs:
+  # GitHub starts one workflow run per event, so a push to a branch with an open PR
+  # starts two runs (push and pull_request) for the same commit. Only one should work:
+  # the pull_request run, because it is the one pre-commit.ci lite can autofix and it
+  # also covers PRs from forks. This job ends the push run early when the branch has an
+  # open PR (draft or not); everything else needs it and is skipped. Pushes to main,
+  # pushes to branches without a PR, PR runs and manual runs all proceed.
+  gate:
+    name: Run gate
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - name: Check for an open pull request
+        id: check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          run=true
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" != "main" ]; then
+            prs=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$OWNER:$GITHUB_REF_NAME" --jq 'map("#\(.number)") | join(" ")')
+            if [ -n "$prs" ]; then
+              echo "Branch has open PR(s) $prs; their pull_request run lints and builds this commit."
+              run=false
+            fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
   # Runs first: the build jobs wait for it, so a commit that fails formatting or lint
   # doesn't spend ~10 runner-minutes building. On a pull request, the last step has
   # pre-commit.ci lite commit whatever the fixing hooks changed (whitespace, line endings,
@@ -55,6 +85,8 @@ jobs:
   # Hook revs are bumped by Dependabot (.github/dependabot.yml).
   pre-commit:
     name: pre-commit
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: windows-latest
 
     steps:
@@ -91,11 +123,8 @@ jobs:
   metadata:
     name: Build metadata
     runs-on: ubuntu-latest
-    # Every push builds via the push trigger, so a pull_request run for a branch in this
-    # repository would build the same commit twice: pull_request runs build only for
-    # forks (the pre-commit job above still runs, to autofix the PR). Every build job
-    # needs this one, so they skip with it.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     outputs:
       artifact_suffix: ${{ steps.meta.outputs.artifact_suffix }}
       update_channel: ${{ steps.meta.outputs.update_channel }}
