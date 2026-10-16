@@ -5,6 +5,9 @@
     <!-- ICE61: MajorUpgrade uses AllowSameVersionUpgrades=yes on purpose, so reinstalling
          a rebuilt package with the same version upgrades in place. -->
     <SuppressIces>$(SuppressIces);ICE61</SuppressIces>
+    <!-- See Windows-Hinting.csproj. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(GITHUB_ACTIONS)' == 'true'">true</RestoreLockedMode>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="WixToolset.Netfx.wixext" Version="6.0.2" />

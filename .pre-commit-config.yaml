@@ -11,7 +11,8 @@ repos:
       - id: trailing-whitespace
         exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$
       - id: end-of-file-fixer
-        exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$
+        # NuGet writes lock files without a final newline and rewrites them on restore
+        exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$|(^|/)packages\.lock\.json$
       # .editorconfig: charset = utf-8 (no BOM)
       - id: fix-byte-order-marker
         exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$

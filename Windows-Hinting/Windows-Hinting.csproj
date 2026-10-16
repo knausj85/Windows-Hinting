@@ -28,6 +28,12 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <!-- CsWin32 emits unsafe pointer overloads for Win32 APIs. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Lock the package graph (packages.lock.json); CI restores in locked mode and fails
+         if the lock file is stale. Re-run `dotnet restore` after changing a package.
+         RuntimeIdentifiers puts the portable builds' RID-specific graphs in the lock file. -->
+    <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(GITHUB_ACTIONS)' == 'true'">true</RestoreLockedMode>
   </PropertyGroup>
 
   <!-- Update channel is baked into each build. CI passes /p:UpdateChannel=Beta for beta
