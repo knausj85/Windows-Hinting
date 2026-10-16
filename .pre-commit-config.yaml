@@ -30,9 +30,12 @@ repos:
         args: ['--fix=crlf']
         exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$
 
-  # GitHub Actions workflow linting (also runs shellcheck on bash run: blocks when available)
-  - repo: https://github.com/Mateusz-Grzelinski/actionlint-py
-    rev: v1.7.12.25
+  # GitHub Actions workflow linting (also runs shellcheck on bash run: blocks when available).
+  # actionlint's own hook: pre-commit builds it from source with Go (installing Go itself
+  # if needed). Pinned to the tag's commit; the comment is the tag (pre-commit's --freeze
+  # format, which Dependabot keeps updated).
+  - repo: https://github.com/rhysd/actionlint
+    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca  # frozen: v1.7.12
     hooks:
       - id: actionlint
 
