@@ -18,8 +18,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationManifest Condition="'$(Configuration)' == 'Release'">app.manifest</ApplicationManifest>
-    <ApplicationManifest Condition="'$(Configuration)' != 'Release'">app.debug.manifest</ApplicationManifest>
+    <!-- uiAccess=true only for the installed (MSI) Release build; Debug and portable builds can't use it. -->
+    <ApplicationManifest Condition="'$(Configuration)' == 'Release' And '$(PortableBuild)' != 'true'">app.manifest</ApplicationManifest>
+    <ApplicationManifest Condition="'$(ApplicationManifest)' == ''">app.debug.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <!-- Don't append "+<gitsha>" to AssemblyInformationalVersion. NetSparkle reads
