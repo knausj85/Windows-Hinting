@@ -37,7 +37,8 @@
 //     repaints while you type), Enter activates, Esc restores the previous
 //     foreground window, focus loss ends the session.
 //
-// RUN:  Windows-Hinting.exe --prototype-taskbar-ambient [--numbering=fresh|reuse|positional] [--freeze=all|positions]
+// RUN:  Windows-Hinting.exe --prototype-taskbar-ambient [--numbering=positional|fresh|reuse] [--freeze=all|positions]
+//   Default numbering = positional (owner, 2026-10-16: numbers always read left to right).
 //   Close the real Windows-Hinting first: this prototype registers the app's
 //   default taskbar hotkey (Ctrl+Alt+T) so existing Talon commands drive it.
 //   Global hotkeys:
@@ -233,11 +234,12 @@ namespace WindowsHinting
             var args = Environment.GetCommandLineArgs();
             string Arg(string key, string dflt) =>
                 args.FirstOrDefault(a => a.StartsWith(key + "=", StringComparison.OrdinalIgnoreCase))?.Substring(key.Length + 1) ?? dflt;
-            var policy = Arg("--numbering", "fresh").ToLowerInvariant() switch
+            var policy = Arg("--numbering", "positional").ToLowerInvariant() switch
             {
                 "reuse" => NumberingPolicy.Reuse,
-                "positional" => NumberingPolicy.Positional,
-                _ => NumberingPolicy.Fresh,
+                "fresh" => NumberingPolicy.Fresh,
+                _ => NumberingPolicy.Positional, // owner 2026-10-16: numbers always read left to right
+
             };
             _book = new AmbientLabelBook(policy);
             _freezePositions = Arg("--freeze", "all").Equals("positions", StringComparison.OrdinalIgnoreCase);
@@ -527,7 +529,7 @@ namespace WindowsHinting
         private static void OnDisplaySettingsChanged(object? sender, EventArgs e)
         {
             Log($"[DISPLAY] DisplaySettingsChanged — {(_adopted ? "session open: numbers stay up" : "hiding numbers")} until the taskbar settles.");
-            if (!_adopted) _form?.BeginInvoke(new Action(() => _form.SetHidden(true)));
+            if (!_adopted) { _forcePush = true; _form?.BeginInvoke(new Action(() => _form.SetHidden(true))); }
             _displayPending = true;
             _reconcilePending = true;
             Interlocked.Exchange(ref _lastReqMs, Clock.ElapsedMilliseconds);
@@ -613,11 +615,20 @@ namespace WindowsHinting
             return (sig, false);
         }
 
+        private static string _lastPushSig = "";
+        private static volatile bool _forcePush; // after a display-change hide
+
         private static void Push()
         {
             var snapshot = _shown.Select(s => (s.rect, s.label)).ToList();
             GetWindowRect(_hwnd, out RECT tb);
             var tbRect = Rectangle.FromLTRB(tb.Left, tb.Top, tb.Right, tb.Bottom);
+            // Repaint only when something visible changed: an unchanged re-read must not
+            // touch the window (each repaint of the layered window is a visible flicker).
+            string sig = tbRect + "|" + string.Join("|", snapshot.Select(x => $"{x.label}@{x.rect}"));
+            if (sig == _lastPushSig && !_forcePush) return;
+            _lastPushSig = sig;
+            _forcePush = false;
             _form?.BeginInvoke(new Action(() =>
             {
                 _form.SetTaskbarBounds(tbRect);
@@ -723,19 +734,29 @@ namespace WindowsHinting
 
         private delegate void WinEventProc(IntPtr hook, uint ev, IntPtr hwnd, int idObject, int idChild, uint thread, uint time);
         private static WinEventProc? _winEventProc;
-        private static IntPtr _winHookObj, _winHookState;
+        private static IntPtr _winHookObj, _winHookState, _winHookFg;
 
         private static void InstallWinEventHook()
         {
             GetWindowThreadProcessId(_hwnd, out uint pid);
             _winEventProc = (h, ev, hwnd, o, c, t, tm) =>
             {
-                // Ignore our own window and focus churn; anything else on explorer = re-read.
-                if (_form != null && hwnd == _form.Handle) return;
+                if (_form == null || hwnd == _form.Handle) return;
+                if (ev == 0x0003) // EVENT_SYSTEM_FOREGROUND (any app): clicking the taskbar or
+                {                 // opening Start raises Shell_TrayWnd over us — climb back at once.
+                    _form.EnsureTopmost();
+                    return;
+                }
+                // Only the taskbar's own windows trigger a re-read. Process-wide explorer
+                // events (Start, flyouts, File Explorer, tooltips) flood otherwise; the
+                // settings-class changes they caught in Probe 2a are covered by RegNotify.
+                if (GetAncestor(hwnd, 2 /*GA_ROOT*/) != _hwnd) return;
+                if (ev == 0x8004) _form.EnsureTopmost(); // REORDER on the taskbar
                 FlagReconcile($"WINEVENT 0x{ev:X}");
             };
             _winHookObj = SetWinEventHook(0x8000, 0x8004, IntPtr.Zero, _winEventProc, pid, 0, 0);
             _winHookState = SetWinEventHook(0x800A, 0x800A, IntPtr.Zero, _winEventProc, pid, 0, 0);
+            _winHookFg = SetWinEventHook(0x0003, 0x0003, IntPtr.Zero, _winEventProc, 0, 0, 0);
             Log($"Subscribed: WinEvents on explorer pid {pid} (obj={_winHookObj != IntPtr.Zero}, state={_winHookState != IntPtr.Zero}).");
         }
 
@@ -743,6 +764,7 @@ namespace WindowsHinting
         {
             if (_winHookObj != IntPtr.Zero) UnhookWinEvent(_winHookObj);
             if (_winHookState != IntPtr.Zero) UnhookWinEvent(_winHookState);
+            if (_winHookFg != IntPtr.Zero) UnhookWinEvent(_winHookFg);
         }
 
         // ---- RegNotify on Explorer settings (third pipeline) ---------------------------
@@ -841,6 +863,7 @@ namespace WindowsHinting
 
         [StructLayout(LayoutKind.Sequential)] private struct RECT { public int Left, Top, Right, Bottom; }
         [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out RECT r);
+        [DllImport("user32.dll")] private static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
         [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] internal static extern bool SetForegroundWindow(IntPtr hWnd);
         [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
