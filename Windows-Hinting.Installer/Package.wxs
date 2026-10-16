@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:netfx="http://wixtoolset.org/schemas/v4/wxs/netfx">
   <Package
     Id="ProductPackage"
     Name="Windows-Hinting"
@@ -15,6 +16,19 @@
          instead of silently failing to write Program Files / HKLM. -->
 
     <Media Id="1" Cabinet="WindowsHinting.cab" EmbedCab="yes" />
+
+    <!-- The app is framework-dependent: block install unless the x64 .NET 10 Desktop
+         Runtime (or a later 10.x, matching the app's default roll-forward) is present.
+         DotNetCompatibilityCheck sets the property to 0 when the app would start. -->
+    <netfx:DotNetCompatibilityCheck
+      Property="DOTNETDESKTOPRUNTIMECHECK"
+      RuntimeType="desktop"
+      Platform="x64"
+      Version="10.0.0"
+      RollForward="minor" />
+    <Launch
+      Condition="Installed OR DOTNETDESKTOPRUNTIMECHECK=&quot;0&quot;"
+      Message="!(loc.DotNetRuntimeMissing)" />
 
     <!-- Upgrade strategy -->
     <MajorUpgrade

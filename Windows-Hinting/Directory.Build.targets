@@ -17,4 +17,12 @@
     <ApplicationManifest Condition="'$(Configuration)' == 'Release' And '$(PortableBuild)' != 'true'">app.manifest</ApplicationManifest>
     <ApplicationManifest Condition="'$(ApplicationManifest)' == ''">app.debug.manifest</ApplicationManifest>
   </PropertyGroup>
+
+  <!-- The MSI is an x64 package (InstallerPlatform=x64) and checks for the x64 .NET Desktop
+       Runtime, so the framework-dependent exe it ships must have an x64 apphost even when
+       built on an ARM64 machine (the SDK otherwise uses the build machine's architecture).
+       RID-specific (portable) builds use their own RuntimeIdentifier and are unaffected. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(PortableBuild)' != 'true' And '$(RuntimeIdentifier)' == ''">
+    <AppHostRuntimeIdentifier>win-x64</AppHostRuntimeIdentifier>
+  </PropertyGroup>
 </Project>
