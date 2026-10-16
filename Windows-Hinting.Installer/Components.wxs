@@ -9,14 +9,9 @@
           Source="$(var.Windows_Hinting.TargetDir)Windows-Hinting.exe"
           KeyPath="yes"
           Checksum="yes" />
-
-        <!-- Registry entry for Run key to auto-start -->
-        <RegistryValue
-          Root="HKLM"
-          Key="Software\Microsoft\Windows\CurrentVersion\Run"
-          Name="Windows-Hinting"
-          Type="string"
-          Value="[INSTALLFOLDER]Windows-Hinting.exe" />
+        <!-- No Run entry here: start-at-sign-in is a per-user setting the app manages
+             itself under HKCU (Services/StartupService.cs). A machine-wide HKLM entry
+             couldn't be turned off from the app and started it twice when both existed. -->
       </Component>
 
       <!-- Everything else in the app's build output: Windows-Hinting.dll, its
@@ -110,5 +105,30 @@
           Action="removeOnUninstall" />
       </Component>
     </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <!-- On a real uninstall (not the removal of the old version during an upgrade), delete
+         the per-user Run entry the app created, so Windows doesn't keep trying to start a
+         missing exe at sign-in. Runs immediately after InstallFinalize, outside the
+         elevated script, so HKCU is the uninstalling user's. Failure is ignored. -->
+    <SetProperty
+      Id="WixQuietExec64CmdLine"
+      Value="&quot;[System64Folder]reg.exe&quot; delete &quot;HKCU\Software\Microsoft\Windows\CurrentVersion\Run&quot; /v Windows-Hinting /f"
+      Before="RemoveStartupEntry"
+      Sequence="execute"
+      Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    <CustomAction
+      Id="RemoveStartupEntry"
+      BinaryRef="Wix4UtilCA_X64"
+      DllEntry="WixQuietExec64"
+      Execute="immediate"
+      Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom
+        Action="RemoveStartupEntry"
+        After="InstallFinalize"
+        Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
   </Fragment>
 </Wix>
