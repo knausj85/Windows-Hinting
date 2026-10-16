@@ -100,6 +100,11 @@ namespace WindowsHinting
                     _preferencesService.Save(_options);
                 }
 
+                if (_startupService.EnsureInitialized(_options))
+                {
+                    _preferencesService.Save(_options);
+                }
+
                 ApplyOptions();
 
                 // Wire up events
