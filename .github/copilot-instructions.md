@@ -35,8 +35,12 @@ Rules that are easy to break:
   up automatically. Don't list files by hand.
 - CI builds (`GITHUB_ACTIONS=true`) treat warnings as errors. Keep local
   builds at 0 warnings.
-- Run `pre-commit run --all-files` before pushing; CI's lint job runs the same
-  hooks and fails on any change they would make.
+- Formatting is enforced by pre-commit (`.pre-commit-config.yaml`). Run
+  `pre-commit install` once so hooks fix files at commit time, or
+  `pre-commit run --all-files`. On pull requests the `pre-commit` workflow runs the
+  same hooks and pre-commit.ci lite commits any fixes back to the PR (`style: apply
+  pre-commit fixes`); pull that commit before pushing again.
+
 ## Other project conventions
 
 - Target framework is `net10.0-windows`.
