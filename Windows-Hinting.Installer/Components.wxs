@@ -1,0 +1,114 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <!-- Main application files component group -->
+    <ComponentGroup Id="MainApplicationFiles" Directory="INSTALLFOLDER">
+      <!-- Main Windows-Hinting.exe executable -->
+      <Component Id="WindowsHintingExecutable" Bitness="always64">
+        <File
+          Id="WindowsHintingExe"
+          Source="$(var.Windows_Hinting.TargetDir)Windows-Hinting.exe"
+          KeyPath="yes"
+          Checksum="yes" />
+
+        <!-- Registry entry for Run key to auto-start -->
+        <RegistryValue
+          Root="HKLM"
+          Key="Software\Microsoft\Windows\CurrentVersion\Run"
+          Name="Windows-Hinting"
+          Type="string"
+          Value="[INSTALLFOLDER]Windows-Hinting.exe" />
+      </Component>
+
+      <!-- Everything else in the app's build output: Windows-Hinting.dll, its
+           runtimeconfig/deps.json, NuGet dependencies and the culture subfolders of
+           satellite resource assemblies. Harvested at build time so a dependency added
+           or removed in the csproj can't be silently left out of (or stale in) the MSI.
+           One component per file; WiX generates stable GUIDs from the install paths. -->
+      <Files Include="$(var.Windows_Hinting.TargetDir)**">
+        <Exclude Files="$(var.Windows_Hinting.TargetDir)Windows-Hinting.exe" />
+        <Exclude Files="$(var.Windows_Hinting.TargetDir)**\*.pdb" />
+        <!-- RID-specific build output of the portable publishes (Portable-win-*.pubxml). -->
+        <Exclude Files="$(var.Windows_Hinting.TargetDir)win-x64\**" />
+        <Exclude Files="$(var.Windows_Hinting.TargetDir)win-x86\**" />
+      </Files>
+    </ComponentGroup>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <!-- Runtime installation marker -->
+      <Component Id="RuntimeRegistry" Bitness="always64" Guid="22222222-3333-4444-5555-666666666502">
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\Windows-Hinting\Windows-Hinting"
+          Name="RuntimeFilesInstalled"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Desktop and Program Menu shortcuts -->
+    <ComponentGroup Id="DesktopShortcuts" Directory="INSTALLFOLDER">
+      <!-- Desktop Shortcut -->
+      <Component Id="DesktopShortcut" Directory="DesktopFolder" Bitness="always64">
+        <Shortcut
+          Id="DesktopShortcutRef"
+          Target="[INSTALLFOLDER]Windows-Hinting.exe"
+          Name="Windows-Hinting"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon.ico" />
+
+        <RemoveFolder Id="DesktopFolderRemoveOnUninstall" On="uninstall" />
+
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\Windows-Hinting\Windows-Hinting"
+          Name="DesktopShortcut"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+
+      <!-- Program Menu Shortcut -->
+      <Component Id="ProgramMenuShortcut" Directory="ApplicationProgramsFolder" Bitness="always64">
+        <Shortcut
+          Id="ProgramMenuShortcutRef"
+          Target="[INSTALLFOLDER]Windows-Hinting.exe"
+          Name="Windows-Hinting"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon.ico" />
+
+        <RemoveFolder Id="ApplicationProgramsFolderRemoveOnUninstall" On="uninstall" />
+
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\Windows-Hinting\Windows-Hinting"
+          Name="ProgramMenuShortcut"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Registry configuration for UIAccess -->
+    <ComponentGroup Id="RegistryConfiguration" Directory="INSTALLFOLDER">
+      <Component Id="RegistryEntries" Bitness="always64">
+        <RegistryKey
+          Root="HKLM"
+          Key="Software\Windows-Hinting\Windows-Hinting">
+          <RegistryValue
+            Name="InstallPath"
+            Type="string"
+            Value="[INSTALLFOLDER]" />
+          <RegistryValue
+            Name="UIAccessEnabled"
+            Type="integer"
+            Value="1" />
+        </RegistryKey>
+        <RemoveRegistryKey
+          Root="HKLM"
+          Key="Software\Windows-Hinting\Windows-Hinting"
+          Action="removeOnUninstall" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

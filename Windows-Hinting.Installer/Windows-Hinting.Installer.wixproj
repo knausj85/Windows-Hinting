@@ -14,7 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <WixCompile Include="Package.wxs" />
-    <WixCompile Include="ExampleComponents.wxs" />
+    <WixCompile Include="Components.wxs" />
     <WixCompile Include="Folders.wxs" />
     <WixCompile Include="UI.wxs" />
   </ItemGroup>
