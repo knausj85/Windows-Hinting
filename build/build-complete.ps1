@@ -1,3 +1,29 @@
+<#
+.SYNOPSIS
+    Builds Windows-Hinting: the app, the MSI installer, or the portable single-file exes.
+
+.DESCRIPTION
+    The one entry point for local and CI builds (.github/workflows/build.yml calls it).
+    Run it with PowerShell 7 (pwsh). Everything goes through the dotnet CLI.
+
+.EXAMPLE
+    ./build/build-complete.ps1
+    Release exe + MSI.
+
+.EXAMPLE
+    ./build/build-complete.ps1 -Configuration Debug -ExeOnly
+    Debug exe only.
+
+.EXAMPLE
+    ./build/build-complete.ps1 -Configuration Release -InstallerOnly
+    MSI from the existing Release output, without rebuilding the app (CI signs in between).
+
+.EXAMPLE
+    ./build/build-complete.ps1 -Portable -Runtime win-x64 -UpdateChannel Beta
+    Self-contained single-file exe (Properties/PublishProfiles/Portable-win-x64.pubxml).
+#>
+#Requires -Version 7.0
+
 param(
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",

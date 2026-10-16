@@ -12,8 +12,9 @@ only); Visual Studio is optional. The solution is `Windows-Hinting.slnx`.
 dotnet build .\Windows-Hinting\Windows-Hinting.csproj -c Debug
 ```
 
-For release-style outputs use `build/build-complete.ps1` (pwsh 7; the
-`build-complete.bat` wrapper forwards to it). CI calls the same script:
+For release-style outputs run `build/build-complete.ps1` with PowerShell 7
+(`pwsh`), the same script CI calls (`Get-Help .\build\build-complete.ps1` lists
+the switches):
 
 - `-Configuration Release` builds the exe and the MSI; `-ExeOnly` skips the
   MSI; `-InstallerOnly` packages the MSI from the existing app output without
