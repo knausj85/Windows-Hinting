@@ -1,7 +1,8 @@
 using System;
 using System.Runtime.InteropServices;
-using UIAutomationClient;
+using Windows.Win32.UI.Accessibility;
 using WindowsHinting.Logging;
+using WindowsHinting.NativeInterop;
 using WindowsHinting.Services;
 
 namespace WindowsHinting.Services.ElementActivators
@@ -18,17 +19,17 @@ namespace WindowsHinting.Services.ElementActivators
         public bool TryActivate(IUIAutomationElement element)
         {
             IUIAutomationSelectionItemPattern? pattern = null;
-            bool isAvailable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId);
+            bool isAvailable = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsSelectionItemPatternAvailablePropertyId) is true;
 
             if (isAvailable)
             {
                 try
                 {
-                    pattern = element.GetCachedPattern(UIA_PatternIds.UIA_SelectionItemPatternId) as IUIAutomationSelectionItemPattern;
+                    pattern = element.GetCachedPattern(UIA_PATTERN_ID.UIA_SelectionItemPatternId) as IUIAutomationSelectionItemPattern;
                     if (pattern != null)
                     {
                         pattern.Select();
-                        _logger.Info($"Successfully selected element {element.CachedName}");
+                        _logger.Info($"Successfully selected element {element.GetCachedName()}");
                         return true;
                     }
                 }

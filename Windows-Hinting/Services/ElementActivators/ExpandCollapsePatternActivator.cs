@@ -1,7 +1,8 @@
 using System;
 using System.Runtime.InteropServices;
-using UIAutomationClient;
+using Windows.Win32.UI.Accessibility;
 using WindowsHinting.Logging;
+using WindowsHinting.NativeInterop;
 using WindowsHinting.Services;
 
 namespace WindowsHinting.Services.ElementActivators
@@ -19,17 +20,17 @@ namespace WindowsHinting.Services.ElementActivators
         {
             IUIAutomationExpandCollapsePattern? pattern = null;
 
-            bool isAvailable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId);
+            bool isAvailable = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsExpandCollapsePatternAvailablePropertyId) is true;
 
             if (isAvailable)
             {
                 try
                 {
-                    pattern = element.GetCachedPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId) as IUIAutomationExpandCollapsePattern;
+                    pattern = element.GetCachedPattern(UIA_PATTERN_ID.UIA_ExpandCollapsePatternId) as IUIAutomationExpandCollapsePattern;
                     if (pattern != null)
                     {
                         pattern.Expand();
-                        _logger.Info($"Successfully expanded/collapsed element {element.CachedName}");
+                        _logger.Info($"Successfully expanded/collapsed element {element.GetCachedName()}");
                         return true;
                     }
                 }

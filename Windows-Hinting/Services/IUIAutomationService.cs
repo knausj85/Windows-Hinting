@@ -3,19 +3,19 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
-using UIAutomationClient;
+using Windows.Win32.UI.Accessibility;
 using WindowsHinting.Models;
 
 namespace WindowsHinting.Services
 {
-    public interface IUIAutomationService : IDisposable
+    internal interface IUIAutomationService : IDisposable
     {
         IReadOnlyList<ClickableElement> FindClickableElements(IntPtr windowHandle);
         Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle);
         Task<IReadOnlyList<ClickableElement>> FindClickableElementsAsync(IntPtr windowHandle, int timeoutMs);
     }
 
-    public class ClickableElement
+    internal sealed class ClickableElement
     {
         public IUIAutomationElement Element { get; set; } = null!;
         public Rectangle Bounds { get; set; }

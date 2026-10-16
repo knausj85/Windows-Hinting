@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
-using UIAutomationClient;
+using Windows.Win32.UI.Accessibility;
 using WindowsHinting.Logging;
+using WindowsHinting.NativeInterop;
 using WindowsHinting.Services.ElementActivators;
 
 namespace WindowsHinting.Services
@@ -45,12 +46,12 @@ namespace WindowsHinting.Services
         {
             try
             {
-                var name = element.CachedName ?? "(unnamed)";
-                bool isInvoke = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId) is true;
-                bool isExpandCollapse = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId) is true;
-                bool isSelectionItem = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId) is true;
-                bool isToggle = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId) is true;
-                bool isKeyboardFocusable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId) is true;
+                var name = element.GetCachedName() ?? "(unnamed)";
+                bool isInvoke = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsInvokePatternAvailablePropertyId) is true;
+                bool isExpandCollapse = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsExpandCollapsePatternAvailablePropertyId) is true;
+                bool isSelectionItem = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsSelectionItemPatternAvailablePropertyId) is true;
+                bool isToggle = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsTogglePatternAvailablePropertyId) is true;
+                bool isKeyboardFocusable = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsKeyboardFocusablePropertyId) is true;
 
                 _logger.Info($"Cached patterns for '{name}': " +
                     $"Invoke={isInvoke}, " +

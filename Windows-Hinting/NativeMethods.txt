@@ -83,3 +83,23 @@ MonitorFromWindow
 MONITOR_FROM_FLAGS
 GetClassName
 EnumChildWindows
+
+// --- Wave 7: UI Automation (replaces the UIAutomationClient COMReference) ---
+// Needs CsWin32 >= the fix for microsoft/CsWin32#1745 (invalid code for
+// UI.Accessibility interfaces under allowMarshaling).
+CUIAutomation
+IUIAutomation
+IUIAutomationElement
+IUIAutomationElementArray
+IUIAutomationCondition
+IUIAutomationCacheRequest
+IUIAutomationTreeWalker
+IUIAutomationInvokePattern
+IUIAutomationExpandCollapsePattern
+IUIAutomationSelectionItemPattern
+IUIAutomationTogglePattern
+IUIAutomationLegacyIAccessiblePattern
+TreeScope
+UIA_PROPERTY_ID
+UIA_PATTERN_ID
+UIA_CONTROLTYPE_ID

@@ -45,47 +45,8 @@ if ($Portable) {
         Write-Host "[$StepIndex/$StepCount] Publishing self-contained build for $Rid..."
         Write-Host ""
 
-        # Step 1: Restore with the specific RID (SelfContained so runtime packs are fetched)
-        Write-Host "  Restoring packages for $Rid..."
-        $RestoreArgs = @(
-            "restore"
-            "$ProjectDir\Windows-Hinting.csproj"
-            "-r", $Rid
-            "-p:SelfContained=true"
-            "-p:PublishReadyToRun=true"
-        )
-        dotnet @RestoreArgs
-
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host ""
-            Write-Host "ERROR: dotnet restore failed for $Rid with exit code $LASTEXITCODE"
-            exit 1
-        }
-
-        # Step 2: Use msbuild (Framework) to compile and generate COM interop
+        # Restore, build and publish a self-contained single-file package in one step.
         # Override ApplicationManifest to use UIAccess-disabled manifest for portable builds
-        # SelfContained=true on build so runtime packs are resolved for the publish step
-        Write-Host "  Building with msbuild to generate COM interop..."
-        $BuildArgs = @(
-            "$ProjectDir\Windows-Hinting.csproj"
-            "/p:Configuration=$Configuration"
-            "/p:RuntimeIdentifier=$Rid"
-            "/p:SelfContained=true"
-            "/p:ApplicationManifest=app.debug.manifest"
-            "/p:PortableBuild=true"
-            "/p:UpdateChannel=$UpdateChannel"
-            "/nologo"
-            "/v:minimal"
-        )
-        msbuild @BuildArgs
-
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host ""
-            Write-Host "ERROR: msbuild compile failed for $Rid with exit code $LASTEXITCODE"
-            exit 1
-        }
-
-        # Step 3: Use msbuild /t:Publish for self-contained single-file (reuses COM interop from step 2)
         Write-Host "  Publishing self-contained single-file package..."
         $PublishDir = "$ProjectDir\bin-portable\publish\$Rid"
 
@@ -95,26 +56,25 @@ if ($Portable) {
         }
 
         $PublishArgs = @(
+            "publish"
             "$ProjectDir\Windows-Hinting.csproj"
-            "/t:Publish"
-            "/p:Configuration=$Configuration"
-            "/p:RuntimeIdentifier=$Rid"
-            "/p:ApplicationManifest=app.debug.manifest"
-            "/p:SelfContained=true"
-            "/p:PublishSingleFile=true"
-            "/p:IncludeNativeLibrariesForSelfExtract=true"
-            "/p:EnableCompressionInSingleFile=true"
-            "/p:PublishReadyToRun=true"
-            "/p:DebugType=embedded"
-            "/p:PublishDir=$PublishDir\"
-            "/p:PortableBuild=true"
-            "/p:UpdateChannel=$UpdateChannel"
-            "/p:NoBuild=true"
-            "/nologo"
-            "/v:minimal"
+            "-c", $Configuration
+            "-r", $Rid
+            "--self-contained"
+            "-p:ApplicationManifest=app.debug.manifest"
+            "-p:PublishSingleFile=true"
+            "-p:IncludeNativeLibrariesForSelfExtract=true"
+            "-p:EnableCompressionInSingleFile=true"
+            "-p:PublishReadyToRun=true"
+            "-p:DebugType=embedded"
+            "-p:PublishDir=$PublishDir\"
+            "-p:PortableBuild=true"
+            "-p:UpdateChannel=$UpdateChannel"
+            "-nologo"
+            "-v:minimal"
         )
 
-        msbuild @PublishArgs
+        dotnet @PublishArgs
 
         if ($LASTEXITCODE -ne 0) {
             Write-Host ""
@@ -162,14 +122,15 @@ Write-Host "[1/$StepCount] Building Windows-Hinting executable..."
 Write-Host ""
 
 $BuildArgs = @(
+    "build"
     "$ProjectDir\Windows-Hinting.csproj"
-    "/p:Configuration=$Configuration"
-    "/p:UpdateChannel=$UpdateChannel"
-    "/nologo"
-    "/v:minimal"
+    "-c", $Configuration
+    "-p:UpdateChannel=$UpdateChannel"
+    "-nologo"
+    "-v:minimal"
 )
 
-msbuild @BuildArgs
+dotnet @BuildArgs
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
@@ -195,13 +156,14 @@ if (-not $ExeOnly) {
     }
 
     $InstallerArgs = @(
+        "build"
         $InstallerProject
-        "/p:Configuration=$Configuration"
-        "/p:SignOutput=false"
-        "/nologo"
-        "/v:minimal"
+        "-c", $Configuration
+        "-p:SignOutput=false"
+        "-nologo"
+        "-v:minimal"
     )
-    msbuild @InstallerArgs
+    dotnet @InstallerArgs
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host ""

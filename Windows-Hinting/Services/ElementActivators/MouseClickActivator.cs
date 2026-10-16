@@ -1,9 +1,10 @@
 using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
-using UIAutomationClient;
+using Windows.Win32.UI.Accessibility;
 using WindowsHinting.Logging;
 using WindowsHinting.Models;
+using WindowsHinting.NativeInterop;
 using WindowsHinting.Services;
 
 namespace WindowsHinting.Services.ElementActivators
@@ -23,7 +24,7 @@ namespace WindowsHinting.Services.ElementActivators
         {
             try
             {
-                var rectObj = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+                var rectObj = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_BoundingRectanglePropertyId);
                 if (rectObj is double[] rectArray && rectArray.Length == 4)
                 {
                     var bounds = new Rectangle(
@@ -34,7 +35,7 @@ namespace WindowsHinting.Services.ElementActivators
 
                     if (bounds.Width > 0 && bounds.Height > 0)
                     {
-                        var name = element.CachedName ?? "(unnamed)";
+                        var name = element.GetCachedName() ?? "(unnamed)";
                         _logger.Info($"Falling back to mouse click for element '{name}'");
                         return _mouseClickService.PerformClick(bounds, ClickAction.LeftClick);
                     }

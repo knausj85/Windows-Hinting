@@ -6,11 +6,12 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using UIAutomationClient;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.UI.Accessibility;
 using WindowsHinting.Configuration;
 using WindowsHinting.Logging;
+using WindowsHinting.NativeInterop;
 
 namespace WindowsHinting.Services
 {
@@ -28,7 +29,7 @@ namespace WindowsHinting.Services
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _ruleRegistry = ruleRegistry ?? throw new ArgumentNullException(nameof(ruleRegistry));
-            _automation = new CUIAutomation();
+            _automation = (IUIAutomation)new CUIAutomation();
 
             (_searchCondition, _cacheRequest, _ownedConditions) = BuildSearchConditionsAndCache();
         }
@@ -37,29 +38,29 @@ namespace WindowsHinting.Services
         {
             var owned = new List<IUIAutomationCondition>();
 
-            var clickableControlTypes = new int[]
+            var clickableControlTypes = new UIA_CONTROLTYPE_ID[]
             {
-                UIA_ControlTypeIds.UIA_ButtonControlTypeId,
-                UIA_ControlTypeIds.UIA_CheckBoxControlTypeId,
-                UIA_ControlTypeIds.UIA_ComboBoxControlTypeId,
-                UIA_ControlTypeIds.UIA_DataGridControlTypeId,
-                UIA_ControlTypeIds.UIA_DataItemControlTypeId,
-                UIA_ControlTypeIds.UIA_EditControlTypeId,
-                UIA_ControlTypeIds.UIA_GroupControlTypeId,
-                UIA_ControlTypeIds.UIA_HyperlinkControlTypeId,
-                UIA_ControlTypeIds.UIA_ListControlTypeId,
-                UIA_ControlTypeIds.UIA_ListItemControlTypeId,
-                UIA_ControlTypeIds.UIA_MenuControlTypeId,
-                UIA_ControlTypeIds.UIA_MenuItemControlTypeId,
-                UIA_ControlTypeIds.UIA_RadioButtonControlTypeId,
-                UIA_ControlTypeIds.UIA_SplitButtonControlTypeId,
-                UIA_ControlTypeIds.UIA_TabItemControlTypeId,
-                UIA_ControlTypeIds.UIA_TreeControlTypeId,
-                UIA_ControlTypeIds.UIA_TreeItemControlTypeId
+                UIA_CONTROLTYPE_ID.UIA_ButtonControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_CheckBoxControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_ComboBoxControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_DataGridControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_DataItemControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_EditControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_GroupControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_HyperlinkControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_ListControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_ListItemControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_MenuControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_MenuItemControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_RadioButtonControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_SplitButtonControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_TabItemControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_TreeControlTypeId,
+                UIA_CONTROLTYPE_ID.UIA_TreeItemControlTypeId
             };
 
-            var enabledCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsEnabledPropertyId, true);
-            var onscreenCondition = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false);
+            var enabledCondition = _automation.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_IsEnabledPropertyId, true);
+            var onscreenCondition = _automation.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_IsOffscreenPropertyId, false);
             owned.Add(enabledCondition);
             owned.Add(onscreenCondition);
 
@@ -67,11 +68,11 @@ namespace WindowsHinting.Services
             owned.Add(statusAndCondition);
 
             var controlTypeConditions = clickableControlTypes
-                .Select(t => _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_ControlTypePropertyId, t))
+                .Select(t => _automation.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_ControlTypePropertyId, (int)t))
                 .ToArray();
             owned.AddRange(controlTypeConditions);
 
-            var controlTypeOrCondition = _automation.CreateOrConditionFromArray(controlTypeConditions);
+            var controlTypeOrCondition = _automation.CreateOrConditionFromNativeArray(controlTypeConditions);
             owned.Add(controlTypeOrCondition);
 
             var combined = _automation.CreateAndCondition(statusAndCondition, controlTypeOrCondition);
@@ -79,26 +80,26 @@ namespace WindowsHinting.Services
 
             var cache = _automation.CreateCacheRequest();
             cache.TreeScope = TreeScope.TreeScope_Element;
-            cache.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_ClickablePointPropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_ControlTypePropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_NamePropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_ClassNamePropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_ProcessIdPropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_IsLegacyIAccessiblePatternAvailablePropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_LegacyIAccessibleStatePropertyId);
-            cache.AddProperty(UIA_PropertyIds.UIA_NativeWindowHandlePropertyId);
-            cache.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
-            cache.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
-            cache.AddPattern(UIA_PatternIds.UIA_SelectionPatternId);
-            cache.AddPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
-            cache.AddPattern(UIA_PatternIds.UIA_TogglePatternId);
-            cache.AddPattern(UIA_PatternIds.UIA_LegacyIAccessiblePatternId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_BoundingRectanglePropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_ClickablePointPropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_ControlTypePropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_IsTogglePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_IsInvokePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_IsExpandCollapsePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_IsKeyboardFocusablePropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_IsSelectionItemPatternAvailablePropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_NamePropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_ClassNamePropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_ProcessIdPropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_IsLegacyIAccessiblePatternAvailablePropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_LegacyIAccessibleStatePropertyId);
+            cache.AddProperty(UIA_PROPERTY_ID.UIA_NativeWindowHandlePropertyId);
+            cache.AddPattern(UIA_PATTERN_ID.UIA_InvokePatternId);
+            cache.AddPattern(UIA_PATTERN_ID.UIA_ExpandCollapsePatternId);
+            cache.AddPattern(UIA_PATTERN_ID.UIA_SelectionPatternId);
+            cache.AddPattern(UIA_PATTERN_ID.UIA_SelectionItemPatternId);
+            cache.AddPattern(UIA_PATTERN_ID.UIA_TogglePatternId);
+            cache.AddPattern(UIA_PATTERN_ID.UIA_LegacyIAccessiblePatternId);
 
             return (combined, cache, owned);
         }
@@ -167,7 +168,7 @@ namespace WindowsHinting.Services
 
             try
             {
-                root = _automation.ElementFromHandle(windowHandle);
+                root = _automation.ElementFromHandle((HWND)windowHandle);
                 if (root == null)
                 {
                     _logger.Warning("Failed to get root element from window handle");
@@ -221,7 +222,7 @@ namespace WindowsHinting.Services
                                 if (element == null)
                                     continue;
 
-                                var rectObj = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+                                var rectObj = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_BoundingRectanglePropertyId);
                                 if (rectObj == null)
                                     continue;
 
@@ -237,16 +238,16 @@ namespace WindowsHinting.Services
                                     if (rect.Width > 0 && rect.Height > 0)
                                     {
                                         // Check for valid clickable point (filter out VT_EMPTY)
-                                        var clickablePointObj = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_ClickablePointPropertyId);
+                                        var clickablePointObj = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_ClickablePointPropertyId);
                                         bool hasValidClickablePoint = clickablePointObj != null;
-                                        bool isLegacyPatternAvailable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsLegacyIAccessiblePatternAvailablePropertyId) is true;
+                                        bool isLegacyPatternAvailable = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsLegacyIAccessiblePatternAvailablePropertyId) is true;
                                         bool hasActivatablePattern = HasActivatablePattern(element);
 
                                         if (!hasValidClickablePoint)
                                         {
                                             if (!isLegacyPatternAvailable || IsLegacyElementOffscreenOrInvisible(element))
                                             {
-                                                _logger.Debug($"Element {element.GetCachedPropertyValue(UIA_PropertyIds.UIA_NamePropertyId)} is offscreen/invisible per MSAA legacy state, skipping");
+                                                _logger.Debug($"Element {element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_NamePropertyId)} is offscreen/invisible per MSAA legacy state, skipping");
                                                 continue;
                                             }
                                         }
@@ -311,12 +312,9 @@ namespace WindowsHinting.Services
         /// </summary>
         private List<IUIAutomationElement> ResolveRootElements(IntPtr windowHandle, IUIAutomationElement root)
         {
-            if (root == null)
-                return [root];
-
             try
             {
-                var className = root.CurrentClassName;
+                var className = root.GetCurrentClassName();
                 var executableName = GetExecutableName(windowHandle);
                 var windowTitle = GetWindowTitle(windowHandle);
                 var strategy = _ruleRegistry.ResolveStrategy(executableName, className, windowTitle);
@@ -410,7 +408,7 @@ namespace WindowsHinting.Services
                 if (activeTab != IntPtr.Zero)
                 {
                     string childClass;
-                    try { childClass = child.CurrentClassName ?? ""; } catch (COMException) { childClass = ""; }
+                    try { childClass = child.GetCurrentClassName() ?? ""; } catch (COMException) { childClass = ""; }
 
                     if (string.Equals(childClass, ShellTabWindowClass, StringComparison.Ordinal))
                     {
@@ -489,16 +487,16 @@ namespace WindowsHinting.Services
             try
             {
                 windowCondition = _automation.CreatePropertyCondition(
-                    UIA_PropertyIds.UIA_ControlTypePropertyId,
-                    UIA_ControlTypeIds.UIA_WindowControlTypeId);
+                    UIA_PROPERTY_ID.UIA_ControlTypePropertyId,
+                    (int)UIA_CONTROLTYPE_ID.UIA_WindowControlTypeId);
 
                 foreach (var name in SearchHostTargetNames)
                 {
                     nameConditions.Add(_automation.CreatePropertyCondition(
-                        UIA_PropertyIds.UIA_NamePropertyId, name));
+                        UIA_PROPERTY_ID.UIA_NamePropertyId, name));
                 }
 
-                nameOr = _automation.CreateOrConditionFromArray(nameConditions.ToArray());
+                nameOr = _automation.CreateOrConditionFromNativeArray(nameConditions.ToArray());
                 combined = _automation.CreateAndCondition(windowCondition, nameOr);
 
                 IUIAutomationElement? match = null;
@@ -514,7 +512,7 @@ namespace WindowsHinting.Services
                 if (match != null)
                 {
                     string matchedName;
-                    try { matchedName = match.CachedName ?? ""; } catch (COMException) { matchedName = ""; }
+                    try { matchedName = match.GetCachedName() ?? ""; } catch (COMException) { matchedName = ""; }
                     _logger.Info($"SearchHostCustomStrategy: matched window \"{matchedName}\"");
 
                     return match;
@@ -606,8 +604,8 @@ namespace WindowsHinting.Services
                             if (parent == null)
                                 break;
 
-                            int controlType = parent.CurrentControlType;
-                            if (controlType == UIA_ControlTypeIds.UIA_WindowControlTypeId)
+                            var controlType = parent.CurrentControlType;
+                            if (controlType == UIA_CONTROLTYPE_ID.UIA_WindowControlTypeId)
                             {
                                 windowAncestor = parent;
                                 break;
@@ -679,11 +677,11 @@ namespace WindowsHinting.Services
 
         private bool HasActivatablePattern(IUIAutomationElement element)
         {
-            return element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId) is true
-                || element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId) is true
-                || element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId) is true
-                || element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId) is true
-                || element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId) is true;
+            return element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsInvokePatternAvailablePropertyId) is true
+                || element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsExpandCollapsePatternAvailablePropertyId) is true
+                || element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsSelectionItemPatternAvailablePropertyId) is true
+                || element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsTogglePatternAvailablePropertyId) is true
+                || element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsKeyboardFocusablePropertyId) is true;
         }
 
         /// <summary>
@@ -696,14 +694,14 @@ namespace WindowsHinting.Services
             IUIAutomationLegacyIAccessiblePattern? legacy = null;
             try
             {
-                bool legacyAvailable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsLegacyIAccessiblePatternAvailablePropertyId);
+                bool legacyAvailable = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsLegacyIAccessiblePatternAvailablePropertyId) is true;
                 if (!legacyAvailable)
                     return false;
 
-                var legacyState = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_LegacyIAccessibleStatePropertyId);
+                var legacyState = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_LegacyIAccessibleStatePropertyId);
 
                 const uint mask = 0x00010000;
-                return (legacyState & mask) != 0;
+                return legacyState != null && (Convert.ToInt64(legacyState) & mask) != 0;
             }
             catch (COMException ex)
             {

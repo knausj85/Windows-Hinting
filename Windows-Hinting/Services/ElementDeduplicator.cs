@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using UIAutomationClient;
+using Windows.Win32.UI.Accessibility;
 using WindowsHinting.Logging;
 
 namespace WindowsHinting.Services
@@ -16,32 +16,32 @@ namespace WindowsHinting.Services
         /// <summary>
         /// Priority by control type — lower value = higher priority (more likely click target).
         /// </summary>
-        private static readonly Dictionary<int, int> ControlTypePriority = new()
+        private static readonly Dictionary<UIA_CONTROLTYPE_ID, int> ControlTypePriority = new()
         {
             // Tier 1: Direct action elements
-            [UIA_ControlTypeIds.UIA_ButtonControlTypeId] = 1,
-            [UIA_ControlTypeIds.UIA_HyperlinkControlTypeId] = 1,
-            [UIA_ControlTypeIds.UIA_MenuItemControlTypeId] = 1,
-            [UIA_ControlTypeIds.UIA_SplitButtonControlTypeId] = 1,
+            [UIA_CONTROLTYPE_ID.UIA_ButtonControlTypeId] = 1,
+            [UIA_CONTROLTYPE_ID.UIA_HyperlinkControlTypeId] = 1,
+            [UIA_CONTROLTYPE_ID.UIA_MenuItemControlTypeId] = 1,
+            [UIA_CONTROLTYPE_ID.UIA_SplitButtonControlTypeId] = 1,
 
             // Tier 2: State-change controls
-            [UIA_ControlTypeIds.UIA_CheckBoxControlTypeId] = 2,
-            [UIA_ControlTypeIds.UIA_RadioButtonControlTypeId] = 2,
-            [UIA_ControlTypeIds.UIA_ComboBoxControlTypeId] = 2,
-            [UIA_ControlTypeIds.UIA_TabItemControlTypeId] = 2,
+            [UIA_CONTROLTYPE_ID.UIA_CheckBoxControlTypeId] = 2,
+            [UIA_CONTROLTYPE_ID.UIA_RadioButtonControlTypeId] = 2,
+            [UIA_CONTROLTYPE_ID.UIA_ComboBoxControlTypeId] = 2,
+            [UIA_CONTROLTYPE_ID.UIA_TabItemControlTypeId] = 2,
 
             // Tier 3: Content interaction
-            [UIA_ControlTypeIds.UIA_EditControlTypeId] = 3,
-            [UIA_ControlTypeIds.UIA_ListItemControlTypeId] = 3,
-            [UIA_ControlTypeIds.UIA_DataItemControlTypeId] = 3,
-            [UIA_ControlTypeIds.UIA_TreeItemControlTypeId] = 3,
+            [UIA_CONTROLTYPE_ID.UIA_EditControlTypeId] = 3,
+            [UIA_CONTROLTYPE_ID.UIA_ListItemControlTypeId] = 3,
+            [UIA_CONTROLTYPE_ID.UIA_DataItemControlTypeId] = 3,
+            [UIA_CONTROLTYPE_ID.UIA_TreeItemControlTypeId] = 3,
 
             // Tier 4: Containers (least likely direct target)
-            [UIA_ControlTypeIds.UIA_ListControlTypeId] = 4,
-            [UIA_ControlTypeIds.UIA_DataGridControlTypeId] = 4,
-            [UIA_ControlTypeIds.UIA_TreeControlTypeId] = 4,
-            [UIA_ControlTypeIds.UIA_GroupControlTypeId] = 4,
-            [UIA_ControlTypeIds.UIA_MenuControlTypeId] = 4,
+            [UIA_CONTROLTYPE_ID.UIA_ListControlTypeId] = 4,
+            [UIA_CONTROLTYPE_ID.UIA_DataGridControlTypeId] = 4,
+            [UIA_CONTROLTYPE_ID.UIA_TreeControlTypeId] = 4,
+            [UIA_CONTROLTYPE_ID.UIA_GroupControlTypeId] = 4,
+            [UIA_CONTROLTYPE_ID.UIA_MenuControlTypeId] = 4,
         };
 
         /// <summary>
@@ -179,8 +179,8 @@ namespace WindowsHinting.Services
             try
             {
                 var controlType = element.Element.GetCachedPropertyValue(
-                    UIA_PropertyIds.UIA_ControlTypePropertyId);
-                if (controlType is int typeId && ControlTypePriority.TryGetValue(typeId, out int priority))
+                    UIA_PROPERTY_ID.UIA_ControlTypePropertyId);
+                if (controlType is int typeId && ControlTypePriority.TryGetValue((UIA_CONTROLTYPE_ID)typeId, out int priority))
                     return priority;
             }
             catch
