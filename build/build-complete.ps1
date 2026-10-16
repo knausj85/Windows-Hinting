@@ -2,6 +2,8 @@ param(
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
     [switch]$ExeOnly,
+    # Package the MSI from the existing app build output without rebuilding the app.
+    [switch]$InstallerOnly,
     [switch]$Portable,
     [ValidateSet("win-x64", "win-x86", "all")]
     [string]$Runtime = "all",
@@ -17,11 +19,17 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 $ProjectDir = Join-Path $RepoRoot "Windows-Hinting"
 
+if ($ExeOnly -and $InstallerOnly) {
+    Write-Host "ERROR: -ExeOnly and -InstallerOnly are mutually exclusive"
+    exit 1
+}
+
 Write-Host "=========================================="
 Write-Host "Windows-Hinting Complete Build Script"
 Write-Host "=========================================="
 Write-Host "Configuration: $Configuration"
-Write-Host "Build Installer: $(if ($ExeOnly) { 'False' } else { 'True' })"
+Write-Host "Build Executable: $(if ($InstallerOnly -or $Portable) { 'False' } else { 'True' })"
+Write-Host "Build Installer: $(if ($ExeOnly -or $Portable) { 'False' } else { 'True' })"
 Write-Host "Portable Mode: $(if ($Portable) { 'True' } else { 'False' })"
 if ($Portable) {
     Write-Host "Runtime: $Runtime"
@@ -45,8 +53,9 @@ if ($Portable) {
         Write-Host "[$StepIndex/$StepCount] Publishing self-contained build for $Rid..."
         Write-Host ""
 
-        # Restore, build and publish a self-contained single-file package in one step.
-        # Override ApplicationManifest to use UIAccess-disabled manifest for portable builds
+        # Restore, build and publish in one step. The single-file / self-contained /
+        # no-UIAccess settings live in Properties\PublishProfiles\Portable-<rid>.pubxml
+        # (shared with CI and Visual Studio's Publish).
         Write-Host "  Publishing self-contained single-file package..."
         $PublishDir = "$ProjectDir\bin-portable\publish\$Rid"
 
@@ -59,16 +68,7 @@ if ($Portable) {
             "publish"
             "$ProjectDir\Windows-Hinting.csproj"
             "-c", $Configuration
-            "-r", $Rid
-            "--self-contained"
-            "-p:ApplicationManifest=app.debug.manifest"
-            "-p:PublishSingleFile=true"
-            "-p:IncludeNativeLibrariesForSelfExtract=true"
-            "-p:EnableCompressionInSingleFile=true"
-            "-p:PublishReadyToRun=true"
-            "-p:DebugType=embedded"
-            "-p:PublishDir=$PublishDir\"
-            "-p:PortableBuild=true"
+            "-p:PublishProfile=Portable-$Rid"
             "-p:UpdateChannel=$UpdateChannel"
             "-nologo"
             "-v:minimal"
@@ -113,47 +113,47 @@ if ($Portable) {
     exit 0
 }
 
-# By default, build both app and MSI (unless -ExeOnly specified)
-$IsBuildingMsi = (-not $ExeOnly -and $Configuration -eq "Release")
-$StepCount = if ($IsBuildingMsi) { '3' } else { '1' }
+# Default: build the app, then the MSI. -ExeOnly skips the MSI; -InstallerOnly packages
+# the existing app output without rebuilding it (CI signs the app binaries in between,
+# and rebuilding through the ProjectReference would overwrite them).
+$BuildExe = -not $InstallerOnly
+$BuildMsi = -not $ExeOnly
+$StepCount = @($BuildExe, $BuildMsi, $BuildMsi).Where({ $_ }).Count
+$Step = 0
+$MsiPath = "$RepoRoot\Windows-Hinting.Installer\bin\$Configuration\en-US\Windows-Hinting.msi"
 
-# Step 1: Build the executable
-Write-Host "[1/$StepCount] Building Windows-Hinting executable..."
-Write-Host ""
-
-$BuildArgs = @(
-    "build"
-    "$ProjectDir\Windows-Hinting.csproj"
-    "-c", $Configuration
-    "-p:UpdateChannel=$UpdateChannel"
-    "-nologo"
-    "-v:minimal"
-)
-
-dotnet @BuildArgs
-
-if ($LASTEXITCODE -ne 0) {
+if ($BuildExe) {
+    $Step++
+    Write-Host "[$Step/$StepCount] Building Windows-Hinting executable..."
     Write-Host ""
-    Write-Host "ERROR: Windows-Hinting build failed with exit code $LASTEXITCODE"
-    exit 1
+
+    $BuildArgs = @(
+        "build"
+        "$ProjectDir\Windows-Hinting.csproj"
+        "-c", $Configuration
+        "-p:UpdateChannel=$UpdateChannel"
+        "-nologo"
+        "-v:minimal"
+    )
+    dotnet @BuildArgs
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host ""
+        Write-Host "ERROR: Windows-Hinting build failed with exit code $LASTEXITCODE"
+        exit 1
+    }
+
+    Write-Host ""
+    Write-Host "[OK] Executable build completed successfully"
+    Write-Host ""
 }
 
-Write-Host ""
-Write-Host "[OK] Executable build completed successfully"
-Write-Host ""
-
-# Build installer if not explicitly skipped
-if (-not $ExeOnly) {
-    Write-Host "[2/$StepCount] Building MSI installer..."
+if ($BuildMsi) {
+    $Step++
+    Write-Host "[$Step/$StepCount] Building MSI installer..."
     Write-Host ""
 
     $InstallerProject = "$RepoRoot\Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj"
-
-    if (-not (Test-Path $InstallerProject)) {
-        Write-Host "ERROR: WiX installer project not found at: $InstallerProject"
-        Write-Host "Please ensure the installer project is set up with a valid .wixproj file"
-        exit 1
-    }
 
     $InstallerArgs = @(
         "build"
@@ -163,6 +163,9 @@ if (-not $ExeOnly) {
         "-nologo"
         "-v:minimal"
     )
+    if ($InstallerOnly) {
+        $InstallerArgs += "-p:BuildProjectReferences=false"
+    }
     dotnet @InstallerArgs
 
     if ($LASTEXITCODE -ne 0) {
@@ -175,24 +178,15 @@ if (-not $ExeOnly) {
     Write-Host "[OK] Installer build completed successfully"
     Write-Host ""
 
-    # Verify MSI contents
-    Write-Host "[3/$StepCount] Verifying installer contents..."
+    $Step++
+    Write-Host "[$Step/$StepCount] Verifying installer output..."
     Write-Host ""
 
-    $MsiPath = "$RepoRoot\Windows-Hinting.Installer\bin\$Configuration\en-US\Windows-Hinting.msi"
-
-    if (Test-Path $MsiPath) {
-        $MsiSize = (Get-Item $MsiPath).Length / 1MB
-        Write-Host "[OK] MSI created successfully"
-        Write-Host "  Path: $MsiPath"
-        Write-Host "  Size: $($MsiSize.ToString('0.0')) MB"
-    }
-    else {
-        Write-Host ""
+    if (-not (Test-Path $MsiPath)) {
         Write-Host "ERROR: MSI file not found at expected location: $MsiPath"
         exit 1
     }
-
+    Write-Host "[OK] MSI created successfully"
     Write-Host ""
 }
 
@@ -202,17 +196,11 @@ Write-Host "=========================================="
 Write-Host ""
 Write-Host "Build Summary:"
 Write-Host "  Configuration: $Configuration"
-Write-Host "  Executable: bin\$Configuration\net10.0-windows\Windows-Hinting.exe"
-
-if (-not $ExeOnly) {
-    $InstallerPathFriendly = "Windows-Hinting.Installer\bin\$Configuration\en-US\Windows-Hinting.msi"
-    Write-Host "  Installer: $InstallerPathFriendly"
-
-    $ActualMsiPath = "$RepoRoot\Windows-Hinting.Installer\bin\$Configuration\en-US\Windows-Hinting.msi"
-    if (Test-Path $ActualMsiPath) {
-        $MsiSize = (Get-Item $ActualMsiPath).Length / 1MB
-        Write-Host "  Installer Size: $($MsiSize.ToString('0.0')) MB"
-    }
+if ($BuildExe) {
+    Write-Host "  Executable: $ProjectDir\bin\$Configuration\net10.0-windows\Windows-Hinting.exe"
 }
-
+if ($BuildMsi) {
+    $MsiSize = (Get-Item $MsiPath).Length / 1MB
+    Write-Host "  Installer: $MsiPath ($($MsiSize.ToString('0.0')) MB)"
+}
 Write-Host ""
