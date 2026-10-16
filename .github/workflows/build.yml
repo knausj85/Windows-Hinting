@@ -41,9 +41,13 @@ defaults:
 
 jobs:
   # Values shared by the build and release jobs, computed once.
+  # Linting (and autofixing PRs) is the separate pre-commit workflow.
   metadata:
     name: Build metadata
     runs-on: ubuntu-latest
+    # Every push builds via the push trigger, so a pull_request run for a branch in this
+    # repository would build the same commit twice. pull_request runs only for forks.
+    # Every other job needs this one, so they skip with it.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     outputs:
       artifact_suffix: ${{ steps.meta.outputs.artifact_suffix }}
@@ -73,39 +77,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "branch=$REF_NAME slug=$slug channel=$channel sign=$SIGN"
 
-  lint:
-    name: Pre-commit Lint
-    runs-on: windows-latest
-    # Every push builds via the push trigger, so a pull_request run for a branch in this
-    # repository would build the same commit twice. pull_request runs only for forks.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: '3.12'
-
-      # For the dotnet-format hook (whitespace --folder: no restore needed).
-      - name: Setup .NET
-        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          global-json-file: global.json
-
-      - name: Install PSScriptAnalyzer
-        run: Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
-
-      # Fails with the diff of anything a hook would change; run `pre-commit run --all-files`
-      # locally (or install the hook with `pre-commit install`) to apply the fixes.
-      - name: Run pre-commit
-        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
-
   build-debug:
     name: Debug Build
-    needs: [lint, metadata]
+    needs: metadata
     runs-on: windows-latest
     env:
       ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
@@ -141,7 +115,7 @@ jobs:
 
   build-release:
     name: Release Build + MSI
-    needs: [lint, metadata]
+    needs: metadata
     runs-on: windows-latest
     env:
       ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}

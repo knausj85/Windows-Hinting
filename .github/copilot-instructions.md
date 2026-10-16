@@ -33,8 +33,12 @@ Rules that are easy to break:
 - The MSI harvests the app's build output with a WiX `<Files>` element
   (`Windows-Hinting.Installer/Components.wxs`), so new dependencies are picked
   up automatically. Don't list files by hand.
-- Run `pre-commit run --all-files` before pushing; CI's lint job runs the same
-  hooks and fails on any change they would make.
+- Formatting is enforced by pre-commit (`.pre-commit-config.yaml`). Run
+  `pre-commit install` once so hooks fix files at commit time, or
+  `pre-commit run --all-files`. On pull requests the `pre-commit` workflow runs the
+  same hooks and pre-commit.ci lite commits any fixes back to the PR (`style: apply
+  pre-commit fixes`); pull that commit before pushing again.
+
 ## Other project conventions
 
 - Target framework is `net10.0-windows`.

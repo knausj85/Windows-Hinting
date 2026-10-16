@@ -1,5 +1,6 @@
-# Keeps the SHA-pinned actions in .github/workflows current: Dependabot opens a PR
-# that bumps the SHA and the trailing version comment together.
+# Keeps pinned tool versions current with monthly, grouped PRs:
+# - github-actions: the SHA-pinned actions in .github/workflows (SHA and version comment)
+# - pre-commit: the hook revs in .pre-commit-config.yaml (local hooks are skipped)
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -8,4 +9,12 @@ updates:
       interval: monthly
     groups:
       actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      pre-commit-hooks:
         patterns: ["*"]
