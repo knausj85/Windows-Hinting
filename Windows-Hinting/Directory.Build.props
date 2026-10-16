@@ -11,8 +11,10 @@
     <InformationalVersion>$(BuildVersion)</InformationalVersion>
   </PropertyGroup>
 
-  <!-- CI builds (GitHub Actions sets GITHUB_ACTIONS=true): deterministic output paths. -->
+  <!-- CI builds (GitHub Actions sets GITHUB_ACTIONS=true): deterministic output paths,
+       and warnings fail the build. -->
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true' And '$(MSBuildProjectExtension)' == '.csproj'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 </Project>
