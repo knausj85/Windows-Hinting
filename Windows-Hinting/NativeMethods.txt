@@ -18,19 +18,12 @@ WM_KEYUP
 WM_SYSKEYDOWN
 WM_SYSKEYUP
 
-// SetWindowPos flags / HWND sentinels used by OverlayForm
-SWP_NOACTIVATE
-SWP_NOMOVE
-SWP_NOSIZE
-SWP_SHOWWINDOW
+// SetWindowPos flags (SWP_*) / HWND sentinels used by OverlayForm
+SET_WINDOW_POS_FLAGS
 HWND_TOPMOST
 
-// Hotkey modifier flags
-MOD_ALT
-MOD_CONTROL
-MOD_SHIFT
-MOD_WIN
-MOD_NOREPEAT
+// Hotkey modifier flags (MOD_*)
+HOT_KEY_MODIFIERS
 
 // EM_* messages consumed by LogViewerForm
 EM_LINEINDEX
