@@ -885,6 +885,7 @@ namespace WindowsHinting
     internal sealed class AmbientNumbersForm : Form
     {
         private const string BaseTitle = "Windows Hinting Taskbar Numbers";
+        private const int GWLP_HWNDPARENT = -8;
         private const int GWL_EXSTYLE = -20, WS_EX_NOACTIVATE = 0x08000000;
         private const int WM_ACTIVATE = 0x0006, WM_KEYDOWN = 0x0100, WM_MOUSEACTIVATE = 0x0021, MA_NOACTIVATE = 3;
 
@@ -934,6 +935,18 @@ namespace WindowsHinting
         {
             base.OnHandleCreated(e);
             var old = _font; _font = MakeFont(); old.Dispose();
+
+            // Owned by the taskbar: Windows keeps an owned window above its owner, so when
+            // the taskbar is raised (Start, right-click, clicking it) we move up with it in
+            // the same z-order operation instead of a frame later. Re-asserting topmost after
+            // the foreground event was not enough — that still flickered (owner, 2026-10-16).
+            // Caveat to measure: a cross-process owner can attach input queues with explorer.
+            IntPtr tray = FindWindowW("Shell_TrayWnd", null);
+            if (tray != IntPtr.Zero)
+            {
+                SetWindowLongPtr(Handle, GWLP_HWNDPARENT, tray);
+                TaskbarAmbientPrototype.Log($"Numbers window owned by Shell_TrayWnd 0x{tray.ToInt64():X} (owner now 0x{GetWindowLongPtr(Handle, GWLP_HWNDPARENT).ToInt64():X}).");
+            }
         }
 
         public void SetTaskbarBounds(Rectangle r) { if (Bounds != r) Bounds = r; }
@@ -1030,6 +1043,7 @@ namespace WindowsHinting
         }
 
         [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindowW(string cls, string? title);
         [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] private static extern IntPtr GetWindowLongPtr(IntPtr h, int i);
         [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] private static extern IntPtr SetWindowLongPtr(IntPtr h, int i, IntPtr v);
     }
