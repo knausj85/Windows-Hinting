@@ -20,8 +20,11 @@ on:
         type: boolean
         default: true
 
+# Third-party actions are pinned to full commit SHAs (the comment is the ref the SHA
+# was taken from) so a moved tag or branch can't change what runs with the signing secrets.
+# Jobs get read-only access unless they need more (see the release job).
 permissions:
-  contents: write
+  contents: read
 
 env:
   BUILD_VERSION: 0.1.${{ github.run_number }}
@@ -46,15 +49,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           global-json-file: global.json
 
@@ -67,7 +70,7 @@ jobs:
       # Fails with the diff of anything a hook would change; run `pre-commit run --all-files`
       # locally (or install the hook with `pre-commit install`) to apply the fixes.
       - name: Run pre-commit
-        uses: pre-commit/action@v3.0.1
+        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
 
   build-debug:
     name: Debug Build
@@ -76,7 +79,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Compute metadata
         run: |
@@ -101,7 +104,7 @@ jobs:
           }
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           global-json-file: global.json
 
@@ -114,7 +117,7 @@ jobs:
         run: .\build\build-complete.ps1 -Configuration Debug -ExeOnly -UpdateChannel $env:UPDATE_CHANNEL
 
       - name: Upload Debug artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Windows-Hinting-Debug${{ env.ARTIFACT_SUFFIX }}
           path: Windows-Hinting\bin\Debug\net10.0-windows\
@@ -127,7 +130,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Compute metadata
         run: |
@@ -152,7 +155,7 @@ jobs:
           }
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           global-json-file: global.json
 
@@ -179,7 +182,7 @@ jobs:
 
       - name: Sign Release binaries with SSL.com eSigner
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        uses: sslcom/esigner-codesign@develop
+        uses: sslcom/esigner-codesign@b7f8ff36fc0de8690fbbab8e5b4421d29802f747 # develop as of 2026-10-16
         with:
           command: batch_sign
           username: ${{ secrets.ES_USERNAME }}
@@ -259,7 +262,7 @@ jobs:
 
       - name: Sign MSI with SSL.com eSigner
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        uses: sslcom/esigner-codesign@develop
+        uses: sslcom/esigner-codesign@b7f8ff36fc0de8690fbbab8e5b4421d29802f747 # develop as of 2026-10-16
         with:
           command: sign
           username: ${{ secrets.ES_USERNAME }}
@@ -311,7 +314,7 @@ jobs:
 
       - name: Sign portable x64 binaries with SSL.com eSigner
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        uses: sslcom/esigner-codesign@develop
+        uses: sslcom/esigner-codesign@b7f8ff36fc0de8690fbbab8e5b4421d29802f747 # develop as of 2026-10-16
         with:
           command: batch_sign
           username: ${{ secrets.ES_USERNAME }}
@@ -364,7 +367,7 @@ jobs:
           Write-Host "Portable x64 exe staged: $exeOut"
 
       - name: Upload Portable x64 artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Windows-Hinting-Portable-win-x64${{ env.ARTIFACT_SUFFIX }}
           path: Windows-Hinting-Portable-win-x64.exe
@@ -391,7 +394,7 @@ jobs:
 
       - name: Sign portable x86 binaries with SSL.com eSigner
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        uses: sslcom/esigner-codesign@develop
+        uses: sslcom/esigner-codesign@b7f8ff36fc0de8690fbbab8e5b4421d29802f747 # develop as of 2026-10-16
         with:
           command: batch_sign
           username: ${{ secrets.ES_USERNAME }}
@@ -444,14 +447,14 @@ jobs:
           Write-Host "Portable x86 exe staged: $exeOut"
 
       - name: Upload Portable x86 artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Windows-Hinting-Portable-win-x86${{ env.ARTIFACT_SUFFIX }}
           path: Windows-Hinting-Portable-win-x86.exe
           if-no-files-found: error
 
       - name: Upload MSI artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Windows-Hinting-Installer${{ env.ARTIFACT_SUFFIX }}
           path: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
@@ -460,6 +463,8 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the release/tag, delete the rolling beta tag
     needs: [build-debug, build-release]
     # Publish a release when:
     #  - Direct pushes to main                                 => stable channel (tag v<ver>)
@@ -472,7 +477,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Compute release metadata
         run: |
@@ -505,7 +510,7 @@ jobs:
         shell: bash
 
       - name: Download Debug build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: Windows-Hinting-Debug${{ env.ARTIFACT_SUFFIX }}
           path: artifacts/Windows-Hinting-Debug
@@ -514,25 +519,25 @@ jobs:
         run: cd artifacts && zip -r Windows-Hinting-Debug.zip Windows-Hinting-Debug/
 
       - name: Download Portable x64 build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: Windows-Hinting-Portable-win-x64${{ env.ARTIFACT_SUFFIX }}
           path: artifacts
 
       - name: Download Portable x86 build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: Windows-Hinting-Portable-win-x86${{ env.ARTIFACT_SUFFIX }}
           path: artifacts
 
       - name: Download MSI installer
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: Windows-Hinting-Installer${{ env.ARTIFACT_SUFFIX }}
           path: artifacts
 
       - name: Setup .NET (for NetSparkle CLI)
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           global-json-file: global.json
 
@@ -666,7 +671,7 @@ jobs:
         shell: bash
 
       - name: Create GitHub release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
           tag: ${{ env.RELEASE_TAG }}
           commit: ${{ github.sha }}
