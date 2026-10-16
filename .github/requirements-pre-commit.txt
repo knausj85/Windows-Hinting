@@ -1,0 +1,2 @@
+# pre-commit for the CI pre-commit job (.github/workflows/build.yml); bumped by Dependabot.
+pre-commit==4.7.0

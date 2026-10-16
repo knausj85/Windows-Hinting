@@ -1,0 +1,31 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Debug-Beta" />
+    <BuildType Name="Release" />
+    <!-- The app is AnyCPU and the MSI is x64-only, so per-platform solution
+         configurations would only build the same outputs under different names. -->
+    <Platform Name="Any CPU" />
+  </Configurations>
+  <Folder Name="/.github/">
+    <File Path=".github/copilot-instructions.md" />
+    <File Path=".github/workflows/build.yml" />
+  </Folder>
+  <Folder Name="/build/">
+    <File Path="build/build-complete.ps1" />
+    <File Path="build/PSScriptAnalyzerSettings.psd1" />
+  </Folder>
+  <Folder Name="/config/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path=".pre-commit-config.yaml" />
+    <File Path="global.json" />
+  </Folder>
+  <Project Path="Windows-Hinting.Installer/Windows-Hinting.Installer.wixproj" Type="b7dd6f7e-def8-4e67-b5b7-07ef123db6f0">
+    <BuildType Solution="Debug-Beta|*" Project="Debug" />
+    <Platform Project="x64" />
+    <Build Solution="Debug-Beta|*" Project="false" />
+  </Project>
+  <Project Path="Windows-Hinting/Windows-Hinting.csproj" />
+</Solution>

@@ -1,0 +1,48 @@
+# Keeps pinned versions current with monthly, grouped PRs:
+# - github-actions: the SHA-pinned actions in .github/workflows (SHA and version comment)
+# - pre-commit: the hook revs in .pre-commit-config.yaml (local hooks are skipped)
+# - pip: pre-commit itself, for the CI pre-commit job (.github/requirements-pre-commit.txt)
+# - nuget: the app's and installer's packages (and their packages.lock.json) and the
+#   NetSparkle AppCastGenerator tool in dotnet-tools.json
+# The cooldown keeps a release out of the signing pipeline until it's a week old.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      pre-commit-hooks:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /.github
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: nuget
+    directories:
+      - /
+      - /Windows-Hinting
+      - /Windows-Hinting.Installer
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      nuget:
+        patterns: ["*"]

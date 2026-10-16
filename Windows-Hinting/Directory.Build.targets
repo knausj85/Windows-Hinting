@@ -1,0 +1,35 @@
+<Project>
+  <!-- Settings that depend on PortableBuild live here, not in the csproj: publish profiles
+       (Properties/PublishProfiles/*.pubxml) are imported after the project body, so a
+       PortableBuild set by a profile is only visible to properties evaluated after it.
+       Directory.Build.targets is imported after the profile. -->
+
+  <!-- Portable (self-contained single-file) builds: set by the Portable-win-* publish profiles.
+       Emits a PORTABLE compile-time constant so UpdateService picks the portable appcast
+       and PortableUpdateInstaller instead of the MSI install path. -->
+  <PropertyGroup Condition="'$(PortableBuild)' == 'true'">
+    <DefineConstants>$(DefineConstants);PORTABLE</DefineConstants>
+    <!-- Single-file publish adds an implicit Microsoft.NET.ILLink.Tasks reference whose
+         version follows the SDK, so it can't be in packages.lock.json without rewriting the
+         lock file on every portable build. Portable restores aren't locked and write their
+         lock file under obj\ instead; the packages they share with the locked builds
+         resolve the same way. -->
+    <NuGetLockFilePath>$(MSBuildProjectDirectory)\obj\portable.packages.lock.json</NuGetLockFilePath>
+    <RestoreLockedMode>false</RestoreLockedMode>
+  </PropertyGroup>
+
+  <!-- uiAccess=true only for the installed (MSI) Release build; Debug and portable builds
+       can't use it. -->
+  <PropertyGroup>
+    <ApplicationManifest Condition="'$(Configuration)' == 'Release' And '$(PortableBuild)' != 'true'">app.manifest</ApplicationManifest>
+    <ApplicationManifest Condition="'$(ApplicationManifest)' == ''">app.debug.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <!-- The MSI is an x64 package (InstallerPlatform=x64) and checks for the x64 .NET Desktop
+       Runtime, so the framework-dependent exe it ships must have an x64 apphost even when
+       built on an ARM64 machine (the SDK otherwise uses the build machine's architecture).
+       RID-specific (portable) builds use their own RuntimeIdentifier and are unaffected. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(PortableBuild)' != 'true' And '$(RuntimeIdentifier)' == ''">
+    <AppHostRuntimeIdentifier>win-x64</AppHostRuntimeIdentifier>
+  </PropertyGroup>
+</Project>

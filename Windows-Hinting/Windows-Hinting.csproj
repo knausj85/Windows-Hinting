@@ -1,4 +1,3 @@
-
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -19,11 +18,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationManifest Condition="'$(Configuration)' == 'Release'">app.manifest</ApplicationManifest>
-    <ApplicationManifest Condition="'$(Configuration)' != 'Release'">app.debug.manifest</ApplicationManifest>
+    <!-- ApplicationManifest is chosen in Directory.Build.targets. -->
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
     <!-- Don't append "+<gitsha>" to AssemblyInformationalVersion. NetSparkle reads
          that attribute as the installed version; leaving the SHA suffix makes
          "0.1.141+abc..." compare unequal to the appcast's "0.1.141" and the
@@ -31,13 +28,12 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <!-- CsWin32 emits unsafe pointer overloads for Win32 APIs. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-
-  <!-- Portable (self-contained single-file) builds: build script passes /p:PortableBuild=true.
-       Emits a PORTABLE compile-time constant so UpdateService picks the portable appcast
-       and PortableUpdateInstaller instead of the MSI install path. -->
-  <PropertyGroup Condition="'$(PortableBuild)' == 'true'">
-    <DefineConstants>$(DefineConstants);PORTABLE</DefineConstants>
+    <!-- Lock the package graph (packages.lock.json); CI restores in locked mode and fails
+         if the lock file is stale. Re-run `dotnet restore` after changing a package.
+         RuntimeIdentifiers puts the portable builds' RID-specific graphs in the lock file. -->
+    <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(GITHUB_ACTIONS)' == 'true'">true</RestoreLockedMode>
   </PropertyGroup>
 
   <!-- Update channel is baked into each build. CI passes /p:UpdateChannel=Beta for beta
@@ -56,22 +52,7 @@
     <DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove=".github\**" />
-    <Compile Remove="HintOverlay.Installer\**" />
-    <Compile Remove="Windows-Hinting.Installer\**" />
-    <EmbeddedResource Remove=".github\**" />
-    <EmbeddedResource Remove="HintOverlay.Installer\**" />
-    <EmbeddedResource Remove="Windows-Hinting.Installer\**" />
-    <None Remove=".github\**" />
-    <None Remove="HintOverlay.Installer\**" />
-    <Compile Remove="Windows-Hinting\**" />
-    <EmbeddedResource Remove="Windows-Hinting\**" />
-    <None Remove="Windows-Hinting.Installer\**" />
-    <None Remove="Windows-Hinting\**" />
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
     <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.363">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -82,15 +63,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\netsparkle_pub.txt" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="xunit.assert" Version="2.9.3" />
-    <PackageReference Include="xunit.v3.extensibility.core" Version="3.2.2" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Services\Native\" />
   </ItemGroup>
 
 </Project>

@@ -20,152 +20,258 @@ on:
         type: boolean
         default: true
 
+# Third-party actions are pinned to full commit SHAs (the comment is the ref the SHA
+# was taken from) so a moved tag or branch can't change what runs with the signing secrets.
+# Jobs get read-only access unless they need more (see the release job).
 permissions:
-  contents: write
+  contents: read
 
 env:
   BUILD_VERSION: 0.1.${{ github.run_number }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  # A newer push supersedes an in-flight branch/PR build; main builds and manual runs
+  # (which publish releases) always run to completion, so a push can't cancel a beta
+  # release between deleting the old one and creating the new one.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch' }}
 
 defaults:
   run:
     shell: pwsh
 
 jobs:
-  lint:
-    name: Pre-commit Lint
+  # GitHub starts one workflow run per event, so a push to a branch with an open PR
+  # starts two runs (push and pull_request) for the same commit. Only one should work:
+  # the pull_request run, because it is the one pre-commit.ci lite can autofix and it
+  # also covers PRs from forks. This job ends the push run early when the branch has an
+  # open PR (draft or not) that can be merged; everything else needs it and is skipped. Pushes to main,
+  # pushes to branches without a PR, PR runs and manual runs all proceed.
+  gate:
+    name: Run gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - name: Check for an open pull request
+        id: check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          run=true
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" != "main" ]; then
+            for pr in $(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$OWNER:$GITHUB_REF_NAME" --jq '.[].number'); do
+              # GitHub only starts a pull_request run when the PR can be merged (it builds
+              # the merge commit), so a PR with conflicts would leave this commit unbuilt.
+              # Mergeability is computed after the push; wait up to ~1 minute for it.
+              mergeable=null
+              for _ in $(seq 12); do
+                mergeable=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr" --jq '.mergeable')
+                [ "$mergeable" != "null" ] && break
+                sleep 5
+              done
+              if [ "$mergeable" = "true" ]; then
+                echo "Branch has open PR #$pr; its pull_request run lints and builds this commit."
+                run=false
+                break
+              fi
+              echo "PR #$pr isn't mergeable (mergeable=$mergeable), so it gets no pull_request run; building here."
+            done
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+  # Runs first: the build jobs wait for it, so a commit that fails formatting or lint
+  # doesn't spend ~10 runner-minutes building. On a pull request, the last step has
+  # pre-commit.ci lite commit whatever the fixing hooks changed (whitespace, line endings,
+  # final newlines, BOMs, dotnet format, PSScriptAnalyzer) back to the PR branch; the
+  # builds are skipped for the failing commit and run on the fixed one.
+  #
+  # pre-commit.ci lite rather than the hosted service: hosted runners are Linux-only with
+  # no network at hook time and only .NET SDK 7, so the dotnet-format and PSScriptAnalyzer
+  # hooks couldn't run there. Lite works inside this Windows job. It needs the GitHub App:
+  #   https://github.com/apps/pre-commit-ci-lite/installations/new
+  # and requires this job to be the last one still running when there's something to fix,
+  # which holds because every other job that could still be running depends on it.
+  # Hook revs are bumped by Dependabot (.github/dependabot.yml).
+  pre-commit:
+    name: pre-commit
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: windows-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: .github/requirements-pre-commit.txt
 
+      # Pinned in a requirements file so Dependabot (pip) can bump it.
+      - name: Install pre-commit
+        run: python -m pip install -r .github/requirements-pre-commit.txt
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      # For the dotnet-format hook (whitespace --folder: no restore needed).
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
 
-      - name: Restore NuGet packages
-        run: dotnet restore
-
+      # Pinned so a new analyzer release can't turn CI red without a repo change.
       - name: Install PSScriptAnalyzer
-        run: Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+        run: Install-Module -Name PSScriptAnalyzer -RequiredVersion 1.25.0 -Force -Scope CurrentUser
 
+      # Fails if any hook changed a file or reported a problem; the diff is in the log.
       - name: Run pre-commit
-        uses: pre-commit/action@v3.0.1
+        run: pre-commit run --all-files --show-diff-on-failure --color=always
 
-      - name: Auto-fix and commit
-        if: failure() && github.event_name == 'pull_request'
-        uses: stefanzweifel/git-auto-commit-action@v5
+      # Must be the last step, and its name must contain "pre-commit-ci-lite" (the app
+      # finds the run by it). Does nothing outside pull requests or when nothing changed.
+      - name: pre-commit-ci-lite autofix
+        uses: pre-commit-ci/lite-action@062bca0919bc9d6e66755cc05074b70c77e111fc # v1.2.0
+        if: always()
         with:
-          commit_message: "style: auto-fix pre-commit hook violations"
+          msg: 'style: apply pre-commit fixes [pre-commit.ci lite]'
+
+  # Values shared by the build and release jobs, computed once.
+  metadata:
+    name: Build metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    outputs:
+      artifact_suffix: ${{ steps.meta.outputs.artifact_suffix }}
+      update_channel: ${{ steps.meta.outputs.update_channel }}
+      is_beta: ${{ steps.meta.outputs.is_beta }}
+      sign: ${{ steps.meta.outputs.sign }}
+    steps:
+      - name: Compute metadata
+        id: meta
+        shell: bash
+        env:
+          REF_NAME: ${{ github.head_ref || github.ref_name }}
+          # Sign on pushes to main, or on a manual run that asks for it.
+          SIGN: ${{ (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true) }}
+          PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release == true }}
+        run: |
+          # Releases are always signed: the appcast pushes them to every installed client,
+          # and an unsigned exe loses UIAccess. Fail now rather than build for nothing.
+          if [ "$PUBLISH" = "true" ] && [ "$SIGN" != "true" ]; then
+            echo "::error::publish_release requires sign_binaries; refusing to publish unsigned binaries."
+            exit 1
+          fi
+          slug=$(printf '%s' "$REF_NAME" | tr -c 'a-zA-Z0-9' '-' | tr '[:upper:]' '[:lower:]' | cut -c1-20 | sed 's/-*$//')
+          if [ "$REF_NAME" = "main" ]; then
+            suffix=""; channel="Stable"; is_beta="false"
+          else
+            suffix="-$slug"; channel="Beta"; is_beta="true"
+          fi
+          {
+            echo "artifact_suffix=$suffix"
+            echo "update_channel=$channel"
+            echo "is_beta=$is_beta"
+            echo "sign=$SIGN"
+          } >> "$GITHUB_OUTPUT"
+          echo "branch=$REF_NAME slug=$slug channel=$channel sign=$SIGN"
 
   build-debug:
     name: Debug Build
-    needs: lint
+    needs: [pre-commit, metadata]
     runs-on: windows-latest
-
+    timeout-minutes: 30
+    env:
+      ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
+      UPDATE_CHANNEL: ${{ needs.metadata.outputs.update_channel }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Compute metadata
-        run: |
-          $refName = "${{ github.ref_name }}"
-          if ("${{ github.head_ref }}" -ne "") {
-            $refName = "${{ github.head_ref }}"
-          }
-          $slug = $refName -replace '[^a-zA-Z0-9]', '-'
-          $slug = $slug.ToLower()
-          if ($slug.Length -gt 20) {
-            $slug = $slug.Substring(0, 20)
-          }
-          $slug = $slug.TrimEnd('-')
-          Write-Host "Branch slug: $slug"
-          echo "BRANCH_SLUG=$slug" >> $env:GITHUB_ENV
-          if ($refName -eq "main") {
-            echo "ARTIFACT_SUFFIX=" >> $env:GITHUB_ENV
-            echo "UPDATE_CHANNEL=Stable" >> $env:GITHUB_ENV
-          } else {
-            echo "ARTIFACT_SUFFIX=-$slug" >> $env:GITHUB_ENV
-            echo "UPDATE_CHANNEL=Beta" >> $env:GITHUB_ENV
-          }
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          # Per job: each restores a different package set (Release adds the portable
+          # runtime packs, the MSI adds WiX), and a cache entry can't be updated once saved.
+          key: nuget-${{ runner.os }}-${{ github.job }}-${{ hashFiles('**/packages.lock.json', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-${{ github.job }}-
 
       - name: Restore NuGet packages
         run: dotnet restore
 
       - name: Build Debug (exe only)
-        env:
-          UPDATE_CHANNEL: ${{ env.UPDATE_CHANNEL }}
         run: .\build\build-complete.ps1 -Configuration Debug -ExeOnly -UpdateChannel $env:UPDATE_CHANNEL
 
-      - name: Clean Debug output
-        run: |
-          $outDir = "Windows-Hinting\bin\Debug\net10.0-windows"
-          Remove-Item "$outDir\xunit.*" -Force -ErrorAction SilentlyContinue
-
       - name: Upload Debug artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Windows-Hinting-Debug${{ env.ARTIFACT_SUFFIX }}
           path: Windows-Hinting\bin\Debug\net10.0-windows\
           if-no-files-found: error
 
+  # Release outputs are built, signed and packaged in separate jobs so that build code
+  # (MSBuild, NuGet package targets, the WiX toolset) never runs in a job that holds the
+  # code-signing credentials:
+  #
+  #   build-release ──> sign-binaries ──> build-msi ──> sign-msi
+  #   (no secrets)      (signing env,     (no secrets)  (signing env,
+  #                      no checkout)                    no checkout)
+  #
+  # The signing jobs check out no code: they only download artifacts, run the pinned
+  # eSigner action and verify the result. They use the 'signing' environment on main and
+  # 'signing-branch' (approval required) on other branches. When SIGN is false they're
+  # skipped and the unsigned outputs are published under the same artifact names.
   build-release:
-    name: Release Build + MSI
-    needs: lint
+    name: Release Build
+    needs: [pre-commit, metadata]
     runs-on: windows-latest
-
+    timeout-minutes: 30
+    env:
+      ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
+      UPDATE_CHANNEL: ${{ needs.metadata.outputs.update_channel }}
+      SIGN: ${{ needs.metadata.outputs.sign }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Compute metadata
-        run: |
-          $refName = "${{ github.ref_name }}"
-          if ("${{ github.head_ref }}" -ne "") {
-            $refName = "${{ github.head_ref }}"
-          }
-          $slug = $refName -replace '[^a-zA-Z0-9]', '-'
-          $slug = $slug.ToLower()
-          if ($slug.Length -gt 20) {
-            $slug = $slug.Substring(0, 20)
-          }
-          $slug = $slug.TrimEnd('-')
-          Write-Host "Branch slug: $slug"
-          echo "BRANCH_SLUG=$slug" >> $env:GITHUB_ENV
-          if ($refName -eq "main") {
-            echo "ARTIFACT_SUFFIX=" >> $env:GITHUB_ENV
-            echo "UPDATE_CHANNEL=Stable" >> $env:GITHUB_ENV
-          } else {
-            echo "ARTIFACT_SUFFIX=-$slug" >> $env:GITHUB_ENV
-            echo "UPDATE_CHANNEL=Beta" >> $env:GITHUB_ENV
-          }
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
 
-      - name: Install WiX Toolset
-        # Version must match WixToolset.Sdk version in Windows-Hinting.Installer.wixproj
-        run: dotnet tool install --global wix --version 6.0.2
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          # Per job: each restores a different package set (Release adds the portable
+          # runtime packs, the MSI adds WiX), and a cache entry can't be updated once saved.
+          key: nuget-${{ runner.os }}-${{ github.job }}-${{ hashFiles('**/packages.lock.json', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-${{ github.job }}-
 
       - name: Restore NuGet packages
         run: dotnet restore
@@ -173,420 +279,319 @@ jobs:
       - name: Build Release exe
         run: .\build\build-complete.ps1 -Configuration Release -ExeOnly -UpdateChannel $env:UPDATE_CHANNEL
 
-      - name: Stage Release binaries for signing
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
-          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_release"
-          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
-          Get-ChildItem -LiteralPath $stageDir -Force | Remove-Item -Recurse -Force
-          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
-            $src = Join-Path $outDir $name
-            if (-not (Test-Path -LiteralPath $src)) { throw "File to sign not found: $src" }
-            Copy-Item -LiteralPath $src -Destination (Join-Path $stageDir $name) -Force
-          }
-          Write-Host "Staged files for signing:"
-          Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
+      # Settings come from Windows-Hinting/Properties/PublishProfiles/Portable-win-*.pubxml.
+      - name: Build portable self-contained exes
+        run: .\build\build-complete.ps1 -Portable -Runtime all -UpdateChannel $env:UPDATE_CHANNEL
 
-      - name: Sign Release binaries with SSL.com eSigner
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        uses: sslcom/esigner-codesign@develop
+      - name: Stage portable exes under their release names
+        run: |
+          $out = New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\portable"
+          foreach ($rid in 'win-x64', 'win-x86') {
+            Copy-Item "Windows-Hinting\bin-portable\publish\$rid\Windows-Hinting.exe" `
+              (Join-Path $out "Windows-Hinting-Portable-$rid.exe")
+          }
+          Get-ChildItem $out | ForEach-Object { Write-Host "  $($_.Name)" }
+
+      # Inputs for the signing job.
+      - name: Upload unsigned app build
+        if: env.SIGN == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned-app
+          # The portable publish leaves RID-specific output in win-x64\ and win-x86\;
+          # the MSI doesn't ship it (Components.wxs), so don't upload it either.
+          path: |
+            Windows-Hinting\bin\Release\net10.0-windows\
+            !Windows-Hinting\bin\Release\net10.0-windows\win-x64\
+            !Windows-Hinting\bin\Release\net10.0-windows\win-x86\
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload unsigned portable exes
+        if: env.SIGN == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned-portable
+          path: ${{ runner.temp }}\portable\
+          if-no-files-found: error
+          retention-days: 1
+
+      # Unsigned runs publish straight from here.
+      - name: Upload app build (unsigned)
+        if: env.SIGN != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-release
+          path: |
+            Windows-Hinting\bin\Release\net10.0-windows\
+            !Windows-Hinting\bin\Release\net10.0-windows\win-x64\
+            !Windows-Hinting\bin\Release\net10.0-windows\win-x86\
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Portable x64 artifact (unsigned)
+        if: env.SIGN != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Windows-Hinting-Portable-win-x64${{ env.ARTIFACT_SUFFIX }}
+          path: ${{ runner.temp }}\portable\Windows-Hinting-Portable-win-x64.exe
+          if-no-files-found: error
+
+      - name: Upload Portable x86 artifact (unsigned)
+        if: env.SIGN != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Windows-Hinting-Portable-win-x86${{ env.ARTIFACT_SUFFIX }}
+          path: ${{ runner.temp }}\portable\Windows-Hinting-Portable-win-x86.exe
+          if-no-files-found: error
+
+  sign-binaries:
+    name: Sign app and portable exes
+    needs: [metadata, build-release]
+    if: needs.metadata.outputs.sign == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    environment: ${{ github.ref == 'refs/heads/main' && 'signing' || 'signing-branch' }}
+    env:
+      ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
+    steps:
+      - name: Download unsigned app build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: unsigned-app
+          path: app
+
+      - name: Download unsigned portable exes
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: unsigned-portable
+          path: portable
+
+      # All four files go through one batch_sign call.
+      - name: Stage files for signing
+        run: |
+          New-Item -ItemType Directory -Force to-sign, signed | Out-Null
+          Copy-Item app\Windows-Hinting.exe, app\Windows-Hinting.dll, portable\*.exe to-sign\
+          Get-ChildItem to-sign | ForEach-Object { Write-Host "  $($_.Name)" }
+
+      - name: Sign with SSL.com eSigner
+        uses: sslcom/esigner-codesign@cf5f6c1d38ad10f47e3ed9aca873f429b1a8d85b # v1.3.2
         with:
           command: batch_sign
           username: ${{ secrets.ES_USERNAME }}
           password: ${{ secrets.ES_PASSWORD }}
           credential_id: ${{ secrets.CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          dir_path: ${GITHUB_WORKSPACE}\to_be_signed_release
-          output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin\Release\net10.0-windows
+          dir_path: ${GITHUB_WORKSPACE}\to-sign
+          output_path: ${GITHUB_WORKSPACE}\signed
           malware_block: true
 
-      - name: Verify Release signatures and clean staging
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+      - name: Verify signatures and assemble outputs
         run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
-          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_release"
-          Write-Host "--- Release Signature verification ---"
-          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
-            $dest = Join-Path $outDir $name
-            if (-not (Test-Path -LiteralPath $dest)) {
-              Write-Host "  ERROR: signed file missing: $dest"
-              continue
-            }
-            $sig = Get-AuthenticodeSignature -FilePath $dest
-            Write-Host "  File         : $dest"
-            Write-Host "    Status       : $($sig.Status)"
-            Write-Host "    StatusMessage: $($sig.StatusMessage)"
-            if ($sig.SignerCertificate) {
-              Write-Host "    Signer       : $($sig.SignerCertificate.Subject)"
-              Write-Host "    Valid until  : $($sig.SignerCertificate.NotAfter)"
-            } else {
-              Write-Host "    Signer       : (none - file is unsigned)"
-            }
-          }
-          Write-Host "--------------------------------------"
-          Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
-
-      - name: Verify signatures BEFORE MSI build
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        run: |
-          $outDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
-          Write-Host "--- Pre-MSI signature check ---"
-          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
-            $dest = Join-Path $outDir $name
-            $sig  = Get-AuthenticodeSignature -FilePath $dest
-            Write-Host "  $name : $($sig.Status) ($($sig.StatusMessage))"
-            if ($sig.Status -ne 'Valid') {
-              throw "Pre-MSI verification failed: $name is not validly signed (status: $($sig.Status))."
-            }
-          }
-          Write-Host "-------------------------------"
-
-      - name: Build MSI (packages the signed binaries)
-        run: |
-          # IMPORTANT: -p:BuildProjectReferences=false so the build does NOT rebuild the
-          # Windows-Hinting project via its ProjectReference. Rebuilding would overwrite
-          # the already-signed Windows-Hinting.exe / Windows-Hinting.dll with fresh
-          # unsigned outputs, and WiX would then harvest those unsigned files into the MSI
-          # (the signed MSI would contain an unsigned managed DLL).
-          $InstallerProject = "Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj"
-          dotnet build $InstallerProject `
-            -c Release `
-            -p:SignOutput=false `
-            -p:BuildProjectReferences=false `
-            -p:UpdateChannel=$env:UPDATE_CHANNEL `
-            -nologo -v:minimal
-          if ($LASTEXITCODE -ne 0) { throw "MSI build failed with exit code $LASTEXITCODE" }
-
-      - name: Verify signatures AFTER MSI build
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        run: |
-          $outDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
-          Write-Host "--- Post-MSI signature check ---"
           $failed = $false
-          foreach ($name in @('Windows-Hinting.exe','Windows-Hinting.dll')) {
-            $dest = Join-Path $outDir $name
-            $sig  = Get-AuthenticodeSignature -FilePath $dest
-            Write-Host "  $name : $($sig.Status) ($($sig.StatusMessage))"
-            if ($sig.Status -ne 'Valid') {
-              Write-Host "    ERROR: $name was stripped/overwritten during MSI build."
-              $failed = $true
-            }
+          foreach ($file in Get-ChildItem to-sign) {
+            $signed = Join-Path signed $file.Name
+            $sig = if (Test-Path $signed) { Get-AuthenticodeSignature $signed } else { $null }
+            $status = if ($sig) { $sig.Status } else { 'Missing' }
+            Write-Host ("  {0,-40} {1}  {2}" -f $file.Name, $status, $sig.SignerCertificate.Subject)
+            if ($status -ne 'Valid') { $failed = $true }
           }
-          Write-Host "--------------------------------"
-          if ($failed) {
-            throw "MSI build overwrote signed binaries. Check that /p:BuildProjectReferences=false is honored."
+          if ($failed) { throw "Signing verification failed" }
+
+          Copy-Item signed\Windows-Hinting.exe, signed\Windows-Hinting.dll app\ -Force
+          Copy-Item signed\Windows-Hinting-Portable-*.exe portable\ -Force
+
+      - name: Upload app build (signed)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-release
+          path: app\
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Portable x64 artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Windows-Hinting-Portable-win-x64${{ env.ARTIFACT_SUFFIX }}
+          path: portable\Windows-Hinting-Portable-win-x64.exe
+          if-no-files-found: error
+
+      - name: Upload Portable x86 artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Windows-Hinting-Portable-win-x86${{ env.ARTIFACT_SUFFIX }}
+          path: portable\Windows-Hinting-Portable-win-x86.exe
+          if-no-files-found: error
+
+  build-msi:
+    name: Build MSI
+    needs: [metadata, build-release, sign-binaries]
+    # Runs after signing when SIGN is true, or straight after build-release when signing
+    # was skipped.
+    if: ${{ !cancelled() && needs.build-release.result == 'success' && (needs.sign-binaries.result == 'success' || needs.sign-binaries.result == 'skipped') }}
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
+      SIGN: ${{ needs.metadata.outputs.sign }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          # Per job: each restores a different package set (Release adds the portable
+          # runtime packs, the MSI adds WiX), and a cache entry can't be updated once saved.
+          key: nuget-${{ runner.os }}-${{ github.job }}-${{ hashFiles('**/packages.lock.json', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-${{ github.job }}-
+
+      # Put the (signed) app output where the installer's ProjectReference expects it.
+      - name: Download app build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: app-release
+          path: Windows-Hinting\bin\Release\net10.0-windows
+
+      - name: Verify app signatures before packaging
+        if: env.SIGN == 'true'
+        run: |
+          foreach ($name in 'Windows-Hinting.exe', 'Windows-Hinting.dll') {
+            $sig = Get-AuthenticodeSignature "Windows-Hinting\bin\Release\net10.0-windows\$name"
+            Write-Host "  $name : $($sig.Status)"
+            if ($sig.Status -ne 'Valid') { throw "$name is not validly signed ($($sig.Status))" }
           }
+
+      # -InstallerOnly builds with BuildProjectReferences=false, so the app is NOT rebuilt
+      # through the installer's ProjectReference (that would replace the signed binaries).
+      - name: Build MSI
+        run: .\build\build-complete.ps1 -Configuration Release -InstallerOnly
+
+      - name: Verify app signatures after packaging
+        if: env.SIGN == 'true'
+        run: |
+          foreach ($name in 'Windows-Hinting.exe', 'Windows-Hinting.dll') {
+            $sig = Get-AuthenticodeSignature "Windows-Hinting\bin\Release\net10.0-windows\$name"
+            if ($sig.Status -ne 'Valid') { throw "$name was overwritten during the MSI build ($($sig.Status))" }
+          }
+
+      - name: Upload unsigned MSI
+        if: env.SIGN == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned-msi
+          path: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload MSI artifact (unsigned)
+        if: env.SIGN != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Windows-Hinting-Installer${{ env.ARTIFACT_SUFFIX }}
+          path: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
+          if-no-files-found: error
+
+  sign-msi:
+    name: Sign MSI
+    needs: [metadata, build-msi]
+    if: ${{ !cancelled() && needs.build-msi.result == 'success' && needs.metadata.outputs.sign == 'true' }}
+    runs-on: windows-latest
+    timeout-minutes: 15
+    environment: ${{ github.ref == 'refs/heads/main' && 'signing' || 'signing-branch' }}
+    env:
+      ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
+    steps:
+      - name: Download unsigned MSI
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: unsigned-msi
+          path: msi
 
       - name: Sign MSI with SSL.com eSigner
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        uses: sslcom/esigner-codesign@develop
+        uses: sslcom/esigner-codesign@cf5f6c1d38ad10f47e3ed9aca873f429b1a8d85b # v1.3.2
         with:
           command: sign
           username: ${{ secrets.ES_USERNAME }}
           password: ${{ secrets.ES_PASSWORD }}
           credential_id: ${{ secrets.CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          file_path: ${GITHUB_WORKSPACE}\Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
+          file_path: ${GITHUB_WORKSPACE}\msi\Windows-Hinting.msi
           malware_block: true
           override: true
 
       - name: Verify MSI signature
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
         run: |
-          $msiPath = "$env:GITHUB_WORKSPACE\Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi"
-          Write-Host "--- MSI Signature verification ---"
-          if (-not (Test-Path $msiPath)) {
-            Write-Host "  ERROR: MSI not found at $msiPath"
-          } else {
-            $sig = Get-AuthenticodeSignature -FilePath $msiPath
-            Write-Host "  Status       : $($sig.Status)"
-            Write-Host "  StatusMessage: $($sig.StatusMessage)"
-            if ($sig.SignerCertificate) {
-              Write-Host "  Signer       : $($sig.SignerCertificate.Subject)"
-              Write-Host "  Valid until  : $($sig.SignerCertificate.NotAfter)"
-            } else {
-              Write-Host "  Signer       : (none — MSI is unsigned)"
-            }
-          }
-          Write-Host "----------------------------------"
-
-      - name: Build portable self-contained exe for win-x64
-        run: |
-          # Clean bin/obj from MSI build to avoid conflicts
-          Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\bin" -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\obj" -Recurse -Force -ErrorAction SilentlyContinue
-
-          $project = "Windows-Hinting\Windows-Hinting.csproj"
-          $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
-
-          # Restore, build and publish a self-contained single-file package in one step
-          Write-Host "Publishing self-contained single-file package for win-x64..."
-          dotnet publish $project `
-            -c Release `
-            -r win-x64 `
-            --self-contained `
-            -p:ApplicationManifest=app.debug.manifest `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true `
-            -p:PublishReadyToRun=true `
-            -p:DebugType=embedded `
-            -p:PublishDir=$publishDir\ `
-            -p:PortableBuild=true `
-            -p:UpdateChannel=$env:UPDATE_CHANNEL `
-            -nologo -v:minimal
-
-          if ($LASTEXITCODE -ne 0) { throw "Portable x64 publish failed with exit code $LASTEXITCODE" }
-
-          $exePath = Join-Path $publishDir "Windows-Hinting.exe"
-          if (-not (Test-Path $exePath)) { throw "x64 exe not found at $exePath" }
-
-          $exeSize = (Get-Item $exePath).Length / 1MB
-          Write-Host "x64 portable exe published: $exePath ($($exeSize.ToString('0.0')) MB)"
-
-      - name: Stage portable x64 binaries for signing
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
-          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable_x64"
-          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
-          Get-ChildItem -LiteralPath $stageDir -Force | Remove-Item -Recurse -Force
-
-          $src = Join-Path $outDir "Windows-Hinting.exe"
-          if (-not (Test-Path -LiteralPath $src)) { throw "File to sign not found: $src" }
-          Copy-Item -LiteralPath $src -Destination (Join-Path $stageDir "Windows-Hinting.exe") -Force
-
-          Write-Host "Staged x64 portable exe for signing:"
-          Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
-
-      - name: Sign portable x64 binaries with SSL.com eSigner
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        uses: sslcom/esigner-codesign@develop
-        with:
-          command: batch_sign
-          username: ${{ secrets.ES_USERNAME }}
-          password: ${{ secrets.ES_PASSWORD }}
-          credential_id: ${{ secrets.CREDENTIAL_ID }}
-          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          dir_path: ${GITHUB_WORKSPACE}\to_be_signed_portable_x64
-          output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin-portable\publish\win-x64
-          malware_block: true
-
-      - name: Verify portable x64 signature and clean staging
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
-          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable_x64"
-          $exePath  = Join-Path $outDir "Windows-Hinting.exe"
-
-          Write-Host "--- x64 Portable Signature verification ---"
-          if (-not (Test-Path -LiteralPath $exePath)) {
-            throw "Signed x64 exe missing: $exePath"
-          }
-
-          $sig = Get-AuthenticodeSignature -FilePath $exePath
-          Write-Host "  Status       : $($sig.Status)"
-          Write-Host "  StatusMessage: $($sig.StatusMessage)"
-          if ($sig.SignerCertificate) {
-            Write-Host "  Signer       : $($sig.SignerCertificate.Subject)"
-            Write-Host "  Valid until  : $($sig.SignerCertificate.NotAfter)"
-          } else {
-            Write-Host "  Signer       : (none - file is unsigned)"
-          }
-          Write-Host "-------------------------------------------"
-
-          if ($sig.Status -ne 'Valid') {
-            throw "x64 portable exe signature invalid (status: $($sig.Status))"
-          }
-
-          Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
-
-      - name: Stage portable x64 exe for release
-        run: |
-          $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
-          $exeOut     = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable-win-x64.exe"
-
-          if (Test-Path -LiteralPath $exeOut) { Remove-Item -LiteralPath $exeOut -Force }
-
-          # Only include Windows-Hinting.exe, exclude .pdb
-          $exePath = Join-Path $publishDir "Windows-Hinting.exe"
-          Copy-Item -LiteralPath $exePath -Destination $exeOut -Force
-          Write-Host "Portable x64 exe staged: $exeOut"
-
-      - name: Upload Portable x64 artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: Windows-Hinting-Portable-win-x64${{ env.ARTIFACT_SUFFIX }}
-          path: Windows-Hinting-Portable-win-x64.exe
-          if-no-files-found: error
-
-      - name: Build portable self-contained exe for win-x86
-        run: |
-          # Clean bin/obj again for x86 build
-          Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\bin" -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item "$env:GITHUB_WORKSPACE\Windows-Hinting\obj" -Recurse -Force -ErrorAction SilentlyContinue
-
-          $project = "Windows-Hinting\Windows-Hinting.csproj"
-          $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
-
-          # Restore, build and publish a self-contained single-file package in one step
-          Write-Host "Publishing self-contained single-file package for win-x86..."
-          dotnet publish $project `
-            -c Release `
-            -r win-x86 `
-            --self-contained `
-            -p:ApplicationManifest=app.debug.manifest `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true `
-            -p:PublishReadyToRun=true `
-            -p:DebugType=embedded `
-            -p:PublishDir=$publishDir\ `
-            -p:PortableBuild=true `
-            -p:UpdateChannel=$env:UPDATE_CHANNEL `
-            -nologo -v:minimal
-
-          if ($LASTEXITCODE -ne 0) { throw "Portable x86 publish failed with exit code $LASTEXITCODE" }
-
-          $exePath = Join-Path $publishDir "Windows-Hinting.exe"
-          if (-not (Test-Path $exePath)) { throw "x86 exe not found at $exePath" }
-
-          $exeSize = (Get-Item $exePath).Length / 1MB
-          Write-Host "x86 portable exe published: $exePath ($($exeSize.ToString('0.0')) MB)"
-
-      - name: Stage portable x86 binaries for signing
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
-          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable_x86"
-          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
-          Get-ChildItem -LiteralPath $stageDir -Force | Remove-Item -Recurse -Force
-
-          $src = Join-Path $outDir "Windows-Hinting.exe"
-          if (-not (Test-Path -LiteralPath $src)) { throw "File to sign not found: $src" }
-          Copy-Item -LiteralPath $src -Destination (Join-Path $stageDir "Windows-Hinting.exe") -Force
-
-          Write-Host "Staged x86 portable exe for signing:"
-          Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
-
-      - name: Sign portable x86 binaries with SSL.com eSigner
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        uses: sslcom/esigner-codesign@develop
-        with:
-          command: batch_sign
-          username: ${{ secrets.ES_USERNAME }}
-          password: ${{ secrets.ES_PASSWORD }}
-          credential_id: ${{ secrets.CREDENTIAL_ID }}
-          totp_secret: ${{ secrets.ES_TOTP_SECRET }}
-          dir_path: ${GITHUB_WORKSPACE}\to_be_signed_portable_x86
-          output_path: ${GITHUB_WORKSPACE}\Windows-Hinting\bin-portable\publish\win-x86
-          malware_block: true
-
-      - name: Verify portable x86 signature and clean staging
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
-        run: |
-          $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
-          $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable_x86"
-          $exePath  = Join-Path $outDir "Windows-Hinting.exe"
-
-          Write-Host "--- x86 Portable Signature verification ---"
-          if (-not (Test-Path -LiteralPath $exePath)) {
-            throw "Signed x86 exe missing: $exePath"
-          }
-
-          $sig = Get-AuthenticodeSignature -FilePath $exePath
-          Write-Host "  Status       : $($sig.Status)"
-          Write-Host "  StatusMessage: $($sig.StatusMessage)"
-          if ($sig.SignerCertificate) {
-            Write-Host "  Signer       : $($sig.SignerCertificate.Subject)"
-            Write-Host "  Valid until  : $($sig.SignerCertificate.NotAfter)"
-          } else {
-            Write-Host "  Signer       : (none - file is unsigned)"
-          }
-          Write-Host "-------------------------------------------"
-
-          if ($sig.Status -ne 'Valid') {
-            throw "x86 portable exe signature invalid (status: $($sig.Status))"
-          }
-
-          Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
-
-      - name: Stage portable x86 exe for release
-        run: |
-          $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
-          $exeOut     = "$env:GITHUB_WORKSPACE\Windows-Hinting-Portable-win-x86.exe"
-
-          if (Test-Path -LiteralPath $exeOut) { Remove-Item -LiteralPath $exeOut -Force }
-
-          # Only include Windows-Hinting.exe, exclude .pdb
-          $exePath = Join-Path $publishDir "Windows-Hinting.exe"
-          Copy-Item -LiteralPath $exePath -Destination $exeOut -Force
-          Write-Host "Portable x86 exe staged: $exeOut"
-
-      - name: Upload Portable x86 artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: Windows-Hinting-Portable-win-x86${{ env.ARTIFACT_SUFFIX }}
-          path: Windows-Hinting-Portable-win-x86.exe
-          if-no-files-found: error
+          $sig = Get-AuthenticodeSignature msi\Windows-Hinting.msi
+          Write-Host "  Windows-Hinting.msi : $($sig.Status)  $($sig.SignerCertificate.Subject)"
+          if ($sig.Status -ne 'Valid') { throw "MSI signature verification failed ($($sig.Status))" }
 
       - name: Upload MSI artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Windows-Hinting-Installer${{ env.ARTIFACT_SUFFIX }}
-          path: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
+          path: msi\Windows-Hinting.msi
           if-no-files-found: error
 
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [build-debug, build-release]
+    permissions:
+      contents: write   # create the release/tag, delete the rolling beta tag
+    needs: [metadata, build-debug, build-release, sign-binaries, build-msi, sign-msi]
+    timeout-minutes: 20
+    # Holds the NetSparkle update-signing key: 'release' on main, 'release-branch'
+    # (approval required) for a manual beta release from another branch.
+    environment: ${{ github.ref == 'refs/heads/main' && 'release' || 'release-branch' }}
+    env:
+      ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
+      UPDATE_CHANNEL: ${{ needs.metadata.outputs.update_channel }}
+      IS_BETA: ${{ needs.metadata.outputs.is_beta }}
     # Publish a release when:
     #  - Direct pushes to main                                 => stable channel (tag v<ver>)
     #  - Manual dispatch on main with publish_release=true     => stable channel (tag v<ver>)
     #  - Manual dispatch on any non-main branch with
     #    publish_release=true                                  => beta channel (rolling 'beta' tag)
+    # Never from an unsigned build (metadata already fails a manual run that asks for that).
+    # (Don't let other 'skipped' needs skip this job.)
     if: |
-      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
-      (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
+      !cancelled() && !failure() && needs.metadata.outputs.sign == 'true' && (
+        (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+        (github.event_name == 'workflow_dispatch' && inputs.publish_release == true))
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Compute release metadata
+      - name: Compute release names
         run: |
-          refName="${{ github.ref_name }}"
-          if [ "${{ github.head_ref }}" != "" ]; then
-            refName="${{ github.head_ref }}"
-          fi
-          slug=$(echo "$refName" | tr -c 'a-zA-Z0-9' '-' | tr '[:upper:]' '[:lower:]' | cut -c1-20 | sed 's/-*$//')
-          echo "BRANCH_SLUG=$slug" >> "$GITHUB_ENV"
-
-          if [ "$refName" = "main" ]; then
-            echo "UPDATE_CHANNEL=Stable"                                       >> "$GITHUB_ENV"
-            echo "ARTIFACT_SUFFIX="                                            >> "$GITHUB_ENV"
+          if [ "$IS_BETA" = "false" ]; then
             echo "RELEASE_TAG=v${BUILD_VERSION}"                               >> "$GITHUB_ENV"
             echo "APPCAST_INSTALLER_NAME=appcast-installer"                    >> "$GITHUB_ENV"
             echo "APPCAST_PORTABLE_X64_NAME=appcast-portable-win-x64"          >> "$GITHUB_ENV"
             echo "APPCAST_PORTABLE_X86_NAME=appcast-portable-win-x86"          >> "$GITHUB_ENV"
             echo "APPCAST_URL_PREFIX=https://github.com/${{ github.repository }}/releases/download/v${BUILD_VERSION}" >> "$GITHUB_ENV"
-            echo "IS_BETA=false"                                               >> "$GITHUB_ENV"
           else
-            echo "UPDATE_CHANNEL=Beta"                                         >> "$GITHUB_ENV"
-            echo "ARTIFACT_SUFFIX=-$slug"                                      >> "$GITHUB_ENV"
             echo "RELEASE_TAG=beta"                                            >> "$GITHUB_ENV"
             echo "APPCAST_INSTALLER_NAME=appcast-installer-beta"               >> "$GITHUB_ENV"
             echo "APPCAST_PORTABLE_X64_NAME=appcast-portable-win-x64-beta"     >> "$GITHUB_ENV"
             echo "APPCAST_PORTABLE_X86_NAME=appcast-portable-win-x86-beta"     >> "$GITHUB_ENV"
             echo "APPCAST_URL_PREFIX=https://github.com/${{ github.repository }}/releases/download/beta" >> "$GITHUB_ENV"
-            echo "IS_BETA=true"                                                >> "$GITHUB_ENV"
           fi
         shell: bash
 
       - name: Download Debug build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: Windows-Hinting-Debug${{ env.ARTIFACT_SUFFIX }}
           path: artifacts/Windows-Hinting-Debug
@@ -595,30 +600,31 @@ jobs:
         run: cd artifacts && zip -r Windows-Hinting-Debug.zip Windows-Hinting-Debug/
 
       - name: Download Portable x64 build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: Windows-Hinting-Portable-win-x64${{ env.ARTIFACT_SUFFIX }}
           path: artifacts
 
       - name: Download Portable x86 build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: Windows-Hinting-Portable-win-x86${{ env.ARTIFACT_SUFFIX }}
           path: artifacts
 
       - name: Download MSI installer
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: Windows-Hinting-Installer${{ env.ARTIFACT_SUFFIX }}
           path: artifacts
 
       - name: Setup .NET (for NetSparkle CLI)
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
 
+      # Exact version from dotnet-tools.json: this job holds the update-signing key.
       - name: Install NetSparkle AppCastGenerator
-        run: dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 2.9.*
+        run: dotnet tool restore
 
       - name: Stage update artifacts
         env:
@@ -684,7 +690,7 @@ jobs:
             local download_url="$3"
             local out_name="$4"
 
-            netsparkle-generate-appcast \
+            dotnet netsparkle-generate-appcast \
               --product-name "Windows-Hinting" \
               --appcast-output-directory appcast-out \
               --binaries "${input_dir}" \
@@ -747,7 +753,7 @@ jobs:
         shell: bash
 
       - name: Create GitHub release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
           tag: ${{ env.RELEASE_TAG }}
           commit: ${{ github.sha }}
