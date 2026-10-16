@@ -5,20 +5,17 @@ coding agent, Cursor, Claude, etc.) working in this repository.
 
 ## Building
 
-The app no longer has any `<COMReference>`, so both the `dotnet` CLI and the
-full Visual Studio MSBuild can build it:
+The app has no `<COMReference>`, so it builds with the plain `dotnet` CLI (the
+in-IDE Visual Studio build works too):
 
 ```pwsh
 dotnet build .\Windows-Hinting\Windows-Hinting.csproj -c Debug
 ```
 
-```pwsh
-MSBuild.exe .\Windows-Hinting.sln /t:Build /p:Configuration=Debug /restore
-```
-
-The GitHub Actions workflow in `.github/workflows/build.yml` and
-`build/build-complete.ps1` still drive the build through `MSBuild.exe`; that
-continues to work.
+For release-style outputs (exe + MSI, or `-Portable` self-contained
+single-file exes) use `build/build-complete.ps1`. It and the GitHub Actions
+workflow in `.github/workflows/build.yml` drive everything through
+`dotnet build` / `dotnet publish`; neither needs Visual Studio Build Tools.
 
 ## Other project conventions
 

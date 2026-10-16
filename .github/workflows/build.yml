@@ -107,18 +107,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Install Visual Studio 2026 Build Tools
-        shell: pwsh
-        run: |
-          Write-Host "Installing VS 2026 Build Tools..."
-          choco install visualstudio2026buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Workload.NetCoreBuildTools --add Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --includeRecommended --quiet" -y --ignore-package-exit-codes=3010
-          Write-Host "VS 2026 Build Tools installation completed"
-
-      - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v3
-        with:
-          vs-prerelease: true
-
       - name: Restore NuGet packages
         run: dotnet restore
 
@@ -174,18 +162,6 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
-
-      - name: Install Visual Studio 2026 Build Tools
-        shell: pwsh
-        run: |
-          Write-Host "Installing VS 2026 Build Tools..."
-          choco install visualstudio2026buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Workload.NetCoreBuildTools --add Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --includeRecommended --quiet" -y --ignore-package-exit-codes=3010
-          Write-Host "VS 2026 Build Tools installation completed"
-
-      - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v3
-        with:
-          vs-prerelease: true
 
       - name: Install WiX Toolset
         # Version must match WixToolset.Sdk version in Windows-Hinting.Installer.wixproj
@@ -268,18 +244,19 @@ jobs:
 
       - name: Build MSI (packages the signed binaries)
         run: |
-          # IMPORTANT: /p:BuildProjectReferences=false so msbuild does NOT rebuild the
+          # IMPORTANT: -p:BuildProjectReferences=false so the build does NOT rebuild the
           # Windows-Hinting project via its ProjectReference. Rebuilding would overwrite
           # the already-signed Windows-Hinting.exe / Windows-Hinting.dll with fresh
           # unsigned outputs, and WiX would then harvest those unsigned files into the MSI
           # (the signed MSI would contain an unsigned managed DLL).
           $InstallerProject = "Windows-Hinting.Installer\Windows-Hinting.Installer.wixproj"
-          msbuild $InstallerProject `
-            /p:Configuration=Release `
-            /p:SignOutput=false `
-            /p:BuildProjectReferences=false `
-            /p:UpdateChannel=$env:UPDATE_CHANNEL `
-            /nologo /v:minimal
+          dotnet build $InstallerProject `
+            -c Release `
+            -p:SignOutput=false `
+            -p:BuildProjectReferences=false `
+            -p:UpdateChannel=$env:UPDATE_CHANNEL `
+            -nologo -v:minimal
+          if ($LASTEXITCODE -ne 0) { throw "MSI build failed with exit code $LASTEXITCODE" }
 
       - name: Verify signatures AFTER MSI build
         if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
@@ -343,43 +320,22 @@ jobs:
           $project = "Windows-Hinting\Windows-Hinting.csproj"
           $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
 
-          # Step 1: Restore with the specific RID (SelfContained so runtime packs are fetched)
-          Write-Host "Restoring packages for win-x64..."
-          dotnet restore $project -r win-x64 -p:SelfContained=true -p:PublishReadyToRun=true
-          if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed for win-x64 with exit code $LASTEXITCODE" }
-
-          # Step 2: Use msbuild (Framework) to compile and generate COM interop
-          # SelfContained=true so runtime packs are resolved for the subsequent publish step
-          Write-Host "Building with msbuild to generate COM interop for win-x64..."
-          msbuild $project `
-            /p:Configuration=Release `
-            /p:RuntimeIdentifier=win-x64 `
-            /p:SelfContained=true `
-            /p:ApplicationManifest=app.debug.manifest `
-            /p:PortableBuild=true `
-            /p:UpdateChannel=$env:UPDATE_CHANNEL `
-            /nologo /v:minimal
-
-          if ($LASTEXITCODE -ne 0) { throw "msbuild compile failed for win-x64 with exit code $LASTEXITCODE" }
-
-          # Step 3: Use msbuild /t:Publish for self-contained single-file (reuses COM interop from step 2)
+          # Restore, build and publish a self-contained single-file package in one step
           Write-Host "Publishing self-contained single-file package for win-x64..."
-          msbuild $project `
-            /t:Publish `
-            /p:Configuration=Release `
-            /p:RuntimeIdentifier=win-x64 `
-            /p:ApplicationManifest=app.debug.manifest `
-            /p:SelfContained=true `
-            /p:PublishSingleFile=true `
-            /p:IncludeNativeLibrariesForSelfExtract=true `
-            /p:EnableCompressionInSingleFile=true `
-            /p:PublishReadyToRun=true `
-            /p:DebugType=embedded `
-            /p:PublishDir=$publishDir\ `
-            /p:PortableBuild=true `
-            /p:UpdateChannel=$env:UPDATE_CHANNEL `
-            /p:NoBuild=true `
-            /nologo /v:minimal
+          dotnet publish $project `
+            -c Release `
+            -r win-x64 `
+            --self-contained `
+            -p:ApplicationManifest=app.debug.manifest `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:PublishReadyToRun=true `
+            -p:DebugType=embedded `
+            -p:PublishDir=$publishDir\ `
+            -p:PortableBuild=true `
+            -p:UpdateChannel=$env:UPDATE_CHANNEL `
+            -nologo -v:minimal
 
           if ($LASTEXITCODE -ne 0) { throw "Portable x64 publish failed with exit code $LASTEXITCODE" }
 
@@ -474,43 +430,22 @@ jobs:
           $project = "Windows-Hinting\Windows-Hinting.csproj"
           $publishDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
 
-          # Step 1: Restore with the specific RID (SelfContained so runtime packs are fetched)
-          Write-Host "Restoring packages for win-x86..."
-          dotnet restore $project -r win-x86 -p:SelfContained=true -p:PublishReadyToRun=true
-          if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed for win-x86 with exit code $LASTEXITCODE" }
-
-          # Step 2: Use msbuild (Framework) to compile and generate COM interop
-          # SelfContained=true so runtime packs are resolved for the subsequent publish step
-          Write-Host "Building with msbuild to generate COM interop for win-x86..."
-          msbuild $project `
-            /p:Configuration=Release `
-            /p:RuntimeIdentifier=win-x86 `
-            /p:SelfContained=true `
-            /p:ApplicationManifest=app.debug.manifest `
-            /p:PortableBuild=true `
-            /p:UpdateChannel=$env:UPDATE_CHANNEL `
-            /nologo /v:minimal
-
-          if ($LASTEXITCODE -ne 0) { throw "msbuild compile failed for win-x86 with exit code $LASTEXITCODE" }
-
-          # Step 3: Use msbuild /t:Publish for self-contained single-file (reuses COM interop from step 2)
+          # Restore, build and publish a self-contained single-file package in one step
           Write-Host "Publishing self-contained single-file package for win-x86..."
-          msbuild $project `
-            /t:Publish `
-            /p:Configuration=Release `
-            /p:RuntimeIdentifier=win-x86 `
-            /p:ApplicationManifest=app.debug.manifest `
-            /p:SelfContained=true `
-            /p:PublishSingleFile=true `
-            /p:IncludeNativeLibrariesForSelfExtract=true `
-            /p:EnableCompressionInSingleFile=true `
-            /p:PublishReadyToRun=true `
-            /p:DebugType=embedded `
-            /p:PublishDir=$publishDir\ `
-            /p:PortableBuild=true `
-            /p:UpdateChannel=$env:UPDATE_CHANNEL `
-            /p:NoBuild=true `
-            /nologo /v:minimal
+          dotnet publish $project `
+            -c Release `
+            -r win-x86 `
+            --self-contained `
+            -p:ApplicationManifest=app.debug.manifest `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:PublishReadyToRun=true `
+            -p:DebugType=embedded `
+            -p:PublishDir=$publishDir\ `
+            -p:PortableBuild=true `
+            -p:UpdateChannel=$env:UPDATE_CHANNEL `
+            -nologo -v:minimal
 
           if ($LASTEXITCODE -ne 0) { throw "Portable x86 publish failed with exit code $LASTEXITCODE" }
 
