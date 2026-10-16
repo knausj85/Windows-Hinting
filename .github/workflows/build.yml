@@ -40,6 +40,39 @@ defaults:
     shell: pwsh
 
 jobs:
+  # Values shared by the build and release jobs, computed once.
+  metadata:
+    name: Build metadata
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    outputs:
+      artifact_suffix: ${{ steps.meta.outputs.artifact_suffix }}
+      update_channel: ${{ steps.meta.outputs.update_channel }}
+      is_beta: ${{ steps.meta.outputs.is_beta }}
+      sign: ${{ steps.meta.outputs.sign }}
+    steps:
+      - name: Compute metadata
+        id: meta
+        shell: bash
+        env:
+          REF_NAME: ${{ github.head_ref || github.ref_name }}
+          # Sign on pushes to main, or on a manual run that asks for it.
+          SIGN: ${{ (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true) }}
+        run: |
+          slug=$(printf '%s' "$REF_NAME" | tr -c 'a-zA-Z0-9' '-' | tr '[:upper:]' '[:lower:]' | cut -c1-20 | sed 's/-*$//')
+          if [ "$REF_NAME" = "main" ]; then
+            suffix=""; channel="Stable"; is_beta="false"
+          else
+            suffix="-$slug"; channel="Beta"; is_beta="true"
+          fi
+          {
+            echo "artifact_suffix=$suffix"
+            echo "update_channel=$channel"
+            echo "is_beta=$is_beta"
+            echo "sign=$SIGN"
+          } >> "$GITHUB_OUTPUT"
+          echo "branch=$REF_NAME slug=$slug channel=$channel sign=$SIGN"
+
   lint:
     name: Pre-commit Lint
     runs-on: windows-latest
@@ -61,6 +94,13 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Cache NuGet packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.wixproj', '**/Directory.Build.*', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
       - name: Restore NuGet packages
         run: dotnet restore
 
@@ -74,46 +114,31 @@ jobs:
 
   build-debug:
     name: Debug Build
-    needs: lint
+    needs: [lint, metadata]
     runs-on: windows-latest
-
+    env:
+      ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
+      UPDATE_CHANNEL: ${{ needs.metadata.outputs.update_channel }}
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-
-      - name: Compute metadata
-        run: |
-          $refName = "${{ github.ref_name }}"
-          if ("${{ github.head_ref }}" -ne "") {
-            $refName = "${{ github.head_ref }}"
-          }
-          $slug = $refName -replace '[^a-zA-Z0-9]', '-'
-          $slug = $slug.ToLower()
-          if ($slug.Length -gt 20) {
-            $slug = $slug.Substring(0, 20)
-          }
-          $slug = $slug.TrimEnd('-')
-          Write-Host "Branch slug: $slug"
-          echo "BRANCH_SLUG=$slug" >> $env:GITHUB_ENV
-          if ($refName -eq "main") {
-            echo "ARTIFACT_SUFFIX=" >> $env:GITHUB_ENV
-            echo "UPDATE_CHANNEL=Stable" >> $env:GITHUB_ENV
-          } else {
-            echo "ARTIFACT_SUFFIX=-$slug" >> $env:GITHUB_ENV
-            echo "UPDATE_CHANNEL=Beta" >> $env:GITHUB_ENV
-          }
 
       - name: Setup .NET
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           global-json-file: global.json
 
+      - name: Cache NuGet packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.wixproj', '**/Directory.Build.*', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
       - name: Restore NuGet packages
         run: dotnet restore
 
       - name: Build Debug (exe only)
-        env:
-          UPDATE_CHANNEL: ${{ env.UPDATE_CHANNEL }}
         run: .\build\build-complete.ps1 -Configuration Debug -ExeOnly -UpdateChannel $env:UPDATE_CHANNEL
 
       - name: Upload Debug artifact
@@ -125,39 +150,27 @@ jobs:
 
   build-release:
     name: Release Build + MSI
-    needs: lint
+    needs: [lint, metadata]
     runs-on: windows-latest
-
+    env:
+      ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
+      UPDATE_CHANNEL: ${{ needs.metadata.outputs.update_channel }}
+      SIGN: ${{ needs.metadata.outputs.sign }}
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-
-      - name: Compute metadata
-        run: |
-          $refName = "${{ github.ref_name }}"
-          if ("${{ github.head_ref }}" -ne "") {
-            $refName = "${{ github.head_ref }}"
-          }
-          $slug = $refName -replace '[^a-zA-Z0-9]', '-'
-          $slug = $slug.ToLower()
-          if ($slug.Length -gt 20) {
-            $slug = $slug.Substring(0, 20)
-          }
-          $slug = $slug.TrimEnd('-')
-          Write-Host "Branch slug: $slug"
-          echo "BRANCH_SLUG=$slug" >> $env:GITHUB_ENV
-          if ($refName -eq "main") {
-            echo "ARTIFACT_SUFFIX=" >> $env:GITHUB_ENV
-            echo "UPDATE_CHANNEL=Stable" >> $env:GITHUB_ENV
-          } else {
-            echo "ARTIFACT_SUFFIX=-$slug" >> $env:GITHUB_ENV
-            echo "UPDATE_CHANNEL=Beta" >> $env:GITHUB_ENV
-          }
 
       - name: Setup .NET
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.wixproj', '**/Directory.Build.*', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       - name: Restore NuGet packages
         run: dotnet restore
@@ -166,7 +179,7 @@ jobs:
         run: .\build\build-complete.ps1 -Configuration Release -ExeOnly -UpdateChannel $env:UPDATE_CHANNEL
 
       - name: Stage Release binaries for signing
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         run: |
           $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_release"
@@ -181,7 +194,7 @@ jobs:
           Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
 
       - name: Sign Release binaries with SSL.com eSigner
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         uses: sslcom/esigner-codesign@b7f8ff36fc0de8690fbbab8e5b4421d29802f747 # develop as of 2026-10-16
         with:
           command: batch_sign
@@ -194,7 +207,7 @@ jobs:
           malware_block: true
 
       - name: Verify Release signatures and clean staging
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         run: |
           $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_release"
@@ -220,7 +233,7 @@ jobs:
           Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Verify signatures BEFORE MSI build
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         run: |
           $outDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
           Write-Host "--- Pre-MSI signature check ---"
@@ -241,7 +254,7 @@ jobs:
         run: .\build\build-complete.ps1 -Configuration Release -InstallerOnly
 
       - name: Verify signatures AFTER MSI build
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         run: |
           $outDir = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin\Release\net10.0-windows"
           Write-Host "--- Post-MSI signature check ---"
@@ -261,7 +274,7 @@ jobs:
           }
 
       - name: Sign MSI with SSL.com eSigner
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         uses: sslcom/esigner-codesign@b7f8ff36fc0de8690fbbab8e5b4421d29802f747 # develop as of 2026-10-16
         with:
           command: sign
@@ -274,7 +287,7 @@ jobs:
           override: true
 
       - name: Verify MSI signature
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         run: |
           $msiPath = "$env:GITHUB_WORKSPACE\Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi"
           Write-Host "--- MSI Signature verification ---"
@@ -291,14 +304,17 @@ jobs:
               Write-Host "  Signer       : (none — MSI is unsigned)"
             }
           }
-          Write-Host "----------------------------------"
+          Write-Host "----------------------------------"          if (-not (Test-Path $msiPath) -or $sig.Status -ne 'Valid') {
+            throw "MSI signature verification failed"
+          }
+
 
       - name: Build portable self-contained exe for win-x64
         # Settings come from Windows-Hinting/Properties/PublishProfiles/Portable-win-x64.pubxml.
         run: .\build\build-complete.ps1 -Portable -Runtime win-x64 -UpdateChannel $env:UPDATE_CHANNEL
 
       - name: Stage portable x64 binaries for signing
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         run: |
           $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable_x64"
@@ -313,7 +329,7 @@ jobs:
           Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
 
       - name: Sign portable x64 binaries with SSL.com eSigner
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         uses: sslcom/esigner-codesign@b7f8ff36fc0de8690fbbab8e5b4421d29802f747 # develop as of 2026-10-16
         with:
           command: batch_sign
@@ -326,7 +342,7 @@ jobs:
           malware_block: true
 
       - name: Verify portable x64 signature and clean staging
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         run: |
           $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x64"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable_x64"
@@ -378,7 +394,7 @@ jobs:
         run: .\build\build-complete.ps1 -Portable -Runtime win-x86 -UpdateChannel $env:UPDATE_CHANNEL
 
       - name: Stage portable x86 binaries for signing
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         run: |
           $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable_x86"
@@ -393,7 +409,7 @@ jobs:
           Get-ChildItem -LiteralPath $stageDir | ForEach-Object { Write-Host "  - $($_.Name)" }
 
       - name: Sign portable x86 binaries with SSL.com eSigner
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         uses: sslcom/esigner-codesign@b7f8ff36fc0de8690fbbab8e5b4421d29802f747 # develop as of 2026-10-16
         with:
           command: batch_sign
@@ -406,7 +422,7 @@ jobs:
           malware_block: true
 
       - name: Verify portable x86 signature and clean staging
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true)
+        if: env.SIGN == 'true'
         run: |
           $outDir   = "$env:GITHUB_WORKSPACE\Windows-Hinting\bin-portable\publish\win-x86"
           $stageDir = "$env:GITHUB_WORKSPACE\to_be_signed_portable_x86"
@@ -465,7 +481,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # create the release/tag, delete the rolling beta tag
-    needs: [build-debug, build-release]
+    needs: [metadata, build-debug, build-release]
+    env:
+      ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
+      UPDATE_CHANNEL: ${{ needs.metadata.outputs.update_channel }}
+      IS_BETA: ${{ needs.metadata.outputs.is_beta }}
     # Publish a release when:
     #  - Direct pushes to main                                 => stable channel (tag v<ver>)
     #  - Manual dispatch on main with publish_release=true     => stable channel (tag v<ver>)
@@ -479,33 +499,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - name: Compute release metadata
+      - name: Compute release names
         run: |
-          refName="${{ github.ref_name }}"
-          if [ "${{ github.head_ref }}" != "" ]; then
-            refName="${{ github.head_ref }}"
-          fi
-          slug=$(echo "$refName" | tr -c 'a-zA-Z0-9' '-' | tr '[:upper:]' '[:lower:]' | cut -c1-20 | sed 's/-*$//')
-          echo "BRANCH_SLUG=$slug" >> "$GITHUB_ENV"
-
-          if [ "$refName" = "main" ]; then
-            echo "UPDATE_CHANNEL=Stable"                                       >> "$GITHUB_ENV"
-            echo "ARTIFACT_SUFFIX="                                            >> "$GITHUB_ENV"
+          if [ "$IS_BETA" = "false" ]; then
             echo "RELEASE_TAG=v${BUILD_VERSION}"                               >> "$GITHUB_ENV"
             echo "APPCAST_INSTALLER_NAME=appcast-installer"                    >> "$GITHUB_ENV"
             echo "APPCAST_PORTABLE_X64_NAME=appcast-portable-win-x64"          >> "$GITHUB_ENV"
             echo "APPCAST_PORTABLE_X86_NAME=appcast-portable-win-x86"          >> "$GITHUB_ENV"
             echo "APPCAST_URL_PREFIX=https://github.com/${{ github.repository }}/releases/download/v${BUILD_VERSION}" >> "$GITHUB_ENV"
-            echo "IS_BETA=false"                                               >> "$GITHUB_ENV"
           else
-            echo "UPDATE_CHANNEL=Beta"                                         >> "$GITHUB_ENV"
-            echo "ARTIFACT_SUFFIX=-$slug"                                      >> "$GITHUB_ENV"
             echo "RELEASE_TAG=beta"                                            >> "$GITHUB_ENV"
             echo "APPCAST_INSTALLER_NAME=appcast-installer-beta"               >> "$GITHUB_ENV"
             echo "APPCAST_PORTABLE_X64_NAME=appcast-portable-win-x64-beta"     >> "$GITHUB_ENV"
             echo "APPCAST_PORTABLE_X86_NAME=appcast-portable-win-x86-beta"     >> "$GITHUB_ENV"
             echo "APPCAST_URL_PREFIX=https://github.com/${{ github.repository }}/releases/download/beta" >> "$GITHUB_ENV"
-            echo "IS_BETA=true"                                                >> "$GITHUB_ENV"
           fi
         shell: bash
 
