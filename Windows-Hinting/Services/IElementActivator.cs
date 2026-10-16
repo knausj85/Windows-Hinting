@@ -1,8 +1,8 @@
-using UIAutomationClient;
+using Windows.Win32.UI.Accessibility;
 
 namespace WindowsHinting.Services
 {
-    public interface IElementActivator
+    internal interface IElementActivator
     {
         bool TryActivate(IUIAutomationElement element);
     }

@@ -1,7 +1,8 @@
 using System;
 using System.Runtime.InteropServices;
-using UIAutomationClient;
+using Windows.Win32.UI.Accessibility;
 using WindowsHinting.Logging;
+using WindowsHinting.NativeInterop;
 using WindowsHinting.Services;
 
 namespace WindowsHinting.Services.ElementActivators
@@ -19,17 +20,17 @@ namespace WindowsHinting.Services.ElementActivators
         {
             IUIAutomationTogglePattern? pattern = null;
 
-            bool isAvailable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
+            bool isAvailable = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsTogglePatternAvailablePropertyId) is true;
 
             if (isAvailable)
             {
                 try
                 {
-                    pattern = element.GetCachedPattern(UIA_PatternIds.UIA_TogglePatternId) as IUIAutomationTogglePattern;
+                    pattern = element.GetCachedPattern(UIA_PATTERN_ID.UIA_TogglePatternId) as IUIAutomationTogglePattern;
                     if (pattern != null)
                     {
                         pattern.Toggle();
-                        _logger.Info($"Successfully toggled element {element.CachedName}");
+                        _logger.Info($"Successfully toggled element {element.GetCachedName()}");
                         return true;
                     }
                 }

@@ -24,9 +24,6 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
-    <EmbedInteropTypes>false</EmbedInteropTypes>
-    <!-- Suppress harmless COM interop warning for CUIAutomation8.SafeArrayToRectNativeArray -->
-    <MSBuildWarningsAsMessages>MSB3305</MSBuildWarningsAsMessages>
     <!-- Don't append "+<gitsha>" to AssemblyInformationalVersion. NetSparkle reads
          that attribute as the installed version; leaving the SHA suffix makes
          "0.1.141+abc..." compare unequal to the appcast's "0.1.141" and the
@@ -73,20 +70,9 @@
     <None Remove="Windows-Hinting\**" />
   </ItemGroup>
   <ItemGroup>
-    <COMReference Include="UIAutomationClient">
-      <WrapperTool>tlbimp</WrapperTool>
-      <VersionMinor>0</VersionMinor>
-      <VersionMajor>1</VersionMajor>
-      <Guid>944de083-8fb8-45cf-bcb7-c477acb2f897</Guid>
-      <Lcid>0</Lcid>
-      <Isolated>false</Isolated>
-      <EmbedInteropTypes>true</EmbedInteropTypes>
-    </COMReference>
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
-    <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.275">
+    <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.363">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

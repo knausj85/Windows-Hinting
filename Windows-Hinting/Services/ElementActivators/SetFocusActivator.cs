@@ -1,7 +1,8 @@
 using System;
 using System.Runtime.InteropServices;
-using UIAutomationClient;
+using Windows.Win32.UI.Accessibility;
 using WindowsHinting.Logging;
+using WindowsHinting.NativeInterop;
 using WindowsHinting.Services;
 
 namespace WindowsHinting.Services.ElementActivators
@@ -20,11 +21,11 @@ namespace WindowsHinting.Services.ElementActivators
             try
             {
                 // Check if element can receive focus
-                var canFocus = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsKeyboardFocusablePropertyId);
+                var canFocus = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsKeyboardFocusablePropertyId);
                 if (canFocus is bool focusable && focusable)
                 {
                     element.SetFocus();
-                    _logger.Info($"Successfully set focus on element {element.CachedName}");
+                    _logger.Info($"Successfully set focus on element {element.GetCachedName()}");
                     return true;
                 }
             }

@@ -1,7 +1,8 @@
 using System;
 using System.Runtime.InteropServices;
-using UIAutomationClient;
+using Windows.Win32.UI.Accessibility;
 using WindowsHinting.Logging;
+using WindowsHinting.NativeInterop;
 using WindowsHinting.Services;
 
 namespace WindowsHinting.Services.ElementActivators
@@ -18,7 +19,7 @@ namespace WindowsHinting.Services.ElementActivators
         public bool TryActivate(IUIAutomationElement element)
         {
             IUIAutomationInvokePattern? pattern = null;
-            bool isAvailable = element.GetCachedPropertyValue(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
+            bool isAvailable = element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_IsInvokePatternAvailablePropertyId) is true;
 
             if (isAvailable)
             {
@@ -29,10 +30,10 @@ namespace WindowsHinting.Services.ElementActivators
                 try
                 {
                     int elementPid = (int)element.GetCachedPropertyValue(
-                        UIA_PropertyIds.UIA_ProcessIdPropertyId);
+                        UIA_PROPERTY_ID.UIA_ProcessIdPropertyId);
                     if (elementPid == Environment.ProcessId)
                     {
-                        _logger.Debug($"Skipping InvokePattern for same-process element '{element.CachedName}'");
+                        _logger.Debug($"Skipping InvokePattern for same-process element '{element.GetCachedName()}'");
                         return false;
                     }
                 }
@@ -43,11 +44,11 @@ namespace WindowsHinting.Services.ElementActivators
 
                 try
                 {
-                    pattern = element.GetCachedPattern(UIA_PatternIds.UIA_InvokePatternId) as IUIAutomationInvokePattern;
+                    pattern = element.GetCachedPattern(UIA_PATTERN_ID.UIA_InvokePatternId) as IUIAutomationInvokePattern;
                     if (pattern != null)
                     {
                         pattern.Invoke();
-                        _logger.Info($"Successfully invoked element {element.CachedName}");
+                        _logger.Info($"Successfully invoked element {element.GetCachedName()}");
                         return true;
                     }
                 }

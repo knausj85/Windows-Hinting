@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
 using Preferences;
-using UIAutomationClient;
 using WindowsHinting.Configuration;
 using WindowsHinting.Forms;
 using WindowsHinting.Logging;

@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
-using UIAutomationClient;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Dwm;
+using Windows.Win32.UI.Accessibility;
 using WindowsHinting.Logging;
+using WindowsHinting.NativeInterop;
 
 namespace WindowsHinting.Services
 {
@@ -43,7 +44,7 @@ namespace WindowsHinting.Services
 
             foreach (var elem in elements)
             {
-                var name = elem.Element.GetCachedPropertyValue(UIA_PropertyIds.UIA_NamePropertyId);
+                var name = elem.Element?.GetCachedName();
                 var is_call = name == "Call Stack";
                 if (is_call)
                 {
@@ -81,7 +82,7 @@ namespace WindowsHinting.Services
         {
             try
             {
-                var raw = elem.Element?.GetCachedPropertyValue(UIA_PropertyIds.UIA_NativeWindowHandlePropertyId);
+                var raw = elem.Element?.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_NativeWindowHandlePropertyId);
                 if (raw == null)
                     return false;
 

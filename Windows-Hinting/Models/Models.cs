@@ -1,5 +1,5 @@
 using System.Drawing;
-using UIAutomationClient;
+using Windows.Win32.UI.Accessibility;
 
 namespace WindowsHinting.Models
 {
