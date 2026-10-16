@@ -50,6 +50,9 @@
     <Icon Id="AppIcon.ico" SourceFile="$(var.Windows_Hinting.TargetDir)Windows-Hinting.exe" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
 
+    <!-- Uninstall cleanup of the per-user startup entry (Components.wxs). -->
+    <CustomActionRef Id="RemoveStartupEntry" />
+
     <!-- License variable -->
     <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
   </Package>
