@@ -1,4 +1,3 @@
-
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -23,7 +22,6 @@
     <ApplicationManifest Condition="'$(Configuration)' != 'Release'">app.debug.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
     <!-- Don't append "+<gitsha>" to AssemblyInformationalVersion. NetSparkle reads
          that attribute as the installed version; leaving the SHA suffix makes
          "0.1.141+abc..." compare unequal to the appcast's "0.1.141" and the
@@ -56,22 +54,7 @@
     <DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove=".github\**" />
-    <Compile Remove="HintOverlay.Installer\**" />
-    <Compile Remove="Windows-Hinting.Installer\**" />
-    <EmbeddedResource Remove=".github\**" />
-    <EmbeddedResource Remove="HintOverlay.Installer\**" />
-    <EmbeddedResource Remove="Windows-Hinting.Installer\**" />
-    <None Remove=".github\**" />
-    <None Remove="HintOverlay.Installer\**" />
-    <Compile Remove="Windows-Hinting\**" />
-    <EmbeddedResource Remove="Windows-Hinting\**" />
-    <None Remove="Windows-Hinting.Installer\**" />
-    <None Remove="Windows-Hinting\**" />
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
     <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.363">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -82,10 +65,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\netsparkle_pub.txt" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Services\Native\" />
   </ItemGroup>
 
 </Project>
