@@ -33,6 +33,8 @@ Rules that are easy to break:
 - The MSI harvests the app's build output with a WiX `<Files>` element
   (`Windows-Hinting.Installer/Components.wxs`), so new dependencies are picked
   up automatically. Don't list files by hand.
+- CI builds (`GITHUB_ACTIONS=true`) treat warnings as errors. Keep local
+  builds at 0 warnings.
 - Code-signing and release secrets live in GitHub Environments (`signing` /
   `release` for main, `signing-branch` / `release-branch` with required approval for
   other branches) and are used only by the `sign-binaries`, `sign-msi` and `release`
@@ -59,7 +61,8 @@ Rules that are easy to break:
   raw `BSTR`s the caller must free, so read strings through
   `UIAutomationElementExtensions` (or `Get*PropertyValue(...) as string`)
   instead. Do not reintroduce the `UIAutomationClient` tlbimp reference.
-- Per-monitor DPI is `PerMonitorV2` (manifest + csproj); overlays are one
+- Per-monitor DPI is `PerMonitorV2`, set by `<ApplicationHighDpiMode>` and applied by
+  `ApplicationConfiguration.Initialize()` (the manifests carry no DPI settings); overlays are one
   WinForms form per `Screen`. Do not introduce a single spanning overlay HWND.
 - Verification is manual — there are no automated tests. After changes, rebuild
   in VS and confirm: hotkeys fire, hints render on primary + secondary monitors,

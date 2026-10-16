@@ -23,8 +23,9 @@ namespace WindowsHinting
                     return;
                 }
 
-                Application.EnableVisualStyles();
-                Application.SetCompatibleTextRenderingDefault(false);
+                // Visual styles, text rendering and the csproj's ApplicationHighDpiMode
+                // (PerMonitorV2) — the manifests deliberately carry no DPI settings.
+                ApplicationConfiguration.Initialize();
 
                 var host = Host.CreateDefaultBuilder()
                     .ConfigureServices((context, services) =>

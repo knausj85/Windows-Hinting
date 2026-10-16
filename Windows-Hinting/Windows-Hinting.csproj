@@ -28,6 +28,9 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <!-- CsWin32 emits unsafe pointer overloads for Win32 APIs. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- NETSDK1187: NetSparkleUpdater.UI.WinForms.NetCore ships a 'JA' satellite folder;
+         the SDK normalizes it to 'ja'. Nothing to fix on our side. -->
+    <NoWarn>$(NoWarn);NETSDK1187</NoWarn>
   </PropertyGroup>
 
   <!-- Update channel is baked into each build. CI passes /p:UpdateChannel=Beta for beta

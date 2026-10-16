@@ -63,14 +63,12 @@ namespace WindowsHinting.Forms
                 ForeColor = ForeColorDefault,
                 ToolTipText = "Toggle word wrap"
             };
-            _btnWordWrap.CheckedChanged += (_, _) => _logBox.WordWrap = _btnWordWrap.Checked;
 
             _btnClear = new ToolStripButton("✕ Clear")
             {
                 ForeColor = ForeColorDefault,
                 ToolTipText = "Clear the log view"
             };
-            _btnClear.Click += (_, _) => _logBox.Clear();
 
             var filterLabel = new ToolStripLabel("Filter:")
             {
@@ -113,6 +111,10 @@ namespace WindowsHinting.Forms
             // Fall back if Cascadia Mono isn't installed
             if (_logBox.Font.Name != "Cascadia Mono")
                 _logBox.Font = new Font("Consolas", 9.5f);
+
+            // Wired after _logBox exists so the handlers never see it unassigned.
+            _btnWordWrap.CheckedChanged += (_, _) => _logBox.WordWrap = _btnWordWrap.Checked;
+            _btnClear.Click += (_, _) => _logBox.Clear();
 
             Controls.Add(_logBox);
             Controls.Add(_toolbar);

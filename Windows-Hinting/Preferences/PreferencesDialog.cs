@@ -688,7 +688,8 @@ namespace Preferences
         private void BtnOk_Click(object? sender, EventArgs e)
         {
             _options.ShowRectangles = _chkShowRectangles.Checked;
-            _startupService.Apply(_chkStartWithWindows.Checked);
+            if (_chkStartWithWindows.Checked != _startupService.IsEnabled)
+                _startupService.Apply(_chkStartWithWindows.Checked);
             _options.AutoCheckForUpdates = _chkAutoCheckForUpdates.Checked;
             _options.HintPosition = _positionButtons
                 .FirstOrDefault(kvp => kvp.Value.Checked).Key;
