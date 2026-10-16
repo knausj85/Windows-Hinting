@@ -1,0 +1,934 @@
+<title>Taskbar Ambient Numbers</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<style>
+/* Layout: header with the question, then a two-column workbench — simulated screen + state on the left, scenarios + free play on the right; stacks on narrow screens. */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --ink: #18212b;
+  --muted: #5b6875;
+  --line: #d5dce3;
+  --accent: #2c55c7;
+  --accent-ink: #ffffff;
+  --badge: #f3c344;
+  --badge-ink: #1a1405;
+  --desk: #c9d3dd;
+  --bar: #e4e9ee;
+  --icon: #ffffff;
+  --good: #1f7a4d;
+  --warn: #a86500;
+  --bad: #b3261e;
+  --good-bg: #e3f3ea;
+  --warn-bg: #fbefd9;
+  --bad-bg: #fbe4e2;
+  --font-body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, "Cascadia Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12171d; --surface: #1b222a; --ink: #e6ebf0; --muted: #97a4b1; --line: #2e3843;
+    --accent: #7c9cf0; --accent-ink: #0d1424; --badge: #f3c344; --badge-ink: #1a1405;
+    --desk: #26303a; --bar: #1f2730; --icon: #2f3a46;
+    --good: #5fc690; --warn: #f0b04a; --bad: #f2867d;
+    --good-bg: #173326; --warn-bg: #3a2c12; --bad-bg: #3d1c1a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12171d; --surface: #1b222a; --ink: #e6ebf0; --muted: #97a4b1; --line: #2e3843;
+  --accent: #7c9cf0; --accent-ink: #0d1424; --badge: #f3c344; --badge-ink: #1a1405;
+  --desk: #26303a; --bar: #1f2730; --icon: #2f3a46;
+  --good: #5fc690; --warn: #f0b04a; --bad: #f2867d;
+  --good-bg: #173326; --warn-bg: #3a2c12; --bad-bg: #3d1c1a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; margin: 0; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-inline: 20px; padding-block: 24px 48px; display: flex; flex-direction: column; gap: 20px; }
+h1 { font-size: 1.7rem; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 1rem; margin: 0; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+h3 { font-size: 0.95rem; margin: 0; }
+p { margin: 0; }
+.intro { display: flex; flex-direction: column; gap: 8px; max-width: 75ch; }
+.intro .tag { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bad); font-weight: 700; }
+.intro p { color: var(--muted); }
+.grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 960px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* simulated screen */
+.screen { position: relative; background: var(--desk); border-radius: 8px; height: 190px; overflow: hidden; }
+.wintitle { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 8px; font-family: var(--font-mono); font-size: 0.78rem; }
+.wintitle span { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
+.wintitle .on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 56px; background: var(--bar); border-top: 1px solid var(--line); }
+.icon { position: absolute; bottom: 8px; height: 38px; background: var(--icon); border: 1px solid var(--line); border-radius: 6px; font-size: 0.62rem; display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden; line-height: 1.1; padding: 0 2px; transform: translateX(-50%); }
+.icon.tray { height: 26px; bottom: 14px; font-size: 0.55rem; }
+.icon.focused { outline: 2px solid var(--accent); }
+.badge { position: absolute; bottom: 50px; transform: translateX(-50%); background: var(--badge); color: var(--badge-ink); font-family: var(--font-mono); font-weight: 700; font-size: 0.8rem; padding: 1px 6px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.25); white-space: nowrap; }
+.badge.stale { background: var(--bad); color: #fff; }
+.badge.session { background: var(--accent); color: var(--accent-ink); bottom: 66px; }
+.badge.dim { opacity: 0.15; }
+.screennote { position: absolute; top: 46px; left: 12px; right: 12px; font-size: 0.8rem; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.8rem; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
+
+/* state */
+.fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; font-size: 0.9rem; }
+.fields dt { color: var(--muted); }
+.fields dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.mono { font-family: var(--font-mono); font-size: 0.85em; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; background: var(--bg); border: 1px solid var(--line); }
+.pill.good { background: var(--good-bg); color: var(--good); border-color: transparent; }
+.pill.warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+.pill.bad { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+.changed { animation: none; background: var(--warn-bg); border-radius: 4px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; }
+.counters { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* log */
+.log { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; font-size: 0.84rem; }
+.log div { padding: 3px 8px; border-radius: 4px; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; }
+.log .t { font-family: var(--font-mono); color: var(--muted); font-size: 0.78rem; }
+.log .fresh { background: var(--bg); }
+.log .warn { color: var(--warn); }
+.log .bad { color: var(--bad); font-weight: 600; }
+.log .good { color: var(--good); }
+.log .filt { color: var(--muted); font-style: italic; }
+
+/* controls */
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.group { display: flex; flex-direction: column; gap: 6px; }
+.group > span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+button { font: inherit; font-size: 0.85rem; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.key { font-family: var(--font-mono); min-width: 34px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:disabled { opacity: 0.4; cursor: default; }
+select { font: inherit; font-size: 0.85rem; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.tabs button { font-size: 0.8rem; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.scenario { display: flex; flex-direction: column; gap: 10px; }
+.scenario p { color: var(--muted); font-size: 0.9rem; max-width: 65ch; }
+.scenario .watch { color: var(--ink); background: var(--bg); padding: 8px 10px; border-radius: 6px; font-size: 0.88rem; }
+.steps { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: s; }
+.steps li { display: flex; gap: 8px; align-items: center; }
+.steps li::before { counter-increment: s; content: counter(s); font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); width: 1.5em; text-align: right; }
+.steps button { flex: 1; text-align: left; }
+.steps button.done { color: var(--muted); text-decoration: line-through; }
+.steps button.next { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.questions { display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem; margin: 0; padding-left: 1.2em; }
+.questions li { max-width: 75ch; }
+.questions b { font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <span class="tag">Prototype · throwaway · not production</span>
+    <h1>Taskbar ambient numbers</h1>
+    <p><b>The question:</b> When Windows-Hinting keeps numbers on the taskbar for a Talon user to read aloud, and the taskbar shortcut then <em>adopts</em> those same numbers for selection, does the numbering model hold up? In particular: how are numbers handed out as apps open and close, what happens when the taskbar changes while you are mid-sentence, and can a spoken number ever open the wrong app?</p>
+    <p>The left side shows a simulated screen and every piece of state. Change the taskbar, let time pass, press keys, and watch the numbers. "Read the numbers" records what you saw, so a later selection can be checked against it. Nothing here touches the real taskbar.</p>
+  </header>
+
+  <div class="grid">
+    <div class="col">
+      <section class="panel" aria-label="Simulated screen">
+        <h2>Screen</h2>
+        <div class="screen" id="screen"></div>
+        <div class="legend">
+          <span><i style="background:var(--badge)"></i>Ambient number</span>
+          <span><i style="background:var(--bad)"></i>Number not over its button</span>
+          <span><i style="background:var(--accent)"></i>Ordinary session's own label</span>
+        </div>
+      </section>
+      <section class="panel" aria-label="Current state">
+        <h2>Current state</h2>
+        <dl class="fields" id="fields"></dl>
+        <h3>Number ↔ button map (owned by the engine)</h3>
+        <div class="tablewrap"><table id="map"></table></div>
+        <div class="counters" id="counters"></div>
+      </section>
+      <section class="panel" aria-label="Event log">
+        <h2>What happened (newest first)</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" aria-label="Guided scenarios">
+        <h2>Guided scenarios</h2>
+        <div class="tabs" id="tabs" role="tablist"></div>
+        <div class="scenario" id="scenario"></div>
+      </section>
+      <section class="panel" aria-label="Free play">
+        <h2>Free play</h2>
+        <div class="group"><span>Settings</span>
+          <div class="btns">
+            <button id="b-persist"></button>
+            <label class="mono" for="policy">Numbering
+              <select id="policy">
+                <option value="reuse">Reuse lowest free number</option>
+                <option value="fresh">Never reuse a number</option>
+                <option value="positional">Left to right, renumber every time (Talon today)</option>
+              </select>
+            </label>
+            <label class="mono" for="freeze">During a session
+              <select id="freeze">
+                <option value="all">Freeze everything</option>
+                <option value="membership">Follow positions, freeze numbers</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="group"><span>Taskbar changes</span>
+          <div class="btns" id="b-world"></div>
+        </div>
+        <div class="group"><span>Time</span>
+          <div class="btns">
+            <button data-tick="50">+50 ms</button>
+            <button data-tick="200">+200 ms</button>
+            <button data-tick="700">+700 ms (let it settle)</button>
+          </div>
+        </div>
+        <div class="group"><span>You</span>
+          <div class="btns">
+            <button id="b-read">Read the numbers</button>
+            <button id="b-sc-tb" class="primary">Press taskbar shortcut</button>
+            <button id="b-sc-fg">Press foreground shortcut</button>
+            <button id="b-focus">Alt+Tab away</button>
+          </div>
+          <div class="btns" id="b-keys"></div>
+          <div class="btns" id="b-say"></div>
+        </div>
+        <div class="btns"><button id="b-reset">Reset to start</button></div>
+      </section>
+      <section class="panel" aria-label="Open questions">
+        <h2>Questions this demo is for</h2>
+        <ol class="questions">
+          <li><b>How should new numbers be handed out?</b> Reusing the lowest free number keeps numbers short, but a closed app's number can go to a new app seconds later. Never reusing is safe but numbers grow. Positional renumbering is what Talon does today.</li>
+          <li><b>During an adopted session, freeze everything, or let numbers follow their buttons?</b> The engine decision (#108 rule 14) says freeze everything. A reflow or display change then leaves numbers sitting over the wrong buttons until the session ends.</li>
+          <li><b>Enter on a number whose button has gone:</b> this demo beeps and keeps the session open. Should it end the session instead?</li>
+          <li><b>Shortcut pressed while the display is still settling:</b> the pending update is applied first (as decided), but the taskbar may not have finished laying out. Wait, or accept a brief misplacement?</li>
+          <li><b>Silent changes (gate F):</b> changing button labels or combining fires no event, so numbers drift until something else happens. Is a slow backstop check needed for that case only?</li>
+        </ol>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================================================================
+   PURE MODULE — liftable. No DOM. (state, action) => state.
+   Models: the taskbar "world", the ambient layer's label<->identity
+   map, debounced event-triggered reconcile, display settle, and the
+   one-at-a-time session (adopted / hook-captured / foreground).
+   =================================================================== */
+const Ambient = (() => {
+  const DEBOUNCE_MS = 150;     // coalesce duplicate StructureChanged fires
+  const SETTLE_MS = 500;       // wait after DisplaySettingsChanged
+  const TASKBAR_RELAYOUT_MS = 450; // taskbar's own layout lags the display event
+  const SCREEN_W = 1000;
+
+  const clone = (x) => JSON.parse(JSON.stringify(x));
+
+  function initialState(prefs) {
+    const s = {
+      now: 0,
+      world: {
+        apps: [
+          { id: "rt-1", name: "File Explorer" },
+          { id: "rt-2", name: "Edge" },
+          { id: "rt-3", name: "Outlook" },
+          { id: "rt-4", name: "Slack" },
+          { id: "rt-5", name: "VS Code" },
+        ],
+        tray: [
+          { id: "rt-6", name: "Talon" },
+          { id: "rt-7", name: "OneDrive" },
+          { id: "rt-8", name: "Teams" },
+        ],
+        align: "center",
+        scale: 100,
+        pendingScale: null,   // { value, at } taskbar has not re-laid out yet
+        wideButtons: false,   // "show labels" / never combine
+        nextRt: 9,
+        focused: null,
+      },
+      prefs: Object.assign({ persistent: true, policy: "reuse", freeze: "all" }, prefs || {}),
+      ambient: { labels: {}, shown: [], hidden: false, nextFresh: 1, pending: null, retired: {} },
+      session: null,
+      memory: null,
+      stats: { reconciles: 0, filtered: 0, misfires: 0, beeps: 0, deferredApplied: 0 },
+      log: [],
+      seq: 0,
+    };
+    if (s.prefs.persistent) reconcile(s, "Persistent numbers turned on");
+    s.log = [];
+    note(s, "info", "Start: persistent taskbar numbers " + (s.prefs.persistent ? "on" : "off") + ".");
+    return s;
+  }
+
+  // ---------- helpers ----------
+  function note(s, kind, text) { s.log.unshift({ t: s.now, kind, text, seq: ++s.seq }); }
+
+  function readingOrder(world) {
+    return world.apps.map((a) => ({ ...a, area: "app" })).concat(world.tray.map((t) => ({ ...t, area: "tray" })));
+  }
+
+  function layout(world) {
+    const k = world.scale / 100;
+    const aw = (world.wideButtons ? 112 : 50) * k;
+    const tw = 34 * k;
+    const out = {};
+    const n = world.apps.length;
+    const start = world.align === "center" ? SCREEN_W / 2 - (n * aw) / 2 : 20;
+    world.apps.forEach((a, i) => (out[a.id] = { x: start + aw * i + aw / 2, w: aw - 4 }));
+    const m = world.tray.length;
+    const tstart = SCREEN_W - 90 - m * tw;
+    world.tray.forEach((t, i) => (out[t.id] = { x: tstart + tw * i + tw / 2, w: tw - 4 }));
+    return out;
+  }
+
+  const isAdopted = (s) => s.session && s.session.kind === "adopted";
+
+  // Something on the taskbar raised a (non-filtered) event: schedule a full re-read.
+  function schedule(s, reason, delay) {
+    if (!s.prefs.persistent) return;
+    const due = s.now + (delay ?? DEBOUNCE_MS);
+    if (s.ambient.pending) {
+      s.ambient.pending.dueAt = Math.max(s.ambient.pending.dueAt, due);
+      s.ambient.pending.reasons.push(reason);
+      s.ambient.pending.events++;
+    } else {
+      s.ambient.pending = { dueAt: due, reasons: [reason], events: 1 };
+    }
+  }
+
+  // Full re-enumerate + reconcile by element identity.
+  function reconcile(s, why) {
+    const els = readingOrder(s.world);
+    const L = layout(s.world);
+    const prev = s.ambient.labels;
+    const prevShown = Object.fromEntries(s.ambient.shown.map((e) => [e.id, e]));
+    const labels = {};
+    const changes = [];
+    if (s.prefs.policy === "positional") {
+      els.forEach((e, i) => (labels[e.id] = String(i + 1)));
+    } else {
+      els.forEach((e) => { if (prev[e.id]) labels[e.id] = prev[e.id]; });
+      const used = new Set(Object.values(labels));
+      els.forEach((e) => {
+        if (labels[e.id]) return;
+        let l;
+        if (s.prefs.policy === "reuse") { let n = 1; while (used.has(String(n))) n++; l = String(n); }
+        else { l = String(s.ambient.nextFresh++); }
+        used.add(l);
+        labels[e.id] = l;
+      });
+      const max = Math.max(0, ...Object.values(labels).map(Number));
+      s.ambient.nextFresh = Math.max(s.ambient.nextFresh, max + 1);
+    }
+    // removals
+    Object.keys(prev).forEach((id) => {
+      if (!labels[id]) {
+        const name = prevShown[id] ? prevShown[id].name : id;
+        changes.push(`${name} gone (was ${prev[id]})`);
+        s.ambient.retired[prev[id]] = { id, name, at: s.now };
+      }
+    });
+    // additions, renumbers, reuse hazards
+    const prevOwner = {};
+    Object.entries(prev).forEach(([id, l]) => (prevOwner[l] = { id, name: prevShown[id] ? prevShown[id].name : id, at: s.now }));
+    let moved = 0;
+    els.forEach((e) => {
+      const l = labels[e.id];
+      if (!prev[e.id]) changes.push(`${e.name} added as ${l}`);
+      else if (prev[e.id] !== l) changes.push(`${e.name} renumbered ${prev[e.id]} → ${l}`);
+      else if (prevShown[e.id] && Math.abs(prevShown[e.id].x - L[e.id].x) > 1) moved++;
+      const before = prevOwner[l] && prevOwner[l].id !== e.id ? prevOwner[l]
+                   : (!prev[e.id] && s.ambient.retired[l] && s.ambient.retired[l].id !== e.id ? s.ambient.retired[l] : null);
+      if (before && Object.keys(prev).length) {
+        const ago = s.now - before.at;
+        note(s, "warn", `Number ${l} now means ${e.name}; it meant ${before.name}${ago > 0 ? " " + ago + " ms ago" : " a moment ago"}.`);
+      }
+    });
+    if (moved) changes.push(`${moved} number(s) slid to follow their buttons`);
+    s.ambient.labels = labels;
+    s.ambient.shown = els.map((e) => ({ id: e.id, name: e.name, area: e.area, label: labels[e.id], x: L[e.id].x }));
+    s.ambient.hidden = false;
+    const evCount = s.ambient.pending ? s.ambient.pending.events : 0;
+    s.ambient.pending = null;
+    s.stats.reconciles++;
+    note(s, "good", `Re-read the taskbar (${why}${evCount > 1 ? `, ${evCount} events coalesced` : ""}): ` + (changes.length ? changes.join("; ") : "nothing changed") + ".");
+  }
+
+  // Only reposition what is already shown; numbers and membership stay frozen.
+  function followPositions(s) {
+    const L = layout(s.world);
+    let moved = 0;
+    s.ambient.shown.forEach((e) => { if (L[e.id] && Math.abs(L[e.id].x - e.x) > 1) { e.x = L[e.id].x; moved++; } });
+    if (moved) note(s, "info", `Session open: ${moved} number(s) followed their buttons; numbering still frozen.`);
+    s.ambient.pending.positionsFollowed = true;
+  }
+
+  function advance(s, ms) {
+    const end = s.now + ms;
+    while (s.now < end) {
+      s.now = Math.min(end, s.now + 10);
+      const w = s.world;
+      if (w.pendingScale && s.now >= w.pendingScale.at) {
+        w.scale = w.pendingScale.value;
+        w.pendingScale = null;
+        note(s, "info", "Taskbar finished re-laying out at the new scale (its own ChildrenInvalidated event).");
+        schedule(s, "taskbar re-laid out");
+      }
+      const p = s.ambient.pending;
+      if (p && s.now >= p.dueAt) {
+        if (isAdopted(s)) {
+          if (!p.held) { p.held = true; note(s, "info", "Update due, but held: a session has adopted the numbers."); }
+          if (s.prefs.freeze === "membership" && !p.positionsFollowed) followPositions(s);
+        } else {
+          reconcile(s, p.reasons[0] + (p.reasons.length > 1 ? " +" + (p.reasons.length - 1) + " more" : ""));
+        }
+      }
+    }
+  }
+
+  function endSession(s, reason) {
+    const was = s.session;
+    s.session = null;
+    note(s, "info", `Session ended (${reason}). Mode marker cleared.`);
+    if (was && was.kind === "adopted") {
+      const p = s.ambient.pending;
+      if (p && s.now >= p.dueAt) {
+        s.stats.deferredApplied++;
+        reconcile(s, "held update applied once at session end");
+      }
+    }
+  }
+
+  function startTaskbar(s) {
+    if (s.prefs.persistent) {
+      const p = s.ambient.pending;
+      if (p) {
+        const settling = s.world.pendingScale || p.reasons.some((r) => r.startsWith("display"));
+        if (settling) note(s, "warn", "Shortcut pressed while the display is still settling; positions may be off until the session ends.");
+        reconcile(s, "pending update applied before adopting");
+      }
+      s.session = { kind: "adopted", typed: "" };
+      note(s, "info", "Taskbar session ADOPTED the ambient numbers: same window takes focus, no redraw, no relabel.");
+    } else {
+      const labels = {};
+      readingOrder(s.world).forEach((e, i) => (labels[e.id] = String.fromCharCode(65 + i)));
+      s.session = { kind: "hook", typed: "", labels };
+      note(s, "info", "Ordinary Taskbar session: fresh scan, its own letter labels, keyboard hook, typing filters.");
+    }
+  }
+
+  function activate(s, id, label) {
+    const el = readingOrder(s.world).find((e) => e.id === id);
+    if (!el) {
+      s.stats.beeps++;
+      note(s, "bad", `Number ${label} points at a button that is gone. Error beep; session stays open.`);
+      s.session.typed = "";
+      return;
+    }
+    s.world.focused = el.id;
+    note(s, "good", `Activated ${el.name} (${label}).`);
+    if (s.memory) {
+      const read = s.memory.map[label];
+      if (read && read.id !== el.id) { s.stats.misfires++; note(s, "bad", `MISFIRE: you read ${label} as ${read.name}, but ${el.name} opened.`); }
+      else if (!read) note(s, "warn", `Number ${label} was not on screen when you read the numbers.`);
+      else note(s, "good", `Matches what you read: ${label} = ${read.name}.`);
+    }
+    endSession(s, "activation");
+  }
+
+  function key(s, k) {
+    const ses = s.session;
+    if (!ses) { note(s, "filt", `Key ${k} typed with no session: goes to the app, not to us.`); return; }
+    if (k === "Esc") { endSession(s, "Esc"); return; }
+    if (k === "Backspace") { ses.typed = ses.typed.slice(0, -1); return; }
+    if (ses.kind === "foreground") {
+      if (/^[0-9]$/.test(k)) { s.stats.beeps++; note(s, "warn", `Digit ${k} in a Foreground session matches no hint. Beep (ambient numbers are display-only).`); }
+      else note(s, "info", `Enter in Foreground session (simulated, no target).`);
+      return;
+    }
+    if (ses.kind === "adopted") {
+      if (k === "Enter") {
+        const hit = s.ambient.shown.find((e) => e.label === ses.typed);
+        if (!hit) { s.stats.beeps++; note(s, "warn", `Enter with "${ses.typed}": no such number. Beep.`); ses.typed = ""; return; }
+        activate(s, hit.id, hit.label);
+        return;
+      }
+      const cand = ses.typed + k;
+      if (!s.ambient.shown.some((e) => e.label.startsWith(cand))) { s.stats.beeps++; note(s, "warn", `"${cand}" starts no number. Beep.`); return; }
+      ses.typed = cand;
+      note(s, "info", `Typed "${cand}". No filtering: every number stays visible, nothing repaints.`);
+      return;
+    }
+    if (ses.kind === "hook") {
+      const entries = Object.entries(ses.labels);
+      if (k === "Enter") {
+        const hit = entries.find(([, l]) => l === ses.typed);
+        if (!hit) { s.stats.beeps++; note(s, "warn", "Enter: no exact match. Beep."); return; }
+        activate(s, hit[0], hit[1]);
+        return;
+      }
+      const cand = ses.typed + k;
+      if (!entries.some(([, l]) => l.startsWith(cand))) { s.stats.beeps++; note(s, "warn", `"${cand}" starts no label. Beep.`); return; }
+      ses.typed = cand;
+      note(s, "info", `Typed "${cand}". Non-matching labels hide (ordinary filtering).`);
+    }
+  }
+
+  function reduce(state, a) {
+    const s = clone(state);
+    const w = s.world;
+    switch (a.type) {
+      case "reset": return initialState(a.prefs || state.prefs);
+      case "tick": advance(s, a.ms); break;
+      case "openApp": {
+        const id = "rt-" + w.nextRt++;
+        w.apps.push({ id, name: a.name });
+        note(s, "info", `${a.name} opened → StructureChanged (×3 duplicate fires).`);
+        schedule(s, `${a.name} opened`); schedule(s, "duplicate"); schedule(s, "duplicate");
+        break;
+      }
+      case "closeApp": {
+        const i = w.apps.findIndex((x) => x.name === a.name);
+        if (i < 0) { note(s, "filt", `${a.name} is not open.`); break; }
+        w.apps.splice(i, 1);
+        if (w.focused && !w.apps.some((x) => x.id === w.focused)) w.focused = null;
+        note(s, "info", `${a.name} closed → StructureChanged (×2).`);
+        schedule(s, `${a.name} closed`); schedule(s, "duplicate");
+        break;
+      }
+      case "dragFirstToEnd": {
+        if (w.apps.length < 2) break;
+        const [x] = w.apps.splice(0, 1); w.apps.push(x);
+        note(s, "info", `Dragged ${x.name} to the end → drag-visual flood (filtered) + ChildrenReordered.`);
+        s.stats.filtered += 12;
+        schedule(s, `${x.name} dragged`);
+        break;
+      }
+      case "trayAdd": {
+        const id = "rt-" + w.nextRt++;
+        w.tray.push({ id, name: a.name });
+        note(s, "info", `Tray icon ${a.name} appeared → StructureChanged.`);
+        schedule(s, `tray ${a.name} added`);
+        break;
+      }
+      case "trayRemove": {
+        const i = w.tray.findIndex((x) => x.name === a.name);
+        if (i < 0) break;
+        w.tray.splice(i, 1);
+        note(s, "info", `Tray icon ${a.name} went away → StructureChanged.`);
+        schedule(s, `tray ${a.name} removed`);
+        break;
+      }
+      case "toggleAlign":
+        w.align = w.align === "center" ? "left" : "center";
+        note(s, "info", `Taskbar alignment → ${w.align} (registry change notification).`);
+        schedule(s, "alignment changed");
+        break;
+      case "displayChange": {
+        const target = (w.pendingScale ? w.pendingScale.value : w.scale) === 100 ? 125 : 100;
+        w.pendingScale = { value: target, at: s.now + TASKBAR_RELAYOUT_MS };
+        note(s, "info", `Display scale → ${target}% (DisplaySettingsChanged fires before the taskbar re-lays out).`);
+        if (s.prefs.persistent) {
+          if (!isAdopted(s)) { s.ambient.hidden = true; note(s, "info", "Ambient numbers hidden while the display settles."); }
+          schedule(s, "display changed", SETTLE_MS);
+        }
+        break;
+      }
+      case "hover":
+        s.stats.filtered++;
+        note(s, "filt", `Hovered ${a.what}: ${a.what === "a tray icon" ? "ToolTip" : "window-preview popup"} event — filtered by sender, no re-read.`);
+        break;
+      case "silentWiden":
+        w.wideButtons = !w.wideButtons;
+        note(s, "warn", `Button labels ${w.wideButtons ? "shown" : "hidden"}: buttons resized but NO event fired (gate F).`);
+        break;
+      case "read": {
+        if (!s.prefs.persistent || s.ambient.hidden) { s.memory = { at: s.now, map: {} }; note(s, "warn", "Read the numbers: none visible."); break; }
+        const map = {};
+        s.ambient.shown.forEach((e) => (map[e.label] = { id: e.id, name: e.name }));
+        s.memory = { at: s.now, map };
+        note(s, "info", "You read: " + s.ambient.shown.map((e) => `${e.label}=${e.name}`).join(", ") + ".");
+        break;
+      }
+      case "taskbarShortcut": {
+        const ses = s.session;
+        if (ses && (ses.kind === "adopted" || ses.kind === "hook")) { endSession(s, "taskbar shortcut again = dismiss"); break; }
+        if (ses && ses.kind === "foreground") endSession(s, "switching to Taskbar");
+        startTaskbar(s);
+        break;
+      }
+      case "foregroundShortcut": {
+        const ses = s.session;
+        if (ses && ses.kind === "foreground") { endSession(s, "foreground shortcut again = dismiss"); break; }
+        if (ses) endSession(s, "switching to Foreground");
+        s.session = { kind: "foreground", typed: "" };
+        note(s, "info", "Foreground session started (hook capture). Ambient numbers stay visible underneath and keep updating.");
+        break;
+      }
+      case "focusLoss":
+        if (isAdopted(s)) endSession(s, "focus lost (Alt+Tab)");
+        else note(s, "filt", "Alt+Tab: no adopted session, nothing to end.");
+        break;
+      case "key": key(s, a.key); break;
+      case "say": {
+        note(s, "info", `Talon: "taskbar ${a.n}" → shortcut, ${a.n.split("").join(" ")}, Enter.`);
+        if (!s.session || s.session.kind === "foreground") {
+          if (s.session) endSession(s, "switching to Taskbar");
+          startTaskbar(s);
+        }
+        for (const d of a.n) key(s, d);
+        if (s.session) key(s, "Enter");
+        break;
+      }
+      case "setPersistent":
+        s.prefs.persistent = a.on;
+        if (!a.on) {
+          if (isAdopted(s)) endSession(s, "persistent numbers turned off");
+          s.ambient = { labels: {}, shown: [], hidden: false, nextFresh: 1, pending: null, retired: {} };
+          note(s, "info", "Persistent numbers off.");
+        } else { reconcile(s, "persistent numbers turned on"); }
+        break;
+      case "setPolicy": s.prefs.policy = a.policy; note(s, "info", `Numbering policy → ${a.policy} (applies to the next re-read).`); break;
+      case "setFreeze": s.prefs.freeze = a.freeze; note(s, "info", `During a session → ${a.freeze === "all" ? "freeze everything" : "follow positions, freeze numbers"}.`); break;
+    }
+    return s;
+  }
+
+  return { initialState, reduce, layout, readingOrder, SCREEN_W };
+})();
+
+/* ===================================================================
+   PAGE SHELL — throwaway. Renders state, dispatches actions.
+   =================================================================== */
+let state = Ambient.initialState();
+let lastSeq = state.seq;
+let prevFields = {};
+
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+function dispatch(a) {
+  lastSeq = state.seq;
+  state = Ambient.reduce(state, a);
+  render();
+}
+
+function sessionText(s) {
+  if (!s.session) return "None";
+  return { adopted: "Taskbar — adopted the ambient numbers", hook: "Taskbar — ordinary (own labels)", foreground: "Foreground window" }[s.session.kind];
+}
+
+function render() {
+  const s = state;
+  const L = Ambient.layout(s.world);
+  const pct = (x) => (x / Ambient.SCREEN_W) * 100 + "%";
+  const adopted = s.session && s.session.kind === "adopted";
+
+  // screen
+  let html = '<div class="wintitle">';
+  if (s.prefs.persistent) html += `<span class="${adopted ? "on" : ""}">Taskbar numbers window${adopted ? " [Active]" : ""}</span>`;
+  if (s.session && s.session.kind === "hook") html += '<span class="on">Hint overlay [Active]</span>';
+  if (s.session && s.session.kind === "foreground") html += '<span class="on">Hint overlay [Active] — hints on the foreground window</span>';
+  html += "</div>";
+  if (s.ambient.hidden) html += '<div class="screennote">Numbers hidden while the display settles…</div>';
+  if (s.world.pendingScale) html += '<div class="screennote" style="top:66px">Taskbar has not re-laid out yet.</div>';
+  html += '<div class="taskbar">';
+  Ambient.readingOrder(s.world).forEach((e) => {
+    const p = L[e.id];
+    html += `<div class="icon ${e.area === "tray" ? "tray" : ""} ${s.world.focused === e.id ? "focused" : ""}" style="left:${pct(p.x)};width:${pct(p.w)}">${esc(e.name)}</div>`;
+  });
+  html += "</div>";
+  if (s.prefs.persistent && !s.ambient.hidden) {
+    s.ambient.shown.forEach((e) => {
+      const cur = L[e.id];
+      const stale = !cur || Math.abs(cur.x - e.x) > 6;
+      html += `<div class="badge ${stale ? "stale" : ""}" style="left:${pct(e.x)}" title="${esc(e.name)}">${esc(e.label)}</div>`;
+    });
+  }
+  if (s.session && s.session.kind === "hook") {
+    Object.entries(s.session.labels).forEach(([id, l]) => {
+      if (!L[id]) return;
+      const dim = !l.startsWith(s.session.typed);
+      html += `<div class="badge session ${dim ? "dim" : ""}" style="left:${pct(L[id].x)}">${l}</div>`;
+    });
+  }
+  $("screen").innerHTML = html;
+
+  // fields
+  const p = s.ambient.pending;
+  let pendingText = "None";
+  if (p) {
+    const left = Math.max(0, p.dueAt - s.now);
+    pendingText = p.held ? `Held until the session ends (${p.reasons.length} change${p.reasons.length > 1 ? "s" : ""})` : `Re-read due in ${left} ms — ${p.reasons[0]}${p.events > 1 ? `, ${p.events} events so far` : ""}`;
+  }
+  const ambientText = !s.prefs.persistent ? "Off" : s.ambient.hidden ? "Hidden while display settles" : `Showing ${s.ambient.shown.length} numbers`;
+  const capture = !s.session ? "None — keys go to your apps" : s.session.kind === "adopted" ? "Our numbers window has focus (no global hook)" : "Low-level keyboard hook";
+  const marker = !s.session ? "(none)" : "[Active]" + (adopted ? " on the numbers window's title" : " on the hint overlay's title");
+  const fields = {
+    "Clock": `<span class="mono">${s.now} ms</span>`,
+    "Session": sessionText(s),
+    "Mode marker Talon sees": marker,
+    "Keyboard": capture,
+    "Typed so far": s.session ? `<span class="mono">${esc(s.session.typed || "—")}</span>` : "—",
+    "Ambient numbers": ambientText,
+    "Pending update": pendingText,
+    "Numbering": { reuse: "Reuse lowest free number", fresh: "Never reuse a number", positional: "Left to right, renumber every time" }[s.prefs.policy],
+    "During a session": s.prefs.freeze === "all" ? "Freeze everything" : "Follow positions, freeze numbers",
+    "What you last read": s.memory ? (Object.keys(s.memory.map).length ? `at ${s.memory.at} ms: ` + Object.entries(s.memory.map).map(([l, v]) => `${l}=${esc(v.name)}`).join(", ") : "nothing visible") : "Not yet — press “Read the numbers”",
+  };
+  $("fields").innerHTML = Object.entries(fields).map(([k, v]) => `<dt>${k}</dt><dd class="${prevFields[k] !== undefined && prevFields[k] !== v ? "changed" : ""}">${v}</dd>`).join("");
+  prevFields = fields;
+
+  // map table
+  if (!s.prefs.persistent) {
+    $("map").innerHTML = "<tr><td>Persistent numbers are off; there is no ambient map.</td></tr>";
+  } else {
+    const onScreen = new Set(Ambient.readingOrder(s.world).map((e) => e.id));
+    const rows = s.ambient.shown.slice().sort((a, b) => Number(a.label) - Number(b.label)).map((e) => {
+      const cur = L[e.id];
+      let st = '<span class="pill good">over its button</span>';
+      if (!onScreen.has(e.id)) st = '<span class="pill bad">button gone</span>';
+      else if (Math.abs(cur.x - e.x) > 6) st = '<span class="pill warn">not over its button</span>';
+      const read = s.memory && s.memory.map[e.label];
+      const readCell = !s.memory ? "—" : !read ? '<span class="pill warn">not read</span>' : read.id === e.id ? esc(read.name) : `<span class="pill bad">${esc(read.name)}</span>`;
+      return `<tr><td class="mono">${esc(e.label)}</td><td>${esc(e.name)}</td><td class="mono">${e.id}</td><td>${st}</td><td>${readCell}</td></tr>`;
+    }).join("");
+    $("map").innerHTML = `<tr><th>Number</th><th>Button</th><th>Identity</th><th>Status</th><th>You read it as</th></tr>${rows}`;
+  }
+  const st = s.stats;
+  $("counters").innerHTML = [
+    [`Re-reads: ${st.reconciles}`, ""],
+    [`Events filtered: ${st.filtered}`, ""],
+    [`Held updates applied: ${st.deferredApplied}`, ""],
+    [`Beeps: ${st.beeps}`, st.beeps ? "warn" : ""],
+    [`Misfires: ${st.misfires}`, st.misfires ? "bad" : "good"],
+  ].map(([t, c]) => `<span class="pill ${c}">${t}</span>`).join("");
+
+  // log
+  $("log").innerHTML = s.log.slice(0, 80).map((e) => `<div class="${e.kind} ${e.seq > lastSeq ? "fresh" : ""}"><span class="t">${e.t} ms</span><span>${esc(e.text)}</span></div>`).join("");
+
+  // controls
+  $("b-persist").textContent = s.prefs.persistent ? "Persistent numbers: on" : "Persistent numbers: off";
+  $("policy").value = s.prefs.policy;
+  $("freeze").value = s.prefs.freeze;
+  const w = s.world;
+  const worldBtns = [];
+  w.apps.forEach((a) => worldBtns.push([`Close ${a.name}`, { type: "closeApp", name: a.name }]));
+  ["Spotify", "Word", "Terminal"].filter((n) => !w.apps.some((a) => a.name === n)).forEach((n) => worldBtns.push([`Open ${n}`, { type: "openApp", name: n }]));
+  worldBtns.push([`Drag ${w.apps[0] ? w.apps[0].name : "first"} to the end`, { type: "dragFirstToEnd" }]);
+  if (w.tray.some((t) => t.name === "Zoom")) worldBtns.push(["Tray: Zoom goes away", { type: "trayRemove", name: "Zoom" }]);
+  else worldBtns.push(["Tray: Zoom appears", { type: "trayAdd", name: "Zoom" }]);
+  worldBtns.push(["Toggle alignment", { type: "toggleAlign" }]);
+  worldBtns.push(["Change display scale", { type: "displayChange" }]);
+  worldBtns.push(["Hover a tray icon", { type: "hover", what: "a tray icon" }]);
+  worldBtns.push(["Hover an app button", { type: "hover", what: "an app button" }]);
+  worldBtns.push(["Toggle button labels (no event)", { type: "silentWiden" }]);
+  const wb = $("b-world");
+  wb.innerHTML = "";
+  worldBtns.forEach(([t, a]) => { const b = document.createElement("button"); b.textContent = t; b.onclick = () => dispatch(a); wb.appendChild(b); });
+
+  const kb = $("b-keys"); kb.innerHTML = "";
+  ["1","2","3","4","5","6","7","8","9","0","A","B","C","Backspace","Enter","Esc"].forEach((k) => {
+    const b = document.createElement("button"); b.className = "key"; b.textContent = k; b.onclick = () => dispatch({ type: "key", key: k }); kb.appendChild(b);
+  });
+  const sb = $("b-say"); sb.innerHTML = "";
+  ["2","3","4","9"].forEach((n) => { const b = document.createElement("button"); b.textContent = `Talon: “taskbar ${n}”`; b.onclick = () => dispatch({ type: "say", n }); sb.appendChild(b); });
+
+  renderScenario();
+}
+
+/* ---------- guided scenarios ---------- */
+const scenarios = [
+  {
+    name: "Read and speak",
+    prefs: { policy: "reuse", freeze: "all" },
+    text: "The happy path. You glance at the taskbar, read Outlook's number, and say it.",
+    watch: "Pressing the shortcut adopts the numbers already on screen. The numbers window's title gains [Active], nothing redraws, and typing does not hide other numbers.",
+    steps: [
+      ["Read the numbers", { type: "read" }],
+      ["Press taskbar shortcut", { type: "taskbarShortcut" }],
+      ["Type 3", { type: "key", key: "3" }],
+      ["Press Enter", { type: "key", key: "Enter" }],
+    ],
+  },
+  {
+    name: "Change mid-sentence",
+    prefs: { policy: "reuse", freeze: "all" },
+    text: "You start selecting, and Slack closes before you finish. The decision says the update waits until the session ends.",
+    watch: "After Slack closes and time passes, the update shows as Held. Slack's number turns red because its button is gone. Selecting it beeps. On Esc the held update is applied exactly once.",
+    steps: [
+      ["Read the numbers", { type: "read" }],
+      ["Press taskbar shortcut", { type: "taskbarShortcut" }],
+      ["Slack closes", { type: "closeApp", name: "Slack" }],
+      ["Wait 200 ms", { type: "tick", ms: 200 }],
+      ["Type 4 (Slack's number)", { type: "key", key: "4" }],
+      ["Press Enter", { type: "key", key: "Enter" }],
+      ["Press Esc", { type: "key", key: "Esc" }],
+    ],
+  },
+  {
+    name: "Number reused",
+    prefs: { policy: "reuse", freeze: "all" },
+    text: "With 'reuse lowest free number', Outlook closes and Spotify opens a second later. Spotify gets Outlook's old number. You read the numbers before all this and say 'taskbar 3'.",
+    watch: "Spotify opens, not Outlook: a misfire. Then try the 'Never reuse' scenario for the same steps.",
+    steps: [
+      ["Read the numbers", { type: "read" }],
+      ["Outlook closes", { type: "closeApp", name: "Outlook" }],
+      ["Wait 200 ms", { type: "tick", ms: 200 }],
+      ["Spotify opens", { type: "openApp", name: "Spotify" }],
+      ["Wait 200 ms", { type: "tick", ms: 200 }],
+      ["Talon: “taskbar 3”", { type: "say", n: "3" }],
+    ],
+  },
+  {
+    name: "Never reuse",
+    prefs: { policy: "fresh", freeze: "all" },
+    text: "The same steps as 'Number reused', with 'never reuse a number'. Spotify gets 9 instead of 3.",
+    watch: "Saying 3 now beeps because nothing has that number. You get a safe failure, not a misfire. The cost is that numbers keep growing as apps come and go.",
+    steps: [
+      ["Read the numbers", { type: "read" }],
+      ["Outlook closes", { type: "closeApp", name: "Outlook" }],
+      ["Wait 200 ms", { type: "tick", ms: 200 }],
+      ["Spotify opens", { type: "openApp", name: "Spotify" }],
+      ["Wait 200 ms", { type: "tick", ms: 200 }],
+      ["Talon: “taskbar 3”", { type: "say", n: "3" }],
+    ],
+  },
+  {
+    name: "Talon today",
+    prefs: { policy: "positional", freeze: "all" },
+    text: "Positional numbering, like Talon's current script. Closing Edge shifts every number to its right.",
+    watch: "Outlook goes from 3 to 2 and Slack takes 3. Saying 3 opens Slack.",
+    steps: [
+      ["Read the numbers", { type: "read" }],
+      ["Edge closes", { type: "closeApp", name: "Edge" }],
+      ["Wait 200 ms", { type: "tick", ms: 200 }],
+      ["Talon: “taskbar 3”", { type: "say", n: "3" }],
+    ],
+  },
+  {
+    name: "Shortcut beats debounce",
+    prefs: { policy: "reuse", freeze: "all" },
+    text: "Slack closes, and you press the shortcut 50 ms later, before the update is due.",
+    watch: "The pending update is applied first, then the session adopts the numbers. Typing 4 beeps because Slack's number is already gone.",
+    steps: [
+      ["Slack closes", { type: "closeApp", name: "Slack" }],
+      ["Wait 50 ms", { type: "tick", ms: 50 }],
+      ["Press taskbar shortcut", { type: "taskbarShortcut" }],
+      ["Type 4", { type: "key", key: "4" }],
+      ["Press Esc", { type: "key", key: "Esc" }],
+    ],
+  },
+  {
+    name: "Display change",
+    prefs: { policy: "reuse", freeze: "all" },
+    text: "The display scale changes. Windows announces it before the taskbar has finished re-laying out.",
+    watch: "Numbers hide, the taskbar re-lays out at 450 ms, and the numbers return in the right place about 600 ms in. Repeat with the shortcut pressed first: with 'freeze everything' the numbers sit over the wrong buttons until Esc. Switch 'During a session' to compare.",
+    steps: [
+      ["Change display scale", { type: "displayChange" }],
+      ["Wait 200 ms", { type: "tick", ms: 200 }],
+      ["Wait 700 ms (settle)", { type: "tick", ms: 700 }],
+      ["Press taskbar shortcut", { type: "taskbarShortcut" }],
+      ["Change display scale again", { type: "displayChange" }],
+      ["Wait 700 ms", { type: "tick", ms: 700 }],
+      ["Press Esc", { type: "key", key: "Esc" }],
+    ],
+  },
+  {
+    name: "Noise and silence",
+    prefs: { policy: "reuse", freeze: "all" },
+    text: "Hovering raises events that the sender filter drops. Turning button labels on raises nothing at all (gate F).",
+    watch: "Hovering never triggers a re-read. After 'Toggle button labels' every number is misplaced and stays that way until an unrelated event, here a tray icon appearing.",
+    steps: [
+      ["Hover a tray icon", { type: "hover", what: "a tray icon" }],
+      ["Hover an app button", { type: "hover", what: "an app button" }],
+      ["Toggle button labels (no event)", { type: "silentWiden" }],
+      ["Wait 700 ms", { type: "tick", ms: 700 }],
+      ["Tray: Zoom appears", { type: "trayAdd", name: "Zoom" }],
+      ["Wait 200 ms", { type: "tick", ms: 200 }],
+    ],
+  },
+  {
+    name: "Other sessions",
+    prefs: { policy: "reuse", freeze: "all" },
+    text: "Interactions with a Foreground session, and with persistent numbers turned off.",
+    watch: "During a Foreground session the ambient numbers stay up, and digits beep. The taskbar shortcut switches to an adopted session. With persistent numbers off, the shortcut starts an ordinary session with letters and filtering.",
+    steps: [
+      ["Press foreground shortcut", { type: "foregroundShortcut" }],
+      ["Type 3", { type: "key", key: "3" }],
+      ["Press taskbar shortcut (switch)", { type: "taskbarShortcut" }],
+      ["Press Esc", { type: "key", key: "Esc" }],
+      ["Turn persistent numbers off", { type: "setPersistent", on: false }],
+      ["Press taskbar shortcut", { type: "taskbarShortcut" }],
+      ["Type C", { type: "key", key: "C" }],
+      ["Press Enter", { type: "key", key: "Enter" }],
+    ],
+  },
+];
+let active = 0;
+let progress = 0;
+
+function startScenario(i) {
+  active = i; progress = 0;
+  lastSeq = 0;
+  state = Ambient.reduce(state, { type: "reset", prefs: Object.assign({ persistent: true }, scenarios[i].prefs) });
+  render();
+}
+
+function renderScenario() {
+  const tabs = $("tabs");
+  tabs.innerHTML = "";
+  scenarios.forEach((sc, i) => {
+    const b = document.createElement("button");
+    b.textContent = sc.name; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", i === active ? "true" : "false");
+    b.onclick = () => startScenario(i);
+    tabs.appendChild(b);
+  });
+  const sc = scenarios[active];
+  const box = $("scenario");
+  box.innerHTML = `<p>${esc(sc.text)}</p><p class="watch"><b>Watch for:</b> ${esc(sc.watch)}</p>`;
+  const ol = document.createElement("ol"); ol.className = "steps";
+  sc.steps.forEach(([t, a], i) => {
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.textContent = t;
+    b.className = i < progress ? "done" : i === progress ? "next" : "";
+    b.disabled = i !== progress;
+    b.onclick = () => { progress = i + 1; dispatch(a); };
+    li.appendChild(b); ol.appendChild(li);
+  });
+  box.appendChild(ol);
+  const r = document.createElement("button");
+  r.textContent = "Restart this scenario"; r.onclick = () => startScenario(active);
+  box.appendChild(r);
+}
+
+document.querySelectorAll("[data-tick]").forEach((b) => (b.onclick = () => dispatch({ type: "tick", ms: Number(b.dataset.tick) })));
+$("b-persist").onclick = () => dispatch({ type: "setPersistent", on: !state.prefs.persistent });
+$("policy").onchange = (e) => dispatch({ type: "setPolicy", policy: e.target.value });
+$("freeze").onchange = (e) => dispatch({ type: "setFreeze", freeze: e.target.value });
+$("b-read").onclick = () => dispatch({ type: "read" });
+$("b-sc-tb").onclick = () => dispatch({ type: "taskbarShortcut" });
+$("b-sc-fg").onclick = () => dispatch({ type: "foregroundShortcut" });
+$("b-focus").onclick = () => dispatch({ type: "focusLoss" });
+$("b-reset").onclick = () => startScenario(active);
+startScenario(0);
+</script>
