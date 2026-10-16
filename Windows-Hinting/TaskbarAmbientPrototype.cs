@@ -39,6 +39,8 @@
 //
 // RUN:  Windows-Hinting.exe --prototype-taskbar-ambient [--numbering=positional|fresh|reuse] [--freeze=all|positions]
 //   Default numbering = positional (owner, 2026-10-16: numbers always read left to right).
+//   [--anchor=topmost|owner]: owner = window owned by Shell_TrayWnd (no z-order flicker,
+//   but taskbar app-button clicks stop working); toggle live with Ctrl+Alt+Shift+O.
 //   Close the real Windows-Hinting first: this prototype registers the app's
 //   default taskbar hotkey (Ctrl+Alt+T) so existing Talon commands drive it.
 //   Global hotkeys:
@@ -257,7 +259,10 @@ namespace WindowsHinting
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            _form = new AmbientNumbersForm(LabelFontScale);
+            _form = new AmbientNumbersForm(LabelFontScale)
+            {
+                OwnedByTaskbar = Arg("--anchor", "topmost").Equals("owner", StringComparison.OrdinalIgnoreCase),
+            };
             _form.KeyIntent += OnKeyIntent;
             _form.FocusLost += () => EndSession(_activationInFlight ? "activation (target took focus)" : "focus lost");
             _form.Show();
@@ -742,6 +747,7 @@ namespace WindowsHinting
             _winEventProc = (h, ev, hwnd, o, c, t, tm) =>
             {
                 if (_form == null || hwnd == _form.Handle) return;
+                if (ev is 0x0004 or 0x0005 or 0x0006) { _form.EnsureTopmost(); return; } // MENUSTART / MENUEND / MENUPOPUPSTART
                 if (ev == 0x0003) // EVENT_SYSTEM_FOREGROUND (any app): clicking the taskbar or
                 {                 // opening Start raises Shell_TrayWnd over us — climb back at once.
                     _form.EnsureTopmost();
@@ -756,7 +762,7 @@ namespace WindowsHinting
             };
             _winHookObj = SetWinEventHook(0x8000, 0x8004, IntPtr.Zero, _winEventProc, pid, 0, 0);
             _winHookState = SetWinEventHook(0x800A, 0x800A, IntPtr.Zero, _winEventProc, pid, 0, 0);
-            _winHookFg = SetWinEventHook(0x0003, 0x0003, IntPtr.Zero, _winEventProc, 0, 0, 0);
+            _winHookFg = SetWinEventHook(0x0003, 0x0006, IntPtr.Zero, _winEventProc, 0, 0, 0); // FOREGROUND..MENUPOPUPSTART
             Log($"Subscribed: WinEvents on explorer pid {pid} (obj={_winHookObj != IntPtr.Zero}, state={_winHookState != IntPtr.Zero}).");
         }
 
@@ -794,7 +800,7 @@ namespace WindowsHinting
 
         private sealed class HotkeyWindow : NativeWindow
         {
-            private const int HK_ADOPT = 1, HK_POLICY = 2, HK_FREEZE = 3, HK_RECONCILE = 4, HK_QUIT = 5;
+            private const int HK_ADOPT = 1, HK_POLICY = 2, HK_FREEZE = 3, HK_RECONCILE = 4, HK_QUIT = 5, HK_ANCHOR = 6;
             private const uint MOD_ALT = 1, MOD_CONTROL = 2, MOD_SHIFT = 4, MOD_NOREPEAT = 0x4000;
 
             public HotkeyWindow()
@@ -809,6 +815,8 @@ namespace WindowsHinting
                 bool f = RegisterHotKey(Handle, HK_FREEZE, m3, 0x46);
                 bool r = RegisterHotKey(Handle, HK_RECONCILE, m3, 0x52);
                 bool q = RegisterHotKey(Handle, HK_QUIT, m3, 0x51);
+                bool o = RegisterHotKey(Handle, HK_ANCHOR, m3, 0x4F);
+                Log($"Hotkey: Ctrl+Alt+Shift+O toggle anchor (owned-by-taskbar vs plain topmost) = {o}");
                 Log($"Hotkeys: Ctrl+Alt+T adopt={a}  +Shift N policy={n} F freeze={f} R reconcile={r} Q quit={q}" +
                     (a || fallback ? "" : "  !! no taskbar shortcut could be registered."));
             }
@@ -839,6 +847,9 @@ namespace WindowsHinting
                         case HK_QUIT:
                             Application.Exit();
                             break;
+                        case HK_ANCHOR:
+                            _form!.SetOwnedByTaskbar(!_form.OwnedByTaskbar);
+                            break;
                     }
                 }
                 base.WndProc(ref m);
@@ -846,7 +857,7 @@ namespace WindowsHinting
 
             public void Teardown()
             {
-                for (int i = 1; i <= 5; i++) UnregisterHotKey(Handle, i);
+                for (int i = 1; i <= 6; i++) UnregisterHotKey(Handle, i);
                 DestroyHandle();
             }
         }
@@ -941,12 +952,23 @@ namespace WindowsHinting
             // the same z-order operation instead of a frame later. Re-asserting topmost after
             // the foreground event was not enough — that still flickered (owner, 2026-10-16).
             // Caveat to measure: a cross-process owner can attach input queues with explorer.
-            IntPtr tray = FindWindowW("Shell_TrayWnd", null);
-            if (tray != IntPtr.Zero)
-            {
-                SetWindowLongPtr(Handle, GWLP_HWNDPARENT, tray);
-                TaskbarAmbientPrototype.Log($"Numbers window owned by Shell_TrayWnd 0x{tray.ToInt64():X} (owner now 0x{GetWindowLongPtr(Handle, GWLP_HWNDPARENT).ToInt64():X}).");
-            }
+            // FINDING (owner, 2026-10-16): while owned, clicking taskbar APP buttons does
+            // nothing (tray icons still work). So ownership is off by default; toggle it
+            // with Ctrl+Alt+Shift+O to compare flicker vs clickability.
+            SetOwnedByTaskbar(OwnedByTaskbar);
+        }
+
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public bool OwnedByTaskbar { get; set; }
+
+        public void SetOwnedByTaskbar(bool owned)
+        {
+            OwnedByTaskbar = owned;
+            if (!IsHandleCreated) return;
+            IntPtr tray = owned ? FindWindowW("Shell_TrayWnd", null) : IntPtr.Zero;
+            SetWindowLongPtr(Handle, GWLP_HWNDPARENT, tray);
+            EnsureTopmost();
+            TaskbarAmbientPrototype.Log($"Anchor -> {(owned ? "OWNED by Shell_TrayWnd" : "plain topmost")} (owner now 0x{GetWindowLongPtr(Handle, GWLP_HWNDPARENT).ToInt64():X}).");
         }
 
         public void SetTaskbarBounds(Rectangle r) { if (Bounds != r) Bounds = r; }
