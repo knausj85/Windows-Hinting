@@ -89,20 +89,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      # For the dotnet-format hook (whitespace --folder: no restore needed).
       - name: Setup .NET
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           global-json-file: global.json
-
-      - name: Cache NuGet packages
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.wixproj', '**/Directory.Build.*', 'global.json') }}
-          restore-keys: nuget-${{ runner.os }}-
-
-      - name: Restore NuGet packages
-        run: dotnet restore
 
       - name: Install PSScriptAnalyzer
         run: Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser

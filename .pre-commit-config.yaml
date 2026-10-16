@@ -1,37 +1,49 @@
 repos:
   # General hygiene hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$
       - id: end-of-file-fixer
         exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$
       - id: check-yaml
+      - id: check-json
       - id: check-xml
+        # MSBuild/WiX project and source files are XML too
+        files: \.(xml|csproj|wixproj|props|targets|pubxml|slnx|wxs|wxl|manifest)$
+        types: [file]
       - id: check-merge-conflict
       - id: check-added-large-files
         args: ['--maxkb=500']
+      - id: detect-private-key
       - id: mixed-line-ending
         args: ['--fix=crlf']
         exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$
 
-  # C# formatting via dotnet format
+  # GitHub Actions workflow linting (also runs shellcheck on bash run: blocks when available)
+  - repo: https://github.com/Mateusz-Grzelinski/actionlint-py
+    rev: v1.7.12.25
+    hooks:
+      - id: actionlint
+
+  # C# whitespace formatting per .editorconfig. --folder formats the files directly,
+  # without loading the project, so it needs no restore or build and stays fast.
   - repo: local
     hooks:
       - id: dotnet-format
-        name: dotnet format
-        entry: dotnet format --include
+        name: dotnet format whitespace
+        entry: dotnet format whitespace --folder --include
         language: system
         types_or: [c#]
         pass_filenames: true
 
-  # PowerShell linting via PSScriptAnalyzer
+  # PowerShell linting via PSScriptAnalyzer (reports only; never rewrites files)
   - repo: local
     hooks:
       - id: psscriptanalyzer
         name: PSScriptAnalyzer
-        entry: pwsh -NoProfile -Command "$settings = Join-Path $PWD 'build/PSScriptAnalyzerSettings.psd1'; Get-ChildItem -Filter *.ps1 -Recurse build/ | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Fix -Settings $settings -Severity Warning,Error | Out-Null; $results = Invoke-ScriptAnalyzer -Path $_.FullName -Settings $settings -Severity Warning,Error; if ($results) { $results | Format-Table -AutoSize; $global:failed = $true } }; if ($global:failed) { exit 1 }"
+        entry: pwsh -NoProfile -File build/Invoke-PSScriptAnalyzer.ps1
         language: system
-        files: '\.ps1$'
-        pass_filenames: false
+        files: \.ps1$
+        pass_filenames: true
