@@ -20,8 +20,8 @@ indent_size = 4
 [*.md]
 trim_trailing_whitespace = false
 
-[*.sln]
-indent_style = tab
+[*.slnx]
+indent_size = 2
 
 # C# formatting rules
 [*.cs]
@@ -44,8 +44,8 @@ csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
 csharp_style_throw_expression = true:suggestion
 csharp_style_conditional_delegate_call = true:suggestion
 
-# Namespace preferences
-csharp_style_namespace_declarations = file_scoped:suggestion
+# Namespace preferences (all files use block-scoped namespaces)
+csharp_style_namespace_declarations = block_scoped:suggestion
 
 # Organize usings
 dotnet_sort_system_directives_first = true
