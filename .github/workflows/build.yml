@@ -28,7 +28,9 @@ env:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  # A newer push supersedes an in-flight branch/PR build; main builds (which publish
+  # releases) always run to completion.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 defaults:
   run:
@@ -38,13 +40,13 @@ jobs:
   lint:
     name: Pre-commit Lint
     runs-on: windows-latest
+    # Every push builds via the push trigger, so a pull_request run for a branch in this
+    # repository would build the same commit twice. pull_request runs only for forks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -62,14 +64,10 @@ jobs:
       - name: Install PSScriptAnalyzer
         run: Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
 
+      # Fails with the diff of anything a hook would change; run `pre-commit run --all-files`
+      # locally (or install the hook with `pre-commit install`) to apply the fixes.
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
-
-      - name: Auto-fix and commit
-        if: failure() && github.event_name == 'pull_request'
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "style: auto-fix pre-commit hook violations"
 
   build-debug:
     name: Debug Build
