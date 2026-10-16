@@ -12,7 +12,6 @@
     <File Path=".github/workflows/build.yml" />
   </Folder>
   <Folder Name="/build/">
-    <File Path="build/build-complete.bat" />
     <File Path="build/build-complete.ps1" />
     <File Path="build/PSScriptAnalyzerSettings.psd1" />
   </Folder>
