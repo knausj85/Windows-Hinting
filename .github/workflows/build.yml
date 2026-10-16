@@ -40,14 +40,61 @@ defaults:
     shell: pwsh
 
 jobs:
+  # Runs first: the build jobs wait for it, so a commit that fails formatting or lint
+  # doesn't spend ~10 runner-minutes building. On a pull request, the last step has
+  # pre-commit.ci lite commit whatever the fixing hooks changed (whitespace, line endings,
+  # final newlines, BOMs, dotnet format, PSScriptAnalyzer) back to the PR branch; the
+  # builds are skipped for the failing commit and run on the fixed one.
+  #
+  # pre-commit.ci lite rather than the hosted service: hosted runners are Linux-only with
+  # no network at hook time and only .NET SDK 7, so the dotnet-format and PSScriptAnalyzer
+  # hooks couldn't run there. Lite works inside this Windows job. It needs the GitHub App:
+  #   https://github.com/apps/pre-commit-ci-lite/installations/new
+  # and requires this job to be the last one still running when there's something to fix,
+  # which holds because every other job that could still be running depends on it.
+  # Hook revs are bumped by Dependabot (.github/dependabot.yml).
+  pre-commit:
+    name: pre-commit
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      # For the dotnet-format hook (whitespace --folder: no restore needed).
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Install PSScriptAnalyzer
+        run: Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+
+      # Fails if any hook changed a file or reported a problem; the diff is in the log.
+      - name: Run pre-commit
+        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+
+      # Must be the last step, and its name must contain "pre-commit-ci-lite" (the app
+      # finds the run by it). Does nothing outside pull requests or when nothing changed.
+      - name: pre-commit-ci-lite autofix
+        uses: pre-commit-ci/lite-action@062bca0919bc9d6e66755cc05074b70c77e111fc # v1.2.0
+        if: always()
+        with:
+          msg: 'style: apply pre-commit fixes [pre-commit.ci lite]'
+
   # Values shared by the build and release jobs, computed once.
-  # Linting (and autofixing PRs) is the separate pre-commit workflow.
   metadata:
     name: Build metadata
     runs-on: ubuntu-latest
     # Every push builds via the push trigger, so a pull_request run for a branch in this
-    # repository would build the same commit twice. pull_request runs only for forks.
-    # Every other job needs this one, so they skip with it.
+    # repository would build the same commit twice: pull_request runs build only for
+    # forks (the pre-commit job above still runs, to autofix the PR). Every build job
+    # needs this one, so they skip with it.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     outputs:
       artifact_suffix: ${{ steps.meta.outputs.artifact_suffix }}
@@ -79,7 +126,7 @@ jobs:
 
   build-debug:
     name: Debug Build
-    needs: metadata
+    needs: [pre-commit, metadata]
     runs-on: windows-latest
     env:
       ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
@@ -115,7 +162,7 @@ jobs:
 
   build-release:
     name: Release Build + MSI
-    needs: metadata
+    needs: [pre-commit, metadata]
     runs-on: windows-latest
     env:
       ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}

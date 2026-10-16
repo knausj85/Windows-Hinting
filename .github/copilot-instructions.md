@@ -35,9 +35,9 @@ Rules that are easy to break:
   up automatically. Don't list files by hand.
 - Formatting is enforced by pre-commit (`.pre-commit-config.yaml`). Run
   `pre-commit install` once so hooks fix files at commit time, or
-  `pre-commit run --all-files`. On pull requests the `pre-commit` workflow runs the
-  same hooks and pre-commit.ci lite commits any fixes back to the PR (`style: apply
-  pre-commit fixes`); pull that commit before pushing again.
+  `pre-commit run --all-files`. CI runs the same hooks first and only builds once they
+  pass; on pull requests pre-commit.ci lite commits any fixes back to the PR (`style:
+  apply pre-commit fixes`), which then builds. Pull that commit before pushing again.
 
 ## Other project conventions
 

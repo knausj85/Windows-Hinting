@@ -1,7 +1,8 @@
 # Hooks that fix files (whitespace, final newlines, BOMs, line endings, dotnet format,
 # PSScriptAnalyzer) rewrite them and fail; on a pull request, pre-commit.ci lite then
-# commits those fixes to the PR (.github/workflows/pre-commit.yml). The check-* hooks,
-# detect-private-key and actionlint can only report. Hook revs are bumped by Dependabot.
+# commits those fixes to the PR (the pre-commit job in .github/workflows/build.yml, which
+# runs before the builds). The check-* hooks, detect-private-key and actionlint can only
+# report. Hook revs are bumped by Dependabot.
 repos:
   # General hygiene hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
