@@ -10,4 +10,9 @@
     <FileVersion>$(BuildVersion).0</FileVersion>
     <InformationalVersion>$(BuildVersion)</InformationalVersion>
   </PropertyGroup>
+
+  <!-- CI builds (GitHub Actions sets GITHUB_ACTIONS=true): deterministic output paths. -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true' And '$(MSBuildProjectExtension)' == '.csproj'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
 </Project>
