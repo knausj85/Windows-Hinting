@@ -1,5 +1,11 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Text files are stored with LF in the repository and checked out with CRLF on every
+# platform, matching .editorconfig (end_of_line = crlf) and the pre-commit
+# mixed-line-ending hook (--fix=crlf), whatever the local core.autocrlf setting.
+* text=auto eol=crlf
+
+# Binary assets: never touch.
+*.ico binary
+*.png binary
 
 # NetSparkle Ed25519 public key: treat as raw binary so no EOL normalization,
 # whitespace trimming, or BOM insertion occurs. Any byte change invalidates
