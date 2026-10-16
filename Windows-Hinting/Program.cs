@@ -33,6 +33,15 @@ namespace WindowsHinting
                 return;
             }
 
+            // PROTOTYPE (#81 reframe / #108): ambient taskbar numbers + adopted
+            // Taskbar session. Branch prototype/taskbar-ambient-csharp only.
+            if (Array.Exists(Environment.GetCommandLineArgs(), a =>
+                    a.Equals("--prototype-taskbar-ambient", StringComparison.OrdinalIgnoreCase)))
+            {
+                TaskbarAmbientPrototype.Run();
+                return;
+            }
+
             using (Mutex mutex = new Mutex(false, appGuid))
             {
                 if (!mutex.WaitOne(0, false))
