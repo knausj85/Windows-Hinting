@@ -44,7 +44,7 @@ jobs:
   # starts two runs (push and pull_request) for the same commit. Only one should work:
   # the pull_request run, because it is the one pre-commit.ci lite can autofix and it
   # also covers PRs from forks. This job ends the push run early when the branch has an
-  # open PR (draft or not); everything else needs it and is skipped. Pushes to main,
+  # open PR (draft or not) that can be merged; everything else needs it and is skipped. Pushes to main,
   # pushes to branches without a PR, PR runs and manual runs all proceed.
   gate:
     name: Run gate
@@ -64,11 +64,23 @@ jobs:
         run: |
           run=true
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" != "main" ]; then
-            prs=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$OWNER:$GITHUB_REF_NAME" --jq 'map("#\(.number)") | join(" ")')
-            if [ -n "$prs" ]; then
-              echo "Branch has open PR(s) $prs; their pull_request run lints and builds this commit."
-              run=false
-            fi
+            for pr in $(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$OWNER:$GITHUB_REF_NAME" --jq '.[].number'); do
+              # GitHub only starts a pull_request run when the PR can be merged (it builds
+              # the merge commit), so a PR with conflicts would leave this commit unbuilt.
+              # Mergeability is computed after the push; wait up to ~1 minute for it.
+              mergeable=null
+              for _ in $(seq 12); do
+                mergeable=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr" --jq '.mergeable')
+                [ "$mergeable" != "null" ] && break
+                sleep 5
+              done
+              if [ "$mergeable" = "true" ]; then
+                echo "Branch has open PR #$pr; its pull_request run lints and builds this commit."
+                run=false
+                break
+              fi
+              echo "PR #$pr isn't mergeable (mergeable=$mergeable), so it gets no pull_request run; building here."
+            done
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
   # Runs first: the build jobs wait for it, so a commit that fails formatting or lint
