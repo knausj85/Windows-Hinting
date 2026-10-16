@@ -1,3 +1,7 @@
+# Hooks that fix files (whitespace, final newlines, BOMs, line endings, dotnet format,
+# PSScriptAnalyzer) rewrite them and fail; on a pull request, pre-commit.ci lite then
+# commits those fixes to the PR (.github/workflows/pre-commit.yml). The check-* hooks,
+# detect-private-key and actionlint can only report. Hook revs are bumped by Dependabot.
 repos:
   # General hygiene hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -6,6 +10,9 @@ repos:
       - id: trailing-whitespace
         exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$
       - id: end-of-file-fixer
+        exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$
+      # .editorconfig: charset = utf-8 (no BOM)
+      - id: fix-byte-order-marker
         exclude: ^Windows-Hinting/Resources/netsparkle_pub\.txt$
       - id: check-yaml
       - id: check-json
@@ -38,7 +45,7 @@ repos:
         types_or: [c#]
         pass_filenames: true
 
-  # PowerShell linting via PSScriptAnalyzer (reports only; never rewrites files)
+  # PowerShell: PSScriptAnalyzer's automatic fixes, then a report of what's left
   - repo: local
     hooks:
       - id: psscriptanalyzer
