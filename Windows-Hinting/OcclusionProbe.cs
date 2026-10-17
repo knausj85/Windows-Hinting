@@ -453,12 +453,33 @@ namespace WindowsHinting
             }
         }
 
+        // spec: "Exact name", "Prefix*", either optionally suffixed "#N" (1-based Nth match).
+        private static IUIAutomationElement? FindByName(IUIAutomation a, IUIAutomationElement root, string spec)
+        {
+            int nth = 1;
+            int hash = spec.LastIndexOf('#');
+            if (hash > 0 && int.TryParse(spec[(hash + 1)..], out var n)) { nth = n; spec = spec[..hash]; }
+            bool prefix = spec.EndsWith('*');
+            if (!prefix && nth == 1)
+                return root.FindFirst(TreeScope.TreeScope_Descendants, a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_NamePropertyId, spec));
+            string want = prefix ? spec[..^1] : spec;
+            var cr = a.CreateCacheRequest();
+            cr.AddProperty(UIA_PROPERTY_ID.UIA_NamePropertyId);
+            var all = root.FindAllBuildCache(TreeScope.TreeScope_Descendants, a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_IsControlElementPropertyId, true), cr);
+            for (int i = 0; i < all.Length; i++)
+            {
+                var e = all.GetElement(i);
+                var nm = e.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_NamePropertyId) as string ?? "";
+                if ((prefix ? nm.StartsWith(want, StringComparison.Ordinal) : nm == want) && --nth == 0) return e;
+            }
+            return null;
+        }
+
         private static void InvokeByName(IntPtr target, string name)
         {
             var a = (IUIAutomation)new CUIAutomation();
             var root = a.ElementFromHandle((HWND)target);
-            var el = root.FindFirst(TreeScope.TreeScope_Descendants,
-                a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_NamePropertyId, name));
+            var el = FindByName(a, root, name);
             if (el == null) { Log($"!! --invoke: no element named '{name}'"); return; }
             Log($"--invoke '{name}' ct={el.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_ControlTypePropertyId)} rect={ToRect(el.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_BoundingRectanglePropertyId))}");
             if (el.GetCurrentPattern(UIA_PATTERN_ID.UIA_ExpandCollapsePatternId) is IUIAutomationExpandCollapsePattern ec)

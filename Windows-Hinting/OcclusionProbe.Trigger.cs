@@ -114,8 +114,7 @@ namespace WindowsHinting
             RunMta(() =>
             {
                 var a = (IUIAutomation)new CUIAutomation();
-                var el = a.ElementFromHandle((HWND)target).FindFirst(TreeScope.TreeScope_Descendants,
-                    a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_NamePropertyId, click ?? invoke ?? ""));
+                var el = FindByName(a, a.ElementFromHandle((HWND)target), click ?? invoke ?? "");
                 if (el == null) return;
                 triggerRect = ToRect(el.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_BoundingRectanglePropertyId));
                 ec = el.GetCurrentPattern(UIA_PATTERN_ID.UIA_ExpandCollapsePatternId) as IUIAutomationExpandCollapsePattern;
@@ -153,6 +152,7 @@ namespace WindowsHinting
             Mark("probe", "trigger sent");
             poller.Start();
             poller.Join();
+            RunMta(() => DescribePopup(target, click ?? invoke));
             stop.Set();
             hookThread.Join();
 
@@ -168,6 +168,36 @@ namespace WindowsHinting
                 foreach (var kv in EventCounts.OrderByDescending(kv => kv.Value))
                     Log($"  {kv.Key,-40} {kv.Value}");
             Log("=== END ===");
+        }
+
+        private static void DescribePopup(IntPtr target, string? openerSpec)
+        {
+            var a = (IUIAutomation)new CUIAutomation();
+            string D(IUIAutomationElement e) =>
+                $"ct={e.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_ControlTypePropertyId)} " +
+                $"aria='{e.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_AriaRolePropertyId)}' " +
+                $"isDialog={e.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_IsDialogPropertyId)} " +
+                $"class='{Trunc(e.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_ClassNamePropertyId) as string, 50)}' " +
+                $"name='{Trunc(e.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_NamePropertyId) as string, 40)}' " +
+                $"rect={ToRect(e.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_BoundingRectanglePropertyId))}";
+            try
+            {
+                if (openerSpec != null && FindByName(a, a.ElementFromHandle((HWND)target), openerSpec) is { } opener)
+                {
+                    var cf = opener.CurrentControllerFor;
+                    Log($"opener ControllerFor (aria-controls): {cf?.Length ?? 0}");
+                    for (int i = 0; i < (cf?.Length ?? 0); i++) Log($"   -> {D(cf!.GetElement(i))}");
+                }
+                var f = a.GetFocusedElement();
+                var w = a.RawViewWalker;
+                Log("focused element ancestry:");
+                for (int d = 0; f != null && d < 10; d++, f = w.GetParentElement(f))
+                {
+                    Log($"   {d}: {D(f)}");
+                    if (f.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_ControlTypePropertyId) is 50030) break; // Document
+                }
+            }
+            catch (Exception ex) { Log("DescribePopup error " + ex.Message); }
         }
 
         private static void PollReadiness(IntPtr target, uint pid, int watchMs, List<string> _)

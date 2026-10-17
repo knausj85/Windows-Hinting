@@ -453,6 +453,9 @@ Machine: Win11 26200, ARM64, one display at 200% (DPI 192). Runs were DPI-unawar
 | GitHub **"More items"** (repo nav overflow) | 93 | 3 | 1 (menu's own wrapper) | 3 | yes (`role=menu`) | same HWND | UIA `FocusChanged`→menuitem, UIA `MenuOpened`, WinEvent `MENUPOPUPSTART`, opener `Expanded` (40–90 ms) |
 | GitHub hamburger (`Open menu`) | 110 | 19 | 26 | 19 | **no** (`role=dialog`, aria-modal side sheet) | same HWND | **only** UIA `FocusChanged` into the `IsDialog` node (56–77 ms) |
 | GitHub branch picker (`main branch`) | 108 | 18 | 19 | 18 | yes (inner `role=menu`) | same HWND | UIA `MenuOpened` + WinEvent `MENUPOPUPSTART` + opener `Expanded` (69–122 ms); `FocusChanged`→`Filter branches` box inside the dialog (64–93 ms) |
+| GitHub **Watch** (`Watch: …`) | 87 | 4 | 6 | 4 | yes (`role=menu`, `menuitemradio` items) | same HWND | UIA `MenuOpened` (21–41 ms), `FocusChanged`→`menuitemradio` (32–41), opener `Expanded` (37–43), WinEvent `MENUPOPUPSTART` (36–45) |
+| GitHub green **Code** button | 96 | 0 (**no Menu/Dialog role**) | 0 (~6 background hints under the popover stay) | n/a (~14 if the popover is detected, §10) | **no** | same HWND (portal `Group`, §10) | **only** `FocusChanged`→`Local` tab inside the popover (23–33 ms), opener `Expanded` (35–37), WinEvent `OBJECT_SHOW` of a grouping node (37–41); **no** menu events |
+| GitHub **+** (`Create new...`) | 91 | 8 | 3 | 8 | yes (`role=menu`) | same HWND | UIA `MenuOpened` (25–26 ms), `FocusChanged`→`New issue` (25–30), opener `Expanded` (32–40), WinEvent `MENUPOPUPSTART` (34–46) |
 | Edge favorites-bar folder (`Coding`) | 94 | 4 | 9 | 4 | **no** | own popup HWND, items **also** in main tree | WinEvent `MENUSTART`/`MENUPOPUPSTART` on the popup HWND (39–43 ms); `FocusChanged` not dependable on mouse open |
 | Edge `Other favorites` | 92 | 2 | 8 | 2 | no | same as above | WinEvent `MENUSTART`/`MENUPOPUPSTART` (44–51 ms); `FocusChanged` only when opened via UIA, none on mouse click |
 | Edge `Settings and more` | 114 | 24 | 41 | 24 | no | same as above | WinEvent `MENUSTART`/`MENUPOPUPSTART` (52–83 ms); `FocusChanged` via UIA/Alt+F, none on mouse click |
@@ -561,7 +564,7 @@ The probe records:
 - a readiness poll that logs popup containers, on-screen MenuItems in the tree, and same-process popup
   HWNDs whenever they change.
 
-20 runs in total; raw timelines are in `occlusion-probe-trig-*.log` next to the exe.
+26 runs in total (§10 adds Watch, Code and Create new); raw timelines are in `occlusion-probe-trig-*.log` next to the exe.
 
 All times are ms after the trigger. "—" means the signal did not fire.
 
@@ -570,6 +573,9 @@ All times are ms after the trigger. "—" means the signal did not fire.
 | GitHub "More items" (click, UIA) | 67–89 | 40–52 | 40–51 (first menuitem) | 45–55 | ~80–100 |
 | GitHub hamburger (click, UIA) | — | — | 56–77 (`Close menu` in the dialog) | — | ~120–160 |
 | GitHub branch picker (click, UIA) | 116–122 | 69–119 | 64–93 (`Filter branches` text box in the dialog) | 68–117 | dialog at ~120–215; list still growing until ~350 (a burst of 23 `OBJECT_SHOW`s, menu rect resized) |
+| GitHub Watch (click, UIA) | 36–45 | 21–41 | 32–41 (`menuitemradio`) | 37–43 | ~61–92 |
+| GitHub green Code (click, UIA) | — | — | 23–33 (`Local` tab in the popover) | 35–37 | first poll ~60–90 (no Menu/Dialog to detect; see §10) |
+| GitHub + `Create new...` (click, UIA) | 34–46 | 25–26 | 25–30 (`New issue`) | 32–40 | ~72–90 |
 | Edge favorites folder `Coding` (click, UIA) | 39–43 (+`MENUSTART`) | — | UIA 22; click 68 | — | ~90–110 |
 | Edge `Other favorites` (click, UIA) | 49–51 (+`MENUSTART`) | — | UIA 25; **click: none** | — | ~120 |
 | Edge `Settings and more` (click, UIA, Alt+F) | 54–83 (+`MENUSTART`) | — | UIA 32, Alt+F 62; **click: none** | — | ~125–150 |
@@ -643,3 +649,72 @@ All times are ms after the trigger. "—" means the signal did not fire.
    ms.
 9. **Close signals** (not timed in detail): `MENUPOPUPEND`/`MENUEND`, the container leaving the tree,
    focus leaving the container, or the popup HWND's `OBJECT_HIDE`.
+
+
+---
+
+## 10. More GitHub popups: Watch, Code, Create new (2026-10-17)
+
+**Probe.** Same probe as §8 (occlusion) and §9 (triggers), with mouse and UIA openers. The trigger mode
+now also logs two things after the popup opens:
+- the opener's `ControllerFor` (`aria-controls`);
+- the **ancestry of the focused element** up to the Document.
+
+Openers are selected by prefix or Nth match (`"Watch:*"`, `"Code#3"`), because the green Code button
+shares its name with the `Code` tab.
+
+**Watch and Create new behave like "More items".** Each is a `role=menu` ActionMenu:
+- all four signals fire within about 45 ms;
+- the content is scannable at about 60–90 ms;
+- menu-only hinting leaves 4 and 8 hints respectively.
+
+**The green Code button is the residual case §6 predicted.** Its popover has **no** `role=menu` and no
+`role=dialog`. It is a plain `group` holding an underline-nav (`Local`/`Codespaces`), the clone URLs and
+download links.
+- **No `MenuOpened`, no `MENUPOPUPSTART`, and no container for §8's detection.** So occlusion filtering
+  does nothing: about 6 background hints under the popover stay, mixed with about 14 popover hints.
+- **Only two signals fire:** `FocusChanged` into the popover (`Local`, 23–33 ms) and the opener's
+  `ExpandCollapseState→Expanded` (35–37 ms). A WinEvent `OBJECT_SHOW` of a grouping node also fires at
+  37–41 ms, but every GitHub popup raises that one too.
+
+### The Primer portal pattern (all six GitHub popups)
+
+Focus ancestry shows that **every** GitHub popup probed (More, Watch, Create new, Code, branch picker,
+hamburger) is portaled to the end of the document with the same shape:
+
+```
+Document
+└─ Group  rect 0×0                 ← Primer portal root (__primerPortalRoot__)
+   └─ Group  rect = popup bounds   ← overlay wrapper  (hamburger: + prc-Dialog-Backdrop group, full page)
+      └─ Menu | Dialog | (nothing: Code) …   ← semantic container, when the page provides one
+```
+
+- `ControllerFor` was **empty** for all six openers. GitHub doesn't wire `aria-controls`, or Chromium
+  doesn't expose it here, so it can't link opener to popup.
+- The **opener's `Expanded` state plus focus moving into a new Document-level sibling subtree** is
+  enough to identify the popup without any role.
+
+### Lessons (adds to §9)
+
+1. **Opener `ExpandCollapseState→Expanded` deserves promotion from "confirming" to "trigger" for web
+   content.**
+   - It fired for every GitHub `aria-haspopup` button: More, Watch, Create, branch and Code.
+   - It is the only *semantic* signal for role-less popovers like Code.
+   - It doesn't fire for the hamburger (a dialog opener with no `aria-expanded`); FocusChanged covers that
+     case.
+2. **Use focus ancestry as the container fallback.**
+   - When a trigger fires but no `Menu`/`IsDialog` ancestor exists, walk up from the focused element.
+   - Take the top-most ancestor below the Document (or below a zero-size portal Group) that is **not** the
+     page's main content subtree, and use it as the popup container.
+   - For Code that yields the 1003×900 px overlay wrapper, and its subtree is exactly the popover's hints.
+   - This is a heuristic for portal-based web UI libraries (Primer here; Radix/MUI/Headless UI portal the
+     same way), so it should be gated:
+     - only in browser documents;
+     - only when the wrapper is a later sibling than the main content;
+     - only when it appeared since the trigger.
+3. **The hamburger's backdrop is a modality tell.** The `prc-Dialog-Backdrop` group spans the whole
+   document. A full-document group sibling just above the dialog marks it as modal, which supports
+   menu-only hinting for it.
+
+**Residual (unchanged):** popovers that neither take focus nor flip an opener's `Expanded` state (for
+example, hover cards) stay invisible to every trigger channel probed here.
