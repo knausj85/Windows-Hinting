@@ -1,0 +1,71 @@
+{
+  "_comment": "Draft built-in window rules (scroll map #62, from the I #89 probe). Schema: window-rules.md. Fields starting with _ are notes and are ignored.",
+  "apps": [
+    { "name": "Slack",    "match": [ { "exe": "slack.exe" }, { "url": "app.slack.com" } ] },
+    { "name": "Teams",    "match": [ { "exe": "ms-teams.exe", "class": "TeamsWebView" } ] },
+    { "name": "VSCode",   "match": [ { "exe": "Code.exe", "not": { "class": "#32770" } } ] },
+    { "name": "Gmail",    "match": [ { "url": "mail.google.com" } ] },
+    { "name": "Explorer", "match": [ { "exe": "explorer.exe", "class": "CabinetWClass" } ] }
+  ],
+  "rules": [
+    {
+      "name": "Windows Search",
+      "exe": "SearchHost",
+      "class": "Windows.UI.Core.CoreWindow",
+      "root": { "strategy": "SearchHostCustomStrategy" },
+      "_note": "Today's only built-in rule, unchanged."
+    },
+    {
+      "name": "Chromium windows",
+      "class": "Chrome_WidgetWin_1",
+      "scrollActuation": { "axisPolicy": "TrustWheel" },
+      "_note": "Chrome, Edge and Electron apps (Slack, VS Code) misreport scroll axes; the keypress wins."
+    },
+    {
+      "name": "Slack panes",
+      "app": "Slack",
+      "scrollDetection": {
+        "expectedRegions": [
+          { "controlType": "Group", "className": "p-view_contents--sidebar" },
+          { "controlType": "Group", "className": "p-view_contents--primary" },
+          { "controlType": "Group", "className": "p-view_contents--secondary", "_note": "Thread pane: not observed in the probe. Verify." }
+        ]
+      }
+    },
+    {
+      "name": "Teams panes",
+      "app": "Teams",
+      "scrollDetection": {
+        "expectedRegions": [
+          { "controlType": "Tree", "className": "fui-Tree" },
+          { "controlType": "Group", "name": "Message List", "_note": "English UI only; the classes are hashed and nothing else identifies it." },
+          { "controlType": "DataItem", "region": "parent", "_note": "Calendar grid: an anonymous Group found through its gridcell children." }
+        ]
+      },
+      "scrollActuation": { "axisPolicy": "TrustWheel" }
+    },
+    {
+      "name": "VS Code lists",
+      "app": "VSCode",
+      "scrollDetection": {
+        "expectedRegions": [
+          { "controlType": "Tree", "className": "monaco-list" },
+          { "controlType": "List", "className": "monaco-list", "not": { "className": "monaco-breadcrumbs" }, "_note": "Verify the breadcrumbs element carries both tokens; if it is a child instead, adjust." }
+        ]
+      }
+    },
+    {
+      "name": "Gmail folder list",
+      "app": "Gmail",
+      "scrollDetection": {
+        "expectedRegions": [ { "className": "aeN" } ]
+      }
+    },
+    {
+      "name": "Explorer active tab",
+      "app": "Explorer",
+      "root": { "strategy": "FileExplorerCustomStrategy" },
+      "_note": "Scopes click and scroll to the active tab (inactive tabs make phantom scroll regions). The strategy's built-in rule is commented out on main: revive and re-test it."
+    }
+  ]
+}

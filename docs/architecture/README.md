@@ -19,6 +19,10 @@ phase explicitly says otherwise.
 - [`phases/`](phases/) — the migration phases, one file each, sized for a single coding-agent
   session. Each is independently buildable and manually verifiable with explicit done-criteria.
 
+Follow-on spec: [`docs/scroll-regions/`](../scroll-regions/README.md) — select-a-scroll-region and
+the grown window rules. It adds a `Scrolling` mode, a sixth one-shot effect (`ScrollElement`) and
+a `ScrollDrive` condition to the engine described here, and builds on `main` ahead of these phases.
+
 ## Development branch
 
 The effort is developed on the long-lived **`modernize`** branch, which also carries this spec.
