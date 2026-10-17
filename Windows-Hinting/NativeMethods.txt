@@ -101,3 +101,5 @@ IUIAutomationEventHandler
 UIA_EVENT_ID
 IUIAutomationFocusChangedEventHandler
 IUIAutomationPropertyChangedEventHandler
+IUIAutomationStructureChangedEventHandler
+StructureChangeType

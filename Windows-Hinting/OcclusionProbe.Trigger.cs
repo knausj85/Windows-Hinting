@@ -126,9 +126,34 @@ namespace WindowsHinting
                     try { Mark("UIA", $"PropertyChanged ExpandCollapseState={v} {D(e)}"); } catch (Exception ex) { Mark("UIA", "Prop err " + ex.Message); }
                 }), new ReadOnlySpan<UIA_PROPERTY_ID>(new[] { UIA_PROPERTY_ID.UIA_ExpandCollapseExpandCollapseStatePropertyId }));
             });
+            bool sc = Array.Exists(args, a => a == "--sc");
+            if (sc)
+                RunMta(() =>
+                {
+                    var cr = ua!.CreateCacheRequest();
+                    cr.AddProperty(UIA_PROPERTY_ID.UIA_ProcessIdPropertyId);
+                    cr.AddProperty(UIA_PROPERTY_ID.UIA_ClassNamePropertyId);
+                    cr.AddProperty(UIA_PROPERTY_ID.UIA_ControlTypePropertyId);
+                    var scRoot = AnyPid ? ua.GetRootElement() : ua.ElementFromHandle((HWND)target);
+                    ua.AddStructureChangedEventHandler(scRoot, TreeScope.TreeScope_Subtree, cr, new ScHandler((e, t) =>
+                    {
+                        if (!T.IsRunning) return;
+                        string proc = "?", cls = "", ct = "";
+                        try
+                        {
+                            proc = e.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_ProcessIdPropertyId) is int pp ? ProcOfPid((uint)pp) : "?";
+                            cls = e.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_ClassNamePropertyId) as string ?? "";
+                            ct = e.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_ControlTypePropertyId)?.ToString() ?? "";
+                        }
+                        catch { }
+                        lock (ScEvents) ScEvents.Add((T.Elapsed.TotalMilliseconds, t.ToString().Replace("StructureChangeType_", ""), proc, cls, ct));
+                    }));
+                    Log($"StructureChanged subscribed on {(AnyPid ? "desktop root" : "target")} (Subtree)");
+                });
             Log($"trigger: subscribed WinEvents ({(AnyPid ? "ALL processes" : "pid-filtered")}) + UIA MenuOpened/Closed, WindowOpened, FocusChanged, ExpandCollapseState");
             Thread.Sleep(500);
             lock (Timeline) Timeline.Clear();
+            lock (ScEvents) ScEvents.Clear();
             lock (EventCounts) EventCounts.Clear();
 
             // ---- locate the trigger element, then fire ---------------------------------
@@ -194,11 +219,47 @@ namespace WindowsHinting
                 foreach (var e in Timeline.OrderBy(e => e.ms))
                     Log($"{e.ms,8:F1}  {e.src,-6} {e.text}");
             Log("");
+            ReportStructureChanged();
             Log("=== WinEvent counts (target pid) ===");
             lock (EventCounts)
                 foreach (var kv in EventCounts.OrderByDescending(kv => kv.Value))
                     Log($"  {kv.Key,-40} {kv.Value}");
             Log("=== END ===");
+        }
+
+        private static readonly List<(double ms, string type, string proc, string cls, string ct)> ScEvents = new();
+
+        private static void ReportStructureChanged()
+        {
+            List<(double ms, string type, string proc, string cls, string ct)> ev;
+            lock (ScEvents) ev = ScEvents.OrderBy(e => e.ms).ToList();
+            if (ev.Count == 0) { Log("=== StructureChanged: none (or not subscribed) ==="); return; }
+            Log($"=== StructureChanged: {ev.Count} events ===");
+            foreach (var g in ev.GroupBy(e => e.proc))
+            {
+                var l = g.ToList();
+                Log($"  proc={g.Key,-24} n={l.Count,4} first={l[0].ms,7:F0} last={l[^1].ms,7:F0}  " +
+                    string.Join(" ", l.GroupBy(x => x.type).Select(x => $"{x.Key}={x.Count()}")));
+                // bursts: split on gaps > 150 ms
+                var bursts = new List<List<(double ms, string type, string proc, string cls, string ct)>> { new() { l[0] } };
+                for (int i = 1; i < l.Count; i++)
+                {
+                    if (l[i].ms - l[i - 1].ms > 150) bursts.Add(new());
+                    bursts[^1].Add(l[i]);
+                }
+                foreach (var b in bursts)
+                    Log($"     burst {b[0].ms,7:F0}..{b[^1].ms,7:F0}  n={b.Count,4}  " +
+                        string.Join(" ", b.GroupBy(x => x.type).Select(x => $"{x.Key}={x.Count()}")) + "  top senders: " +
+                        string.Join(", ", b.GroupBy(x => x.cls + "/" + x.ct).OrderByDescending(x => x.Count()).Take(3).Select(x => $"{Trunc(x.Key, 40)}×{x.Count()}")));
+            }
+        }
+
+        [ComVisible(true)]
+        private sealed class ScHandler : IUIAutomationStructureChangedEventHandler
+        {
+            private readonly Action<IUIAutomationElement, StructureChangeType> _cb;
+            public ScHandler(Action<IUIAutomationElement, StructureChangeType> cb) => _cb = cb;
+            public unsafe void HandleStructureChangedEvent(IUIAutomationElement sender, StructureChangeType changeType, Windows.Win32.System.Com.SAFEARRAY* runtimeId) => _cb(sender, changeType);
         }
 
         private static void DescribePopup(IntPtr target, string? openerSpec)

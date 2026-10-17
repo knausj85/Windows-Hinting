@@ -837,3 +837,73 @@ mode:
 8. **Occlusion doesn't apply to the taskbar's own hints.** These surfaces sit above the taskbar, not over
    it. The windows they cover belong to other processes, and the WFP foreign-window guard (§8) handles
    those.
+
+---
+
+## 13. Can UIA `StructureChanged` tell us when a popup has settled? (2026-10-17)
+
+**Probe.** `--trigger --sc` adds a UIA `StructureChanged` handler on `TreeScope_Subtree`. Its scope is
+the **target window** for app menus, or the **desktop root** with `--any-pid` for shell surfaces. The
+probe records every event's time, change type and sender (process, class, ControlType), and groups the
+events into bursts split on gaps of more than 150 ms. "Ready" is the readiness poll from §9 and §12,
+with the caveat that the poll itself takes 50–800 ms per pass.
+
+| Surface | `StructureChanged` after trigger | Bursts (ms) | Last structural change vs ready |
+|---|---|---|---|
+| Quick settings | 183 (ChildAdded 176) | **607–767** (179), 1022–1036 (4: text updates) | ready 610 (13 clickables); main burst ends 767 |
+| Notification Center | 55 | **879–881** (55) | ready 880 (24); same instant |
+| Win+X menu | 119 ChildAdded | **71–276** | ready 290 (18 items); burst end ≈ ready |
+| Notepad File menu (WinUI) | 42 ChildAdded | **180–330** | items 325, container 457; burst end ≈ items ready |
+| Explorer context menu | 120 (+27 from pid 0) | **448–951** | 28 items at 931, 30 at 1169; burst end ≈ ready |
+| GitHub branch picker (web) | 24 | 101–104 (dialog inserted), **265–293** (rows) | rows complete at 293; a later rect growth (3921→3971 px) raised **no** structure event |
+| Start | **2** (window `ChildAdded` only) | 470, 477 | ready ~1010 (30); content never announced |
+| Jump list | **1** (window) | 295 | ready 358 (13) |
+| Task View | 3 window-level | 263–342 | ready 437 (16) |
+| Edge `Settings and more` (Views) | **2** (window) | 124–172 | ready 218 (24) |
+| **Search** | 35, **never quiet** | 359–401, 587–591, 757, then a **ChildRemoved+Added+Reordered triple every ~160 ms** on the same `scope-tile` sender until the run ended | ready 761 (46) |
+
+### Findings
+
+1. **Where content is populated after the window appears, the end of the burst tracks readiness.** This
+   held for Quick settings, Notification Center, Win+X, the Notepad MenuFlyout, Explorer's context menu
+   and the GitHub branch rows.
+   - "No `StructureChanged` for about 150 ms after the burst" landed within the readiness poll's own
+     resolution of the moment the content stopped changing.
+   - On these surfaces it can replace #74's blind 150 ms polling with an event-driven "quiet" detector.
+2. **Where content arrives whole, `StructureChanged` reports only the window being added.** This applied
+   to Start (as #49 found), the jump list, Task View and Edge's Views menus.
+   - Here, "the window `ChildAdded` and then silence" also reads as settled, and that is correct: the
+     content is scannable at the first scan.
+   - But it can't tell "already complete" apart from "still loading silently". Start was not scannable
+     until ~1 s while raising no further events.
+   - So a quiet window needs a **minimum floor or confirmation scan**: scan once at quiet, then reconcile
+     once more.
+3. **Perpetual animation defeats a plain quiet detector.**
+   - Search's WebView2 rotates a promo tile forever, raising a Removed/Added/Reordered triple about every
+     160 ms on the same sender. The quiet window never arrives.
+   - Mitigations:
+     - ignore churn confined to one sender that repeats on a period;
+     - or cap the settle (#74 already has a 3 s cap);
+     - or treat repeated identical bursts as "settled".
+4. **Bounds and layout changes are invisible to it.** The branch picker's list grew 50 px after its last
+   structure event. Hint *positions* can still move after structural settle. #74's RuntimeId reconcile, or
+   a final bounds check, is still needed.
+5. **Scope matters, and costs.**
+   - A desktop-root `Subtree` subscription noticeably slowed the shell: Start's `WindowOpened` came at
+     468 ms against 159–274 ms without it, and Notification Center at 878 ms against 431 ms.
+   - Some events arrive with an unresolvable sender (pid 0).
+   - This matches #48's recommendation: subscribe **element-scoped on the already-identified surface
+     root**, after the trigger, and tear it down on close. Never subscribe desktop-wide.
+
+### Recommendation
+
+Use a **hybrid settle**, keyed per surface:
+
+- **After a trigger:** subscribe `StructureChanged` (Subtree) on the identified popup container or
+  surface root, and take a first scan immediately.
+- **Settle** when there has been no structural event for about 150 ms. Ignore periodic same-sender churn.
+  Apply a floor and a cap, then run one confirming reconcile scan (#74's RuntimeId diff), which also
+  catches layout-only movement.
+- **Surfaces that never burst** (Start, the jump list, Views menus) fall through to the confirming scan.
+  A per-surface floor (Start about 400–1000 ms) can live on the `SurfaceRule` (#49/#47 already anticipate
+  a per-surface redraw/settle field).
