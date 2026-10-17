@@ -7,6 +7,11 @@ changelog:
     labels:
       - skip-changelog
       - documentation
+      # Planning/exploration work (wayfinder skill), not user-facing changes
+      - wayfinder:map
+      - wayfinder:research
+      - wayfinder:grilling
+      - wayfinder:prototype
     authors:
       - dependabot
       - dependabot[bot]
