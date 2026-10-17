@@ -8,17 +8,17 @@ on:
   workflow_dispatch:
     inputs:
       sign_binaries:
-        description: "Sign Release/Portable/MSI binaries with SSL.com eSigner"
+        description: "Sign Release/Portable/MSI binaries with SSL.com eSigner (implied by publish_release)"
         type: boolean
-        default: true
+        default: false
       publish_release:
-        description: "Publish a GitHub Release (main => stable 'v<ver>' tag; other branches => rolling 'beta' tag)"
+        description: "Sign and publish a GitHub Release (main => stable 'v<ver>' tag; other branches => rolling 'beta' tag)"
         type: boolean
         default: false
       prerelease:
         description: "Mark the published release as prerelease (ignored for beta, which is always a prerelease)"
         type: boolean
-        default: true
+        default: false
 
 # Third-party actions are pinned to full commit SHAs (the comment is the ref the SHA
 # was taken from) so a moved tag or branch can't change what runs with the signing secrets.
@@ -30,11 +30,12 @@ env:
   BUILD_VERSION: 0.1.${{ github.run_number }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # A newer push supersedes an in-flight branch/PR build; main builds and manual runs
-  # (which publish releases) always run to completion, so a push can't cancel a beta
-  # release between deleting the old one and creating the new one.
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch' }}
+  # Manual runs (which sign and publish) get their own group, so a push can't cancel a
+  # release between deleting the old beta and creating the new one, and always run to
+  # completion. A newer push or PR update supersedes an in-flight CI build, main included:
+  # pushes only build, so nothing is lost.
+  group: ${{ github.workflow }}-${{ github.ref }}${{ github.event_name == 'workflow_dispatch' && '-release' || '' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 defaults:
   run:
@@ -167,16 +168,12 @@ jobs:
         shell: bash
         env:
           REF_NAME: ${{ github.head_ref || github.ref_name }}
-          # Sign on pushes to main, or on a manual run that asks for it.
-          SIGN: ${{ (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true) }}
-          PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release == true }}
+          # Only a manual run signs (and so only a manual run can publish): several PRs
+          # can land on main before one release is cut from it. Publishing implies signing:
+          # the appcast pushes a release to every installed client, and an unsigned exe
+          # loses UIAccess.
+          SIGN: ${{ github.event_name == 'workflow_dispatch' && (inputs.sign_binaries == true || inputs.publish_release == true) }}
         run: |
-          # Releases are always signed: the appcast pushes them to every installed client,
-          # and an unsigned exe loses UIAccess. Fail now rather than build for nothing.
-          if [ "$PUBLISH" = "true" ] && [ "$SIGN" != "true" ]; then
-            echo "::error::publish_release requires sign_binaries; refusing to publish unsigned binaries."
-            exit 1
-          fi
           slug=$(printf '%s' "$REF_NAME" | tr -c 'a-zA-Z0-9' '-' | tr '[:upper:]' '[:lower:]' | cut -c1-20 | sed 's/-*$//')
           if [ "$REF_NAME" = "main" ]; then
             suffix=""; channel="Stable"; is_beta="false"
@@ -243,7 +240,8 @@ jobs:
   # The signing jobs check out no code: they only download artifacts, run the pinned
   # eSigner action and verify the result. They use the 'signing' environment on main and
   # 'signing-branch' (approval required) on other branches. When SIGN is false they're
-  # skipped and the unsigned outputs are published under the same artifact names.
+  # skipped: the unsigned portable exes are published under the same artifact names, and
+  # build-msi packages the Debug build instead (see there).
   build-release:
     name: Release Build
     needs: [pre-commit, metadata]
@@ -316,19 +314,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      # Unsigned runs publish straight from here.
-      - name: Upload app build (unsigned)
-        if: env.SIGN != 'true'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: app-release
-          path: |
-            Windows-Hinting\bin\Release\net10.0-windows\
-            !Windows-Hinting\bin\Release\net10.0-windows\win-x64\
-            !Windows-Hinting\bin\Release\net10.0-windows\win-x86\
-          if-no-files-found: error
-          retention-days: 1
-
+      # Unsigned runs publish the portable exes straight from here.
       - name: Upload Portable x64 artifact (unsigned)
         if: env.SIGN != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -423,17 +409,25 @@ jobs:
           path: portable\Windows-Hinting-Portable-win-x86.exe
           if-no-files-found: error
 
+  # Two flavors, picked by SIGN:
+  #  - signed runs package the signed Release build (uiAccess="true"), then sign-msi signs
+  #    the MSI; this is the only MSI that is ever released.
+  #  - unsigned runs package the Debug build (uiAccess="false"), so the installer can be
+  #    tested from any push or PR without a signed publish. A Release exe can't be used
+  #    there: Windows refuses to start an unsigned exe that asks for UIAccess.
   build-msi:
     name: Build MSI
-    needs: [metadata, build-release, sign-binaries]
-    # Runs after signing when SIGN is true, or straight after build-release when signing
-    # was skipped.
-    if: ${{ !cancelled() && needs.build-release.result == 'success' && (needs.sign-binaries.result == 'success' || needs.sign-binaries.result == 'skipped') }}
+    needs: [metadata, build-debug, build-release, sign-binaries]
+    if: |
+      !cancelled() && (
+        (needs.metadata.outputs.sign == 'true' && needs.sign-binaries.result == 'success') ||
+        (needs.metadata.outputs.sign != 'true' && needs.build-debug.result == 'success'))
     runs-on: windows-latest
     timeout-minutes: 20
     env:
       ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
       SIGN: ${{ needs.metadata.outputs.sign }}
+      MSI_CONFIGURATION: ${{ needs.metadata.outputs.sign == 'true' && 'Release' || 'Debug' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -454,12 +448,21 @@ jobs:
           key: nuget-${{ runner.os }}-${{ github.job }}-${{ hashFiles('**/packages.lock.json', 'global.json') }}
           restore-keys: nuget-${{ runner.os }}-${{ github.job }}-
 
-      # Put the (signed) app output where the installer's ProjectReference expects it.
-      - name: Download app build
+      # Put the app output where the installer's ProjectReference expects it for
+      # MSI_CONFIGURATION.
+      - name: Download signed Release app build
+        if: env.SIGN == 'true'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: app-release
           path: Windows-Hinting\bin\Release\net10.0-windows
+
+      - name: Download Debug app build
+        if: env.SIGN != 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: Windows-Hinting-Debug${{ env.ARTIFACT_SUFFIX }}
+          path: Windows-Hinting\bin\Debug\net10.0-windows
 
       - name: Verify app signatures before packaging
         if: env.SIGN == 'true'
@@ -473,7 +476,7 @@ jobs:
       # -InstallerOnly builds with BuildProjectReferences=false, so the app is NOT rebuilt
       # through the installer's ProjectReference (that would replace the signed binaries).
       - name: Build MSI
-        run: .\build\build-complete.ps1 -Configuration Release -InstallerOnly
+        run: .\build\build-complete.ps1 -Configuration $env:MSI_CONFIGURATION -InstallerOnly
 
       - name: Verify app signatures after packaging
         if: env.SIGN == 'true'
@@ -492,12 +495,13 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Upload MSI artifact (unsigned)
+      # Named apart from the signed installer so the two can't be mistaken for each other.
+      - name: Upload Debug MSI artifact (unsigned)
         if: env.SIGN != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Windows-Hinting-Installer${{ env.ARTIFACT_SUFFIX }}
-          path: Windows-Hinting.Installer\bin\Release\en-US\Windows-Hinting.msi
+          name: Windows-Hinting-Installer-Debug${{ env.ARTIFACT_SUFFIX }}
+          path: Windows-Hinting.Installer\bin\Debug\en-US\Windows-Hinting.msi
           if-no-files-found: error
 
   sign-msi:
@@ -555,17 +559,15 @@ jobs:
       ARTIFACT_SUFFIX: ${{ needs.metadata.outputs.artifact_suffix }}
       UPDATE_CHANNEL: ${{ needs.metadata.outputs.update_channel }}
       IS_BETA: ${{ needs.metadata.outputs.is_beta }}
-    # Publish a release when:
-    #  - Direct pushes to main                                 => stable channel (tag v<ver>)
-    #  - Manual dispatch on main with publish_release=true     => stable channel (tag v<ver>)
-    #  - Manual dispatch on any non-main branch with
-    #    publish_release=true                                  => beta channel (rolling 'beta' tag)
-    # Never from an unsigned build (metadata already fails a manual run that asks for that).
+    # Publish a release only from a manual run with publish_release=true (pushes, main
+    # included, never publish):
+    #  - on main                                               => stable channel (tag v<ver>)
+    #  - on any other branch                                   => beta channel (rolling 'beta' tag)
+    # Never from an unsigned build (publish_release turns signing on in metadata).
     # (Don't let other 'skipped' needs skip this job.)
     if: |
-      !cancelled() && !failure() && needs.metadata.outputs.sign == 'true' && (
-        (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
-        (github.event_name == 'workflow_dispatch' && inputs.publish_release == true))
+      !cancelled() && !failure() && needs.metadata.outputs.sign == 'true' &&
+        github.event_name == 'workflow_dispatch' && inputs.publish_release == true
 
     steps:
       - name: Checkout
