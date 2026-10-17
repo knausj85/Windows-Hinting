@@ -34,6 +34,10 @@
     <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RestoreLockedMode Condition="'$(GITHUB_ACTIONS)' == 'true'">true</RestoreLockedMode>
+    <!-- NETSDK1187: NetSparkleUpdater.UI.WinForms.NetCore 3.1.0 ships its Japanese
+         resources under 'JA', which the SDK normalizes to 'ja'. Harmless and not ours
+         to fix; drop this once a NetSparkle release fixes the casing. -->
+    <NoWarn>$(NoWarn);NETSDK1187</NoWarn>
   </PropertyGroup>
 
   <!-- Update channel is baked into each build. CI passes /p:UpdateChannel=Beta for beta

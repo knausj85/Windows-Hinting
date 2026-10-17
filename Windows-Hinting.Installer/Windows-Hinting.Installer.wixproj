@@ -8,6 +8,11 @@
     <!-- See Windows-Hinting.csproj. -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RestoreLockedMode Condition="'$(GITHUB_ACTIONS)' == 'true'">true</RestoreLockedMode>
+    <!-- The app's TargetDir (var.Windows_Hinting.TargetDir); Components.wxs excludes
+         the portable publishes' RID subfolders only when they exist. -->
+    <_AppTargetDir>$(MSBuildThisFileDirectory)..\Windows-Hinting\bin\$(Configuration)\net10.0-windows\</_AppTargetDir>
+    <DefineConstants Condition="Exists('$(_AppTargetDir)win-x64')">$(DefineConstants);PortableX64OutputExists</DefineConstants>
+    <DefineConstants Condition="Exists('$(_AppTargetDir)win-x86')">$(DefineConstants);PortableX86OutputExists</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="WixToolset.Netfx.wixext" Version="6.0.2" />

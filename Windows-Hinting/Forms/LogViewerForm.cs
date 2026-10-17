@@ -38,6 +38,25 @@ namespace WindowsHinting.Forms
             BackColor = BackColor_;
             KeyPreview = true;
 
+            // Log output (created first: the toolbar buttons below act on it)
+            _logBox = new RichTextBox
+            {
+                Dock = DockStyle.Fill,
+                ReadOnly = true,
+                BackColor = BackColor_,
+                ForeColor = ForeColorDefault,
+                Font = new Font("Cascadia Mono", 9.5f, FontStyle.Regular, GraphicsUnit.Point,
+                    0, // gdiCharSet
+                    false),
+                WordWrap = false,
+                BorderStyle = BorderStyle.None,
+                ScrollBars = RichTextBoxScrollBars.Both
+            };
+
+            // Fall back if Cascadia Mono isn't installed
+            if (_logBox.Font.Name != "Cascadia Mono")
+                _logBox.Font = new Font("Consolas", 9.5f);
+
             // Toolbar
             _toolbar = new ToolStrip
             {
@@ -94,25 +113,6 @@ namespace WindowsHinting.Forms
             _toolbar.Items.Add(new ToolStripSeparator());
             _toolbar.Items.Add(filterLabel);
             _toolbar.Items.Add(_filterBox);
-
-            // Log output
-            _logBox = new RichTextBox
-            {
-                Dock = DockStyle.Fill,
-                ReadOnly = true,
-                BackColor = BackColor_,
-                ForeColor = ForeColorDefault,
-                Font = new Font("Cascadia Mono", 9.5f, FontStyle.Regular, GraphicsUnit.Point,
-                    0, // gdiCharSet
-                    false),
-                WordWrap = false,
-                BorderStyle = BorderStyle.None,
-                ScrollBars = RichTextBoxScrollBars.Both
-            };
-
-            // Fall back if Cascadia Mono isn't installed
-            if (_logBox.Font.Name != "Cascadia Mono")
-                _logBox.Font = new Font("Consolas", 9.5f);
 
             Controls.Add(_logBox);
             Controls.Add(_toolbar);

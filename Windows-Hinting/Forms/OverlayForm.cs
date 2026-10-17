@@ -127,7 +127,7 @@ namespace WindowsHinting.Forms
             // Base size: the system caption font in points, converted to pixels
             // at this form's current DPI (DeviceDpi reflects the owning monitor
             // under PerMonitorV2).
-            var baseFont = SystemFonts.CaptionFont;
+            var baseFont = SystemFonts.CaptionFont ?? DefaultFont;
             float dpi = DeviceDpi > 0 ? DeviceDpi : 96f;
             float pixelSize = baseFont.SizeInPoints * dpi / 72f;
             return new Font(baseFont.FontFamily, pixelSize, FontStyle.Bold, GraphicsUnit.Pixel);

@@ -27,9 +27,15 @@
       <Files Include="$(var.Windows_Hinting.TargetDir)**">
         <Exclude Files="$(var.Windows_Hinting.TargetDir)Windows-Hinting.exe" />
         <Exclude Files="$(var.Windows_Hinting.TargetDir)**\*.pdb" />
-        <!-- RID-specific build output of the portable publishes (Portable-win-*.pubxml). -->
+        <!-- RID-specific build output of the portable publishes (Portable-win-*.pubxml).
+             Only excluded when present (see the .wixproj): excluding a missing directory
+             is a build warning, e.g. for the Debug MSI, which has no portable builds. -->
+        <?ifdef PortableX64OutputExists ?>
         <Exclude Files="$(var.Windows_Hinting.TargetDir)win-x64\**" />
+        <?endif?>
+        <?ifdef PortableX86OutputExists ?>
         <Exclude Files="$(var.Windows_Hinting.TargetDir)win-x86\**" />
+        <?endif?>
       </Files>
     </ComponentGroup>
 
