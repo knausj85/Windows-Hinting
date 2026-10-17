@@ -43,8 +43,36 @@ namespace WindowsHinting
             lock (EventCounts) EventCounts[key] = EventCounts.GetValueOrDefault(key) + 1;
         }
 
+        private static bool AnyPid;
+        // Shell surface hosts (per #45's FINDINGS) that are not necessarily WS_EX_TOPMOST.
+        private static readonly HashSet<string> ShellPopupClasses = new()
+        {
+            "Windows.UI.Core.CoreWindow", "Xaml_WindowedPopupClass", "XamlExplorerHostIslandWindow",
+            "Microsoft.UI.Content.PopupWindowSiteBridge", "#32768", "TopLevelWindowForOverflowXamlIsland",
+            "ControlCenterWindow", "NotifyIconOverflowWindow",
+        };
+        private static readonly Dictionary<uint, string> ProcNames = new();
+        private static string ProcOf(IntPtr h)
+        {
+            N.GetWindowThreadProcessId(h, out uint pid);
+            return ProcOfPid(pid);
+        }
+        private static string ProcOfPid(uint pid)
+        {
+            lock (ProcNames)
+            {
+                if (!ProcNames.TryGetValue(pid, out var n))
+                {
+                    try { n = Process.GetProcessById((int)pid).ProcessName; } catch { n = pid.ToString(); }
+                    ProcNames[pid] = n;
+                }
+                return n;
+            }
+        }
+
         private static void RunTrigger(string[] args, IntPtr target)
         {
+            AnyPid = Array.Exists(args, a => a == "--any-pid");
             int watchMs = int.TryParse(Arg(args, "--watch"), out var w) ? w : 3000;
             N.GetWindowThreadProcessId(target, out uint pid);
             var stop = new ManualResetEventSlim(false);
@@ -54,7 +82,7 @@ namespace WindowsHinting
             var hookThread = new Thread(() =>
             {
                 WinEventProc proc = OnWinEvent;
-                var hook = SetWinEventHook(0x0001, 0x80FF, IntPtr.Zero, proc, pid, 0, 0x0000 | 0x0002 /*OUTOFCONTEXT|SKIPOWNPROCESS*/);
+                var hook = SetWinEventHook(0x0001, 0x80FF, IntPtr.Zero, proc, AnyPid ? 0 : pid, 0, 0x0000 | 0x0002 /*OUTOFCONTEXT|SKIPOWNPROCESS*/);
                 hooked.Set();
                 while (!stop.IsSet) { Application.DoEvents(); Thread.Sleep(2); }
                 UnhookWinEvent(hook);
@@ -79,8 +107,9 @@ namespace WindowsHinting
                     $"aria='{e.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_AriaRolePropertyId)}' " +
                     $"class='{Trunc(e.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_ClassNamePropertyId) as string, 30)}' " +
                     $"name='{Trunc(e.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_NamePropertyId) as string, 40)}' " +
-                    $"rect={ToRect(e.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_BoundingRectanglePropertyId))}";
-                bool Ours(IUIAutomationElement e) => e.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_ProcessIdPropertyId) is int p && p == pid;
+                    $"rect={ToRect(e.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_BoundingRectanglePropertyId))}" +
+                    (AnyPid && e.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_ProcessIdPropertyId) is int pp ? $" proc={ProcOfPid((uint)pp)}" : "");
+                bool Ours(IUIAutomationElement e) => AnyPid || (e.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_ProcessIdPropertyId) is int p && p == pid);
 
                 var root = ua.GetRootElement();
                 var evh = new MenuHandler((e, id) => { try { Mark("UIA", $"{id} {D(e)}{(Ours(e) ? "" : " [other pid]")}"); } catch (Exception ex) { Mark("UIA", $"{id} err {ex.Message}"); } });
@@ -97,7 +126,7 @@ namespace WindowsHinting
                     try { Mark("UIA", $"PropertyChanged ExpandCollapseState={v} {D(e)}"); } catch (Exception ex) { Mark("UIA", "Prop err " + ex.Message); }
                 }), new ReadOnlySpan<UIA_PROPERTY_ID>(new[] { UIA_PROPERTY_ID.UIA_ExpandCollapseExpandCollapseStatePropertyId }));
             });
-            Log("trigger: subscribed WinEvents (pid-filtered) + UIA MenuOpened/Closed, WindowOpened, FocusChanged, ExpandCollapseState");
+            Log($"trigger: subscribed WinEvents ({(AnyPid ? "ALL processes" : "pid-filtered")}) + UIA MenuOpened/Closed, WindowOpened, FocusChanged, ExpandCollapseState");
             Thread.Sleep(500);
             lock (Timeline) Timeline.Clear();
             lock (EventCounts) EventCounts.Clear();
@@ -111,6 +140,7 @@ namespace WindowsHinting
             Rectangle triggerRect = Rectangle.Empty;
             IUIAutomationExpandCollapsePattern? ec = null;
             IUIAutomationInvokePattern? inv = null;
+            IUIAutomationTogglePattern? tog = null;
             RunMta(() =>
             {
                 var a = (IUIAutomation)new CUIAutomation();
@@ -119,6 +149,7 @@ namespace WindowsHinting
                 triggerRect = ToRect(el.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_BoundingRectanglePropertyId));
                 ec = el.GetCurrentPattern(UIA_PATTERN_ID.UIA_ExpandCollapsePatternId) as IUIAutomationExpandCollapsePattern;
                 inv = el.GetCurrentPattern(UIA_PATTERN_ID.UIA_InvokePatternId) as IUIAutomationInvokePattern;
+                tog = el.GetCurrentPattern(UIA_PATTERN_ID.UIA_TogglePatternId) as IUIAutomationTogglePattern;
             });
             if (keys != null) { triggerRect = new Rectangle(0, 0, 1, 1); }
             else if (triggerRect.IsEmpty) { Log($"!! trigger element '{click ?? invoke}' not found"); stop.Set(); return; }
@@ -147,7 +178,7 @@ namespace WindowsHinting
             }
             else
             {
-                RunMta(() => { if (ec != null) ec.Expand(); else inv?.Invoke(); });
+                RunMta(() => { if (ec != null) ec.Expand(); else if (inv != null) inv.Invoke(); else tog?.Toggle(); });
             }
             Mark("probe", "trigger sent");
             poller.Start();
@@ -244,16 +275,63 @@ namespace WindowsHinting
                     parts.Add($"menuItemsInTree={mi.Length}");
                 }
                 catch { }
+                // Popup candidates: the foreground window plus (with --any-pid) the UIA desktop's
+                // top-level children whose class is a shell surface host or that are topmost.
+                // (EnumWindows does not return Start/Search CoreWindows: they live in another z-band.)
+                var fg = N.GetForegroundWindow();
+                var cands = new List<(IUIAutomationElement el, string tag)>();
+                try { if (fg != target && fg != IntPtr.Zero) cands.Add((a.ElementFromHandle((HWND)fg), "FG")); } catch { }
+                if (AnyPid)
+                {
+                    try
+                    {
+                        var kids = a.GetRootElement().FindAll(TreeScope.TreeScope_Children, a.CreateTrueCondition());
+                        for (int k = 0; k < kids.Length; k++)
+                        {
+                            var kid = kids.GetElement(k);
+                            var kh = (IntPtr)(int)(kid.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_NativeWindowHandlePropertyId) ?? 0);
+                            if (kh == target || kh == fg) continue;
+                            string kc = kid.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_ClassNamePropertyId) as string ?? "";
+                            bool topmost = kh != IntPtr.Zero && (N.GetWindowLongPtr(kh, -20).ToInt64() & 0x8) != 0;
+                            if (kid.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_IsOffscreenPropertyId) is true) continue;
+                            if (ToRect(kid.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_BoundingRectanglePropertyId)).Width <= 1) continue;
+                            if (ShellPopupClasses.Contains(kc) || (topmost && kc != "Shell_TrayWnd" && kc != "Shell_SecondaryTrayWnd"))
+                                cands.Add((kid, "TOP"));
+                        }
+                    }
+                    catch { }
+                }
+                foreach (var (wRoot, tag) in cands)
+                {
+                    try
+                    {
+                        var cts = new[] {
+                            a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_ControlTypePropertyId, (int)UIA_CONTROLTYPE_ID.UIA_ButtonControlTypeId),
+                            a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_ControlTypePropertyId, (int)UIA_CONTROLTYPE_ID.UIA_ListItemControlTypeId),
+                            a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_ControlTypePropertyId, (int)UIA_CONTROLTYPE_ID.UIA_MenuItemControlTypeId),
+                            a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_ControlTypePropertyId, (int)UIA_CONTROLTYPE_ID.UIA_HyperlinkControlTypeId),
+                            a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_ControlTypePropertyId, (int)UIA_CONTROLTYPE_ID.UIA_TreeItemControlTypeId),
+                            a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_ControlTypePropertyId, (int)UIA_CONTROLTYPE_ID.UIA_CheckBoxControlTypeId) };
+                        var clickable = a.CreateOrConditionFromNativeArray(cts, cts.Length);
+                        int n = wRoot.FindAll(TreeScope.TreeScope_Descendants,
+                            a.CreateAndCondition(clickable, a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_IsOffscreenPropertyId, false))).Length;
+                        var wr = ToRect(wRoot.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_BoundingRectanglePropertyId));
+                        string proc = wRoot.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_ProcessIdPropertyId) is int wp ? ProcOfPid((uint)wp) : "?";
+                        parts.Add($"{tag}[{wRoot.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_ClassNamePropertyId)}/{proc} " +
+                                  $"'{Trunc(wRoot.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_NamePropertyId) as string, 20)}' {wr.Width}x{wr.Height} clickables={n}]");
+                    }
+                    catch (Exception ex) { parts.Add($"{tag}[err {ex.GetType().Name}]"); }
+                }
                 var hw = new List<string>();
                 N.EnumWindows((h, _) =>
                 {
                     if (h == target) return false;
                     N.GetWindowThreadProcessId(h, out uint p);
-                    if (p == pid && N.IsWindowVisible(h))
+                    if (!AnyPid && p == pid && N.IsWindowVisible(h))
                     {
                         N.DwmGetWindowAttribute(h, 14, out int cloaked, 4);
                         N.GetWindowRect(h, out var r);
-                        if (cloaked == 0) hw.Add($"{ClassOf(h)} {r.Right - r.Left}x{r.Bottom - r.Top}");
+                        if (cloaked == 0 && r.Right > r.Left) hw.Add($"{ClassOf(h)}{(AnyPid ? "/" + ProcOfPid(p) : "")} {r.Right - r.Left}x{r.Bottom - r.Top}");
                     }
                     return true;
                 }, IntPtr.Zero);
@@ -298,7 +376,7 @@ namespace WindowsHinting
                 }
                 catch { }
             }
-            Mark("WinEv", $"{name} hwnd=0x{hwnd.ToInt64():X}[{ClassOf(hwnd)}] obj={idObject} child={idChild}{acc}");
+            Mark("WinEv", $"{name} hwnd=0x{hwnd.ToInt64():X}[{ClassOf(hwnd)}]{(AnyPid ? " " + ProcOf(hwnd) : "")} obj={idObject} child={idChild}{acc}");
         }
 
         private delegate void WinEventProc(IntPtr hook, uint ev, IntPtr hwnd, int idObject, int idChild, uint thread, uint time);

@@ -86,7 +86,14 @@ namespace WindowsHinting
             // ---- pick target --------------------------------------------------
             IntPtr target;
             string? title = Arg(args, "--title");
-            if (title != null)
+            string? cls = Arg(args, "--class");
+            if (cls != null)
+            {
+                target = IntPtr.Zero;
+                N.EnumWindows((h, _) => { if (N.IsWindowVisible(h) && ClassOf(h) == cls) { target = h; return false; } return true; }, IntPtr.Zero);
+                if (target == IntPtr.Zero) { Log($"!! no visible window of class '{cls}'"); return; }
+            }
+            else if (title != null)
             {
                 target = FindWindowByTitle(title);
                 if (target == IntPtr.Zero) { Log($"!! no visible window title contains '{title}'"); return; }
@@ -514,7 +521,9 @@ namespace WindowsHinting
             { ec.Expand(); Log("  -> ExpandCollapse.Expand()"); }
             else if (el.GetCurrentPattern(UIA_PATTERN_ID.UIA_InvokePatternId) is IUIAutomationInvokePattern inv)
             { inv.Invoke(); Log("  -> Invoke()"); }
-            else Log("  !! no Expand/Invoke pattern");
+            else if (el.GetCurrentPattern(UIA_PATTERN_ID.UIA_TogglePatternId) is IUIAutomationTogglePattern tg)
+            { tg.Toggle(); Log("  -> Toggle()"); }
+            else Log("  !! no Expand/Invoke/Toggle pattern");
         }
 
         private static void LogZOrderAbove(IntPtr target)

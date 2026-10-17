@@ -769,3 +769,71 @@ page centre instead. That run is kept as the page right-click row.
    - There is no `Expanded` state on anything and no `ControllerFor`.
    - For chained hinting that is fine: the menu belongs to the foreground window, and it is the newest
      `Menu` container whose popup HWND matches the `MENUPOPUPSTART` hwnd.
+
+---
+
+## 12. Taskbar surfaces (2026-10-17)
+
+**Probe.** `--trigger --any-pid --pmv2 --class Shell_TrayWnd` opens each surface from its taskbar button,
+by mouse and, for Start, also by UIA Toggle (our activation path). Two things change in `--any-pid`
+mode:
+- WinEvents and FocusChanged are recorded from **all processes**, because shell surfaces live in
+  SearchHost, StartMenuExperienceHost, ShellExperienceHost and ShellHost, not in explorer.
+- The readiness poll counts on-screen clickables in the foreground window **and** in the top-level
+  windows on the UIA desktop that host shell surfaces (CoreWindow, PopupHost, XAML island classes, or
+  any topmost window).
+
+| Surface (opener) | First signals (ms after trigger) | Menu events | Scannable (clickables) |
+|---|---|---|---|
+| **Start** (click; UIA Toggle) | `FocusChanged`→SearchHost `Search box` 72–120; `FocusChanged`→StartMenuExperienceHost `GridViewItem` 119–203; `SYSTEM_FOREGROUND` = **SearchHost "Search"** 109–200; UIA `WindowOpened` **name='Start'** 159–274 | none | ~410–470 (30) |
+| **Search** (click) | SearchHost `OBJECT_SHOW` 148; `FocusChanged`→`Search box` 189; `WindowOpened` name='Search' 231; `SYSTEM_FOREGROUND` 242; focus into the WebView2 document 380 | none | ~935 (46): WebView2 content arrives late |
+| **Win+X menu** (right-click Start) | UIA `MenuOpened` (`MenuFlyout`, 0×0 rect) 262; `FocusChanged`→`MenuFlyout`, then the first item 298–317; `Xaml_WindowedPopupClass` `OBJECT_SHOW` 317 | `MENUPOPUPSTART` 439 | ~600 (18), as a `Menu` **inside the Shell_TrayWnd tree** |
+| **Jump list** (right-click Edge) | `FocusChanged`→ShellExperienceHost `ListViewItem` 420; `SYSTEM_FOREGROUND` "Jump List for Microsoft Edge" **590, after the content is ready** | none | ~530 (13) |
+| **Tray overflow** (Show Hidden Icons) | `TopLevelWindowForOverflowXamlIsland` `OBJECT_SHOW` 20; `SYSTEM_FOREGROUND` 41; `FocusChanged` 50 | none | ~155 (10) |
+| **Quick settings** (network/volume) | `SYSTEM_FOREGROUND` `ControlCenterWindow` 109; bridge `OBJECT_SHOW` 126; **then nothing until** `FocusChanged` 871 | none | ~876 (13); a UIA call on it blocked ~830 ms during the open animation |
+| **Notification Center / calendar** (clock) | `FocusChanged` + `WindowOpened` on CoreWindow "Notification Center" 431–440; `SYSTEM_FOREGROUND` **721, after the content** | none | ~490 (24) |
+| **Task View** | `SYSTEM_FOREGROUND` `XamlExplorerHostIslandWindow` "Task View" 236; `OBJECT_SHOW` 245; `FocusChanged`→`ListViewItem` 249; `WindowOpened` 314 | none | ~400 (16) |
+
+### Lessons for auto-hinting (taskbar and shell, map #44)
+
+1. **Shell surfaces don't speak "menu".**
+   - Only the Win+X menu, a XAML `MenuFlyout`, raised `MenuOpened`/`MENUPOPUPSTART`.
+   - Everything else announces itself through `SYSTEM_FOREGROUND`, `FocusChanged` and UIA
+     `WindowOpened`.
+   - This confirms #45's primary trigger choice. Together with §9–§11, the complete trigger union across
+     apps and shell is:
+     - `MENUPOPUPSTART`
+     - `MenuOpened`
+     - `SYSTEM_FOREGROUND`
+     - `FocusChanged` (into a new container or surface)
+     - `WindowOpened`
+     - opener `Expanded`
+2. **`SYSTEM_FOREGROUND` is not always first, and sometimes comes after the content.** The jump list
+   (590 ms) and Notification Center (721 ms) raise it after they are already scannable, while
+   `FocusChanged` arrived 100–300 ms earlier. #45 made FOREGROUND the primary trigger; it needs
+   `FocusChanged` beside it, not just as a supplement.
+3. **Start vs Search, revisited.**
+   - Opening Start makes **SearchHost "Search"** the foreground window, which confirms #45's ambiguity.
+   - On this build, `WindowOpened` name='Start' arrived in 159–274 ms, not the ~800 ms #45 measured.
+   - A `FocusChanged` into a StartMenuExperienceHost `GridViewItem` (119–203 ms) disambiguates even
+     earlier.
+4. **Start and Search windows are invisible to `EnumWindows`.**
+   - Their CoreWindows live in another z-band.
+   - §8's same-process popup-HWND enumeration therefore can't see them. Find shell surfaces through the
+     event sender or the UIA desktop's children instead.
+   - The probe initially polled with `EnumWindows` and saw no Start content at all.
+5. **Readiness spans about 150 ms to 950 ms.**
+   - Tray overflow: about 150 ms.
+   - Start, Task View, Notification Center, jump list: about 400–600 ms.
+   - Win+X: about 600 ms.
+   - Quick settings: about 880 ms, with UIA blocked during the animation.
+   - Search: about 940 ms, because its WebView2 content is late.
+   - A fixed delay can't serve all of these. This supports #74's progressive settle per surface, which a
+     `SurfaceRule` could tune.
+6. **The opener doesn't matter.** Start opened by mouse and by UIA Toggle produced the same signal
+   sequence. Our own activation can chain into shell surfaces with the same watcher.
+7. **The Win+X menu lands inside the taskbar's own tree** as a `Menu`. So a taskbar-scoped scan already
+   sees it, and §8's menu-only policy applies there too.
+8. **Occlusion doesn't apply to the taskbar's own hints.** These surfaces sit above the taskbar, not over
+   it. The windows they cover belong to other processes, and the WFP foreign-window guard (§8) handles
+   those.
