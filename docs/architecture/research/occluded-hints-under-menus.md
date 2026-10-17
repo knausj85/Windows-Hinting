@@ -570,7 +570,7 @@ The probe records:
 - a readiness poll that logs popup containers, on-screen MenuItems in the tree, and same-process popup
   HWNDs whenever they change.
 
-33 runs in total (§10 adds Watch, Code and Create new; §11 adds Edge context menus); raw timelines are in `occlusion-probe-trig-*.log` next to the exe.
+32 trigger runs in total (§10 adds Watch, Code and Create new; §11 adds Edge context menus); raw timelines are in `occlusion-probe-trig-*.log` next to the exe.
 
 All times are ms after the trigger. "—" means the signal did not fire.
 
@@ -758,7 +758,7 @@ page centre instead. That run is kept as the page right-click row.
 2. **The triggers are identical to the favorites and settings menus in §9.**
    - The popup HWND's `OBJECT_CREATE`/`SHOW` arrives at 22–70 ms, then `SYSTEM_MENUSTART` +
      `SYSTEM_MENUPOPUPSTART` at 33–89 ms.
-   - **No UIA `MenuOpened`** in any of the 7 runs.
+   - **No UIA `MenuOpened`** in any of the 12 runs (6 trigger, 6 occlusion).
 3. **A mouse-opened context menu never moves focus.** UIA focus stayed on the page element (or the
    omnibox, for the address bar) in all 5 right-click runs. Only **Shift+F10** moved focus to the first
    item (`Back`). This confirms §9 lesson 3: for Edge menus, `MENUPOPUPSTART` is the only dependable
