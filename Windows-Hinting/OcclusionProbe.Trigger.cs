@@ -105,6 +105,9 @@ namespace WindowsHinting
             // ---- locate the trigger element, then fire ---------------------------------
             string? click = Arg(args, "--click");
             string? invoke = Arg(args, "--invoke");
+            string? rclick = Arg(args, "--rclick");
+            string? keys = Arg(args, "--keys");
+            click ??= rclick;
             Rectangle triggerRect = Rectangle.Empty;
             IUIAutomationExpandCollapsePattern? ec = null;
             IUIAutomationInvokePattern? inv = null;
@@ -118,9 +121,10 @@ namespace WindowsHinting
                 ec = el.GetCurrentPattern(UIA_PATTERN_ID.UIA_ExpandCollapsePatternId) as IUIAutomationExpandCollapsePattern;
                 inv = el.GetCurrentPattern(UIA_PATTERN_ID.UIA_InvokePatternId) as IUIAutomationInvokePattern;
             });
-            if (triggerRect.IsEmpty) { Log($"!! trigger element '{click ?? invoke}' not found"); stop.Set(); return; }
+            if (keys != null) { triggerRect = new Rectangle(0, 0, 1, 1); }
+            else if (triggerRect.IsEmpty) { Log($"!! trigger element '{click ?? invoke}' not found"); stop.Set(); return; }
             var pt = Centre(triggerRect);
-            Log($"trigger element rect={triggerRect} centre={pt} mode={(click != null ? "mouse click" : "UIA")}");
+            Log($"trigger element rect={triggerRect} centre={pt} mode={(keys != null ? "keys " + keys : rclick != null ? "right click" : click != null ? "mouse click" : "UIA")}");
 
             var readiness = new List<string>();
             var poller = new Thread(() => PollReadiness(target, pid, watchMs, readiness));
@@ -128,12 +132,17 @@ namespace WindowsHinting
 
             T.Restart();
             Mark("probe", "TRIGGER t0");
-            if (click != null)
+            if (keys != null)
+            {
+                SendKeys.SendWait(keys);
+            }
+            else if (click != null)
             {
                 N.GetCursorPos(out var old);
                 SetCursorPos(pt.X, pt.Y);
-                mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
-                mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+                uint down = rclick != null ? 0x0008u : 0x0002u;
+                mouse_event(down, 0, 0, 0, UIntPtr.Zero);
+                mouse_event(down << 1, 0, 0, 0, UIntPtr.Zero);
                 Thread.Sleep(30);
                 SetCursorPos(old.X, old.Y); // move away so hover effects don't muddy the read
             }
@@ -197,6 +206,15 @@ namespace WindowsHinting
                     }
                 }
                 catch (Exception ex) { parts.Add("err " + ex.GetType().Name); }
+                try
+                {
+                    var mi = root.FindAllBuildCache(TreeScope.TreeScope_Descendants,
+                        a.CreateAndCondition(a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_ControlTypePropertyId, (int)UIA_CONTROLTYPE_ID.UIA_MenuItemControlTypeId),
+                                             a.CreatePropertyCondition(UIA_PROPERTY_ID.UIA_IsOffscreenPropertyId, false)), cache);
+                    parts.Add($"menuItemsInTree={mi.Length}");
+                }
+                catch { }
+                var hw = new List<string>();
                 N.EnumWindows((h, _) =>
                 {
                     if (h == target) return false;
@@ -205,10 +223,12 @@ namespace WindowsHinting
                     {
                         N.DwmGetWindowAttribute(h, 14, out int cloaked, 4);
                         N.GetWindowRect(h, out var r);
-                        if (cloaked == 0) parts.Add($"HWND[{ClassOf(h)} {r.Right - r.Left}x{r.Bottom - r.Top}]");
+                        if (cloaked == 0) hw.Add($"{ClassOf(h)} {r.Right - r.Left}x{r.Bottom - r.Top}");
                     }
                     return true;
                 }, IntPtr.Zero);
+                foreach (var g in hw.GroupBy(x => x.Split(' ')[0] + (x.EndsWith("x50") ? " keytip-sized" : " " + x.Split(' ')[1])))
+                    parts.Add($"HWND[{g.Key}]" + (g.Count() > 1 ? $"x{g.Count()}" : ""));
                 string now = parts.Count == 0 ? "(no popup)" : string.Join(" ", parts);
                 if (now != last) { Mark("ready", $"{now}   (poll took {T.Elapsed.TotalMilliseconds - start:F0}ms)"); last = now; }
                 Thread.Sleep(50);
