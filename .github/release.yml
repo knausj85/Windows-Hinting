@@ -1,0 +1,22 @@
+# Shapes GitHub's generated release notes, which also become the in-app update
+# notes for stable releases (see "Generate release notes" in workflows/build.yml).
+# Each entry is a merged PR's title, so write titles for users.
+# https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+      - documentation
+    authors:
+      - dependabot
+      - dependabot[bot]
+  categories:
+    - title: New features
+      labels:
+        - enhancement
+    - title: Fixes
+      labels:
+        - bug
+    - title: Other changes
+      labels:
+        - "*"
