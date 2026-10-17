@@ -47,7 +47,8 @@ jobs:
   # the pull_request run, because it is the one pre-commit.ci lite can autofix and it
   # also covers PRs from forks. This job ends the push run early when the branch has an
   # open PR (draft or not) that can be merged; everything else needs it and is skipped. Pushes to main,
-  # pushes to branches without a PR, PR runs and manual runs all proceed.
+  # pushes to branches without a PR (after about a minute of waiting for one), PR runs
+  # and manual runs all proceed.
   gate:
     name: Run gate
     runs-on: ubuntu-latest
@@ -66,7 +67,16 @@ jobs:
         run: |
           run=true
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" != "main" ]; then
-            for pr in $(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$OWNER:$GITHUB_REF_NAME" --jq '.[].number'); do
+            # A PR is often opened right after the branch's first push (git push, then
+            # gh pr create), after this job has already looked. Keep looking for ~1 minute
+            # so that push run is skipped too, instead of building alongside the PR run.
+            prs=
+            for attempt in $(seq 7); do
+              prs=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$OWNER:$GITHUB_REF_NAME" --jq '.[].number')
+              [ -n "$prs" ] && break
+              if [ "$attempt" -lt 7 ]; then sleep 10; fi
+            done
+            for pr in $prs; do
               # GitHub only starts a pull_request run when the PR can be merged (it builds
               # the merge commit), so a PR with conflicts would leave this commit unbuilt.
               # Mergeability is computed after the push; wait up to ~1 minute for it.
