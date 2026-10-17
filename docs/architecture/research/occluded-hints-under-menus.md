@@ -426,3 +426,114 @@ change, just logs.
 **Exit criteria:** on the three GitHub menus, background hints under the popup are 0 and menu hints
 are unchanged, with overhead under 10% of the scan. If so, promote it to a `modernize` scan-pipeline
 filter. Phase 04 is the natural home.
+
+---
+
+## 8. Probe results (2026-10-17)
+
+**Probe:** `Windows-Hinting/OcclusionProbe.cs` (`--probe-occlusion`) on branch `prototype/occlusion-probe`.
+It runs the real `UIAutomationService.FindClickableElements` scan on one window, then scores every hint.
+It was driven automatically (`--invoke <Name>` for UIA Expand/Invoke, `--keys` for SendKeys).
+Machine: Win11 26200, ARM64, one display at 200% (DPI 192). Runs were DPI-unaware; two were repeated with
+`--pmv2` (per-monitor v2) and gave identical counts.
+
+**Techniques scored per hint:**
+- **4.1 containers:** UIA `ControlType.Menu` / `IsDialog=true` nodes in the target tree.
+- **Popup HWNDs (new):** visible, uncloaked top-level windows of the **target's process** that sit above it
+  in z-order. Their rect is the occluding rect and their `ElementFromHandle` subtree is the member set.
+- **4.2 WFP:** `GetAncestor(WindowFromPoint(centre), GA_ROOT)`.
+- **4.3 EFP:** UIA `ElementFromPoint` plus a RuntimeId parent walk.
+- **FINAL rule:**
+  - suppress a hint if it is not a member of any container or popup **and** its centre lies inside one;
+  - otherwise drop it if the WFP root is neither the target nor the hint's own popup HWND.
+
+| Scenario | Hints | In popup | FINAL suppressed | Menu-only would leave | MenuOpened fired? | Popup lives in |
+|---|---|---|---|---|---|---|
+| GitHub, no menu (baseline) | 89 | 0 | 0 | — | — | — |
+| GitHub **"More items"** (repo nav overflow) | 93 | 3 | 1 (menu's own wrapper) | 3 | yes (`role=menu`) | same HWND |
+| GitHub hamburger (`Open menu`) | 110 | 19 | 26 | 19 | **no** (`role=dialog`, aria-modal side sheet) | same HWND |
+| GitHub branch picker (`main branch`) | 108 | 18 | 19 | 18 | yes (inner `role=menu`) | same HWND |
+| Edge favorites-bar folder (`Coding`) | 94 | 4 | 9 | 4 | **no** | own popup HWND, items **also** in main tree |
+| Edge `Other favorites` | 92 | 2 | 8 | 2 | no | same as above |
+| Edge `Settings and more` | 114 | 24 | 41 | 24 | no | same as above |
+| Notepad File menu (WinUI MenuFlyout) | 43 | 13 | 0 (nothing hintable beneath) | 13 | yes | `PopupWindowSiteBridge` HWND, items also in main tree |
+| Notepad context menu | 41 | 11 | 0 | 11 | yes | same as above |
+| Notepad system menu (`#32768`) | 35 | 5 | 3 | 5 | yes | `#32768` HWND |
+| Explorer context menu (Win11 XAML) | 145 | 0 (UIA) / 16 (popup) | 2 | — | yes, but sender is a 0×0 offscreen `ApplicationBar` | `PopupWindowSiteBridge` HWND |
+
+### Findings
+
+1. **Occlusion filtering alone does not fix the ticket's "More" case.**
+   - The GitHub "More items" menu (240×140 px) covers almost no hints, so occlusion filtering removes 1 of 93.
+   - The confusion in #123 is the 90 page hints *around* the menu, not under it.
+   - Only the **menu-only policy** (§3.4, option a) fixes that: it leaves 3 hints.
+   - The hamburger is the same story. It is an aria-modal side sheet with a dimming backdrop. Occlusion
+     removes the 26 hints under the sheet, but 65 hints remain on the dimmed, inert-to-click page beside it.
+2. **The menu's items are almost always already in our scan.**
+   - Chromium Views menus (favorites, settings) live in their own popup HWND, yet appear in the Edge
+     window's UIA tree as `ControlType.Menu` (`SubmenuView`).
+   - The same holds for WinUI MenuFlyouts (Notepad), `#32768` (Notepad's system menu) and Explorer's XAML
+     context menu.
+   - So "find the open menu, keep only its subtree" works across every surface probed.
+3. **Detect the menu structurally; don't rely on the `MenuOpened` event.**
+   - The event fired for web `role=menu`, WinUI and `#32768` menus.
+   - It did **not** fire for Edge browser-UI menus (favorites and settings) or for the GitHub hamburger
+     (`role=dialog`).
+   - For Explorer it fired with an unusable 0×0 sender.
+   - Detection needs to combine the `Menu`/`IsDialog` container FindAll with the same-process popup-HWND
+     enumeration.
+4. **Naive `WindowFromPoint` is wrong on its own.**
+   - It marked **every menu item** in Edge, Notepad and Explorer as "covered", because the hit root is the
+     popup HWND, not the target.
+   - It is only safe once hints that are members of a popup are exempted, as in the FINAL rule.
+   - With that exemption and same-process popups handled as containers, WFP dropped **0 extra hints** in
+     every scenario.
+   - Keep WFP only as a cheap guard against *foreign* windows: the taskbar, always-on-top tools, and other
+     apps' tooltips.
+5. **UIA `ElementFromPoint` (4.3) is unusable as a filter, as predicted.**
+   - It reported 13 of 89 hints "covered" with **no menu open**, including Edge's caption buttons.
+   - It reported Chromium menu items and GitHub's own menu items as covered.
+   - It cost 190–380 ms per scan, against 60–120 ms for the scan itself.
+6. **Cost is small.**
+   - Container FindAll: 21–35 ms (Explorer 122 ms).
+   - Popup HWND enumeration plus member FindAlls: 0.3–80 ms. It is highest when WinUI shows many access-key
+     tooltip `PopupHost` windows.
+   - WFP: under 1 ms for about 100 hints.
+   - RuntimeId per hint is probe-only overhead. Production would add it to the cache request.
+   - The container FindAll is the one meaningful add-on. It could be folded into the existing scan's
+     condition.
+7. **Edge favorites bar specifics:**
+   - The bar's own buttons are hinted normally.
+   - A folder dropdown is a `Chrome_WidgetWin_1` popup owned by the Edge window. Its items are in the main
+     tree and get hints.
+   - Background hints under the folder dropdown: 9 for `Coding`, 8 for `Other favorites`. All of them are
+     removed by the popup rule.
+   - Chromium's item tooltip is a separate same-process popup (528×52 px), and it also suppressed the hints
+     beneath it. That is correct, since the tooltip really covers them.
+   - The chevron (`Menu containing hidden favorites`) opened only a small 130×32 popup with no Menu node, so
+     no hints were affected.
+8. **Small over-suppression at popup edges.**
+   - Chromium popup window rects include about 15 px of drop shadow (for example, the HWND spans 300..855
+     while `SubmenuView` spans 315..840).
+   - So a few hints whose centre sits in the shadow, with 2 of 4 corners visible, are suppressed.
+   - Fix: prefer the UIA container rect when a popup has one, or shrink the HWND rect by its non-hit-test
+     margin.
+9. **DPI.** UIA rects and `WindowFromPoint` coordinates agree in both unaware and per-monitor-v2 mode.
+   - One gotcha: in the DPI-unaware process, rects cached on **`MenuOpened` event senders** came back in
+     physical pixels while everything else was logical.
+   - Production should be per-monitor v2 before relying on event rects.
+
+### Recommendation (updated)
+
+- **Detection.** When a scan finds an open popup, treat it as a "popup session". A popup is either a
+  non-MenuBar `Menu` / `IsDialog` node with a non-empty, on-screen rect, or a visible, uncloaked
+  same-process HWND above the target whose subtree contains hints.
+- **Default policy: menu-only.** Hint only the popup's members. This is what actually de-clutters #123's
+  examples, and it matches light-dismiss semantics: clicking elsewhere just closes the menu.
+- **Fallback when the popup has no hintable members** (pure tooltips, the chevron): use occluded-only
+  suppression, with the FINAL rule above.
+- **Foreign windows.** Keep the WFP root check as an always-on guard.
+- **Residual cases:**
+  - non-modal side panels marked `IsDialog` (menu-only may be too aggressive; consider occluded-only for
+    `IsDialog` without aria-modal);
+  - custom popovers with neither role nor own HWND (unchanged from §6).

@@ -14,6 +14,13 @@ namespace WindowsHinting
         [STAThread]
         static void Main()
         {
+            // PROTOTYPE (#123, branch prototype/occlusion-probe): throwaway occlusion probe.
+            var probeArgs = Environment.GetCommandLineArgs();
+            if (Array.Exists(probeArgs, a => a.Equals("--probe-occlusion", StringComparison.OrdinalIgnoreCase)))
+            {
+                OcclusionProbe.Run(probeArgs);
+                return;
+            }
 
             using (Mutex mutex = new Mutex(false, appGuid))
             {
