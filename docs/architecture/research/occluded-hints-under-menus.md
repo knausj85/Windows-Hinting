@@ -447,19 +447,19 @@ Machine: Win11 26200, ARM64, one display at 200% (DPI 192). Runs were DPI-unawar
   - suppress a hint if it is not a member of any container or popup **and** its centre lies inside one;
   - otherwise drop it if the WFP root is neither the target nor the hint's own popup HWND.
 
-| Scenario | Hints | In popup | FINAL suppressed | Menu-only would leave | MenuOpened fired? | Popup lives in |
-|---|---|---|---|---|---|---|
-| GitHub, no menu (baseline) | 89 | 0 | 0 | — | — | — |
-| GitHub **"More items"** (repo nav overflow) | 93 | 3 | 1 (menu's own wrapper) | 3 | yes (`role=menu`) | same HWND |
-| GitHub hamburger (`Open menu`) | 110 | 19 | 26 | 19 | **no** (`role=dialog`, aria-modal side sheet) | same HWND |
-| GitHub branch picker (`main branch`) | 108 | 18 | 19 | 18 | yes (inner `role=menu`) | same HWND |
-| Edge favorites-bar folder (`Coding`) | 94 | 4 | 9 | 4 | **no** | own popup HWND, items **also** in main tree |
-| Edge `Other favorites` | 92 | 2 | 8 | 2 | no | same as above |
-| Edge `Settings and more` | 114 | 24 | 41 | 24 | no | same as above |
-| Notepad File menu (WinUI MenuFlyout) | 43 | 13 | 0 (nothing hintable beneath) | 13 | yes | `PopupWindowSiteBridge` HWND, items also in main tree |
-| Notepad context menu | 41 | 11 | 0 | 11 | yes | same as above |
-| Notepad system menu (`#32768`) | 35 | 5 | 3 | 5 | yes | `#32768` HWND |
-| Explorer context menu (Win11 XAML) | 145 | 0 (UIA) / 16 (popup) | 2 | — | yes, but sender is a 0×0 offscreen `ApplicationBar` | `PopupWindowSiteBridge` HWND |
+| Scenario | Hints | In popup | FINAL suppressed | Menu-only would leave | MenuOpened fired? | Popup lives in | Auto-hint trigger (see §9) |
+|---|---|---|---|---|---|---|---|
+| GitHub, no menu (baseline) | 89 | 0 | 0 | — | — | — | — |
+| GitHub **"More items"** (repo nav overflow) | 93 | 3 | 1 (menu's own wrapper) | 3 | yes (`role=menu`) | same HWND | UIA `FocusChanged` → menuitem (21–51 ms); UIA `MenuOpened` + WinEvent `MENUPOPUPSTART` (40–89 ms); button `ExpandCollapseState=Expanded` |
+| GitHub hamburger (`Open menu`) | 110 | 19 | 26 | 19 | **no** (`role=dialog`, aria-modal side sheet) | same HWND | **only** UIA `FocusChanged` → `Close menu` inside the `IsDialog` node (56–77 ms); no menu events, no ExpandCollapse change |
+| GitHub branch picker (`main branch`) | 108 | 18 | 19 | 18 | yes (inner `role=menu`) | same HWND | not trigger-probed |
+| Edge favorites-bar folder (`Coding`) | 94 | 4 | 9 | 4 | **no** | own popup HWND, items **also** in main tree | WinEvent `OBJECT_SHOW` of the popup HWND (25–35 ms), `MENUSTART`/`MENUPOPUPSTART` (39–43 ms), UIA `FocusChanged` → `MenuItemView` (22–68 ms); **no** UIA `MenuOpened` |
+| Edge `Other favorites` | 92 | 2 | 8 | 2 | no | same as above | not trigger-probed (same mechanism as the folder) |
+| Edge `Settings and more` | 114 | 24 | 41 | 24 | no | same as above | not trigger-probed |
+| Notepad File menu (WinUI MenuFlyout) | 43 | 13 | 0 (nothing hintable beneath) | 13 | yes | `PopupWindowSiteBridge` HWND, items also in main tree | not trigger-probed |
+| Notepad context menu | 41 | 11 | 0 | 11 | yes | same as above | not trigger-probed |
+| Notepad system menu (`#32768`) | 35 | 5 | 3 | 5 | yes | `#32768` HWND | not trigger-probed |
+| Explorer context menu (Win11 XAML) | 145 | 0 (UIA) / 16 (popup) | 2 | — | yes, but sender is a 0×0 offscreen `ApplicationBar` | `PopupWindowSiteBridge` HWND | not trigger-probed |
 
 ### Findings
 
@@ -537,3 +537,90 @@ Machine: Win11 26200, ARM64, one display at 200% (DPI 192). Runs were DPI-unawar
   - non-modal side panels marked `IsDialog` (menu-only may be too aggressive; consider occluded-only for
     `IsDialog` without aria-modal);
   - custom popovers with neither role nor own HWND (unchanged from §6).
+
+
+---
+
+## 9. Auto-hint lessons: trigger probe (2026-10-17)
+
+**Question.** For the GitHub "More items" menu, the GitHub hamburger and an Edge favorites-bar folder, which
+signal could trigger hints automatically when the popup opens, and when is its content ready to scan?
+This feeds map #44 (auto-hinting) and #72/#77 (chained, menu-aware hinting).
+
+**Probe.** Run `--probe-occlusion --trigger --pmv2` (file `OcclusionProbe.Trigger.cs`). It opens each
+popup two ways:
+- a real mouse click (`--click`);
+- UIA Expand/Invoke (`--invoke`), which is how our own hint activation would open it.
+
+It then records, against a timeline:
+- every WinEvent from Edge's process;
+- UIA `MenuOpened`/`MenuClosed`, `Window_WindowOpened`, `FocusChanged`, and changes to `ExpandCollapseState`;
+- a readiness poll every 50 ms, logging the popup containers it finds and their item counts.
+
+Raw timelines are in `occlusion-probe-trig-*.log` next to the exe.
+
+| Popup | UIA `FocusChanged` into popup | UIA `MenuOpened` | WinEvent menu events | WinEvent `OBJECT_SHOW` | Trigger button `ExpandCollapseState→Expanded` | Content scannable (first poll that saw it) |
+|---|---|---|---|---|---|---|
+| GitHub **"More items"** (`role=menu`) | yes: first `menuitem`, 40–51 ms | yes, 40–52 ms | `MENUPOPUPSTART` on `Chrome_RenderWidgetHostHWND`, 67–89 ms | page node (role=grouping), 69 ms | **yes**, 45–55 ms | ≤78–104 ms, 3 items |
+| GitHub **hamburger** (`role=dialog`, aria-modal) | yes: `Close menu` button inside the dialog, 56–77 ms | **no** | **none** (no `MENUPOPUPSTART`, no `DIALOGSTART`) | page node, 64–94 ms | **no** | 119–157 ms, 20 items |
+| Edge **favorites folder** (`Coding`) | yes: first `MenuItemView`, 22–68 ms | **no** | **`MENUSTART` + `MENUPOPUPSTART`** on the popup HWND, 39–43 ms | popup HWND `OBJECT_CREATE`/`SHOW`, 20–35 ms | no (folder button is a `ListItem`) | ≤89–108 ms, 4 items |
+
+### Lessons for auto-hinting
+
+1. **UIA `FocusChanged` is the one signal that fired for all three popups, by either opener.** Each popup
+   moves keyboard focus inside itself as it opens: to the first menu item, or to the dialog's close button.
+   - That matches #45's finding that FocusChanged is the channel for Electron and in-DOM menus.
+   - The trigger rule: **when focus lands on an element that has a `Menu` or `IsDialog` ancestor (a
+     non-MenuBar menu, or a dialog), and that container is new, treat it as "popup opened" and scan that
+     container.**
+   - The cost is one ancestor walk per focus event in the foreground app, gated by a ControlType check
+     (MenuItem, or any element inside a Dialog).
+2. **`MenuOpened` alone, as #77 uses today, would miss two of the three.**
+   - It misses the GitHub hamburger (a dialog, not a menu) and the Edge favorites menu.
+   - Chromium's browser-UI menus raise only the **MSAA WinEvents** `SYSTEM_MENUSTART` and
+     `SYSTEM_MENUPOPUPSTART`. They raise no UIA `MenuOpened`.
+   - This corrects §8 finding 3: menu events *do* exist for the favorites menu, just not on the UIA
+     channel.
+   - #77's trigger set should become UIA `MenuOpened` ∪ WinEvent `MENUPOPUPSTART` ∪ the FocusChanged rule
+     from lesson 1.
+3. **Dialog-style popups have no "opened" event at all.** For GitHub's hamburger and Primer `Dialog`, only
+   focus movement into the `IsDialog` subtree announces them. There is no `DIALOGSTART` and no
+   `ExpandCollapse` change. FocusChanged is therefore required, not optional.
+4. **`ExpandCollapseState→Expanded` on the trigger button is a nice confirming signal, not a trigger.**
+   - It fired only for the `aria-haspopup`/`aria-expanded` button ("More items").
+   - Where it fires, it identifies the **opener**. That is useful for chained hinting, which can pair
+     "I activated button X" with "X is now expanded".
+5. **Content is ready almost immediately.**
+   - Every popup was fully scannable by the first or second readiness poll, about 80–160 ms after the
+     trigger, with the final item count.
+   - It was never populated progressively. Edge holds the whole a11y tree browser-side, consistent with
+     #71.
+   - A **single scan after a short settle (about 100–150 ms) is enough** for these surfaces. #74's
+     progressive-reconcile settle would also converge, after one quiet window.
+   - The scan should be **scoped to the container**. A container FindAll took 30–70 ms here, against about
+     70 ms for the full-window scan. Scoping also yields the menu-only hint set that §8 found is what
+     actually de-clutters #123.
+6. **Expect noise from same-process popup windows.** Edge's link-hover status bubble (843×65 px), which
+   hides itself after about 500 ms, and its menu-item tooltip (created at 530–575 ms) are both
+   `Chrome_WidgetWin_1` windows from the same process.
+   - So "a new same-process HWND appeared" is **not** a popup signal by itself.
+   - For the favorites menu, require `MENUPOPUPSTART` or a Menu container inside that HWND, as #45 already
+     concluded for the overloaded `PopupHost`.
+7. **Mouse click and UIA invoke behave the same** for trigger purposes. The UIA path adds an earlier
+   FocusChanged on the opener button itself, and for the web menu a `SYSTEM_FOREGROUND` pair.
+   - So auto-hint can't distinguish user-opened from hint-opened popups by signal, and doesn't need to.
+   - Chained hinting (#72) gets the same signals as a hands-off auto-hint watcher.
+8. **Close signals** (not timed in detail):
+   - web popups: the container disappears from the tree and focus returns;
+   - favorites: `MENUPOPUPEND`/`MENUEND`, plus the popup HWND's `OBJECT_HIDE`/`OBJECT_DESTROY`.
+
+**Recommended auto-hint trigger for these surfaces.** On any of the following, find the nearest `Menu`
+(non-MenuBar) or `IsDialog` container:
+- UIA `FocusChanged` in the foreground app;
+- UIA `MenuOpened`;
+- WinEvent `SYSTEM_MENUPOPUPSTART`.
+
+Deduplicate by the container's RuntimeId. Wait about 100 ms, then scan only that container's subtree, and
+show menu-only hints. Dismiss when the container leaves the tree, focus leaves it, or `MENUPOPUPEND`
+fires. Treat a new same-process HWND only as a hint that a popup may be open; confirm it with one of the
+signals above.

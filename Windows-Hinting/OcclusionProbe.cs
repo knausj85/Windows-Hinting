@@ -46,7 +46,7 @@ using WindowsHinting.Services;
 
 namespace WindowsHinting
 {
-    internal static class OcclusionProbe
+    internal static partial class OcclusionProbe
     {
         private static StreamWriter? _log;
         private static readonly object Gate = new();
@@ -100,6 +100,7 @@ namespace WindowsHinting
                 target = N.GetForegroundWindow();
             }
             Log($"target: {Describe(target)}  dpi={N.GetDpiForWindow(target)}");
+            if (Array.Exists(args, a => a == "--trigger")) { RunTrigger(args, target); return; }
 
             // ---- MenuOpened subscription on an MTA thread (per #48/#77) ------------
             var menuOpened = new List<(long ms, string desc, int[]? rid, Rectangle rect)>();
@@ -601,6 +602,7 @@ namespace WindowsHinting
             [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint flags);
             [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr h, uint cmd);
             [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+            [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT p);
             [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
             [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
             [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);

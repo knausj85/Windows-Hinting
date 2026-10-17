@@ -99,3 +99,5 @@ UIA_PATTERN_ID
 UIA_CONTROLTYPE_ID
 IUIAutomationEventHandler
 UIA_EVENT_ID
+IUIAutomationFocusChangedEventHandler
+IUIAutomationPropertyChangedEventHandler
