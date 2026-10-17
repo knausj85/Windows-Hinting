@@ -17,7 +17,7 @@ because of it, so later phases start from a clean baseline. No behavior change.
    - `Windows-Hinting/Services/NamedPipeService.cs`
    - `Windows-Hinting/NamedPipeClient/HintOverlayClient.cs` (and the `NamedPipeClient` folder)
    - `Windows-Hinting/Examples/HintOverlayClientExamples.cs` (and the `Examples` folder)
-   - The `NamedPipeCommand` / `CommandType` types (in `Windows-Hinting/Models/Models.cs`)
+   - The `NamedPipeCommand` / `CommandType` types (declared at the bottom of `NamedPipeService.cs`)
    - The commented-out registration and wiring lines that referenced any of the above
 2. **Remove orphaned test references.** Delete the `xunit.assert` / `xunit.v3.extensibility.core`
    package references from `Windows-Hinting/Windows-Hinting.csproj` and the "Clean Debug output"

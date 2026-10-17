@@ -28,7 +28,6 @@ namespace WindowsHinting
         private readonly HintInputHandler _inputHandler;
         private readonly TrayIconManager _trayIcon;
         private readonly ElementActivatorChain _activatorChain;
-        //private readonly NamedPipeService _namedPipeService;
         private readonly WindowRuleRegistry _ruleRegistry;
         private readonly MouseClickService _mouseClickService;
         private readonly StartupService _startupService;
@@ -59,7 +58,6 @@ namespace WindowsHinting
             HintStateManager stateManager,
             HintInputHandler inputHandler,
             ElementActivatorChain activatorChain,
-            //NamedPipeService namedPipeService,
             MouseClickService mouseClickService,
             StartupService startupService,
             UpdateService updateService)
@@ -82,7 +80,6 @@ namespace WindowsHinting
                 _stateManager = stateManager ?? throw new ArgumentNullException(nameof(stateManager));
                 _inputHandler = inputHandler ?? throw new ArgumentNullException(nameof(inputHandler));
                 _activatorChain = activatorChain ?? throw new ArgumentNullException(nameof(activatorChain));
-                //_namedPipeService = namedPipeService ?? throw new ArgumentNullException(nameof(namedPipeService));
                 _mouseClickService = mouseClickService ?? throw new ArgumentNullException(nameof(mouseClickService));
                 _startupService = startupService ?? throw new ArgumentNullException(nameof(startupService));
                 _updateService = updateService ?? throw new ArgumentNullException(nameof(updateService));
@@ -130,12 +127,6 @@ namespace WindowsHinting
 
                 _foregroundWindowHookService.ForegroundWindowChanged += OnForegroundWindowChanged;
 
-                //_namedPipeService.CommandReceived += OnNamedPipeCommandReceived;
-
-                // Start named pipe service
-                // _logger.Debug("Starting named pipe service");
-                //_namedPipeService.Start();
-
                 // Kick off the auto-update background loop (no-op if disabled in prefs).
                 _updateService.Initialize();
 
@@ -171,71 +162,6 @@ namespace WindowsHinting
             _logger.Info("Display settings changed - deactivating hints and rebuilding overlays");
             _stateManager.Deactivate();
             _overlay.RebuildOverlays();
-        }
-
-        private void OnNamedPipeCommandReceived(object? sender, NamedPipeCommand command)
-        {
-            _logger.Debug($"Processing named pipe command: {command.CommandType}");
-
-            switch (command.CommandType)
-            {
-                case CommandType.Toggle:
-                    Toggle();
-                    break;
-
-                case CommandType.ToggleTaskbar:
-                    ToggleTaskbar();
-                    break;
-
-                case CommandType.Select:
-                    if (!string.IsNullOrEmpty(command.HintLabel))
-                    {
-                        SelectHintByLabel(command.HintLabel, command.Action);
-                    }
-                    break;
-
-                case CommandType.Deactivate:
-                    _stateManager.Deactivate();
-                    break;
-            }
-        }
-
-        private void SelectHintByLabel(string label, ClickAction action = ClickAction.Default)
-        {
-            _logger.Info($"Attempting to select hint with label: {label}, action: {action}");
-
-            var hint = _stateManager.CurrentHints.FirstOrDefault(h =>
-                h.Label.Equals(label, StringComparison.OrdinalIgnoreCase));
-
-            if (hint == null)
-            {
-                _logger.Warning($"Hint with label '{label}' not found");
-                return;
-            }
-
-            _logger.Info($"Activating hint: {hint.Label}, action: {action}");
-
-            try
-            {
-                if (action == ClickAction.Default)
-                {
-                    _activatorChain.TryActivate(hint.Element);
-                }
-                else
-                {
-                    _mouseClickService.PerformClick(hint.Rect, action);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Error($"Error activating hint '{label}'", ex);
-            }
-            finally
-            {
-                // Hide hints after activation
-                _logger.Debug("Deactivating hints after direct selection");
-                _stateManager.Deactivate();
-            }
         }
 
         public void Toggle()
