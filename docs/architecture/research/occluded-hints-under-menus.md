@@ -459,6 +459,12 @@ Machine: Win11 26200, ARM64, one display at 200% (DPI 192). Runs were DPI-unawar
 | Edge favorites-bar folder (`Coding`) | 94 | 4 | 9 | 4 | **no** | own popup HWND, items **also** in main tree | WinEvent `MENUSTART`/`MENUPOPUPSTART` on the popup HWND (39–43 ms); `FocusChanged` not dependable on mouse open |
 | Edge `Other favorites` | 92 | 2 | 8 | 2 | no | same as above | WinEvent `MENUSTART`/`MENUPOPUPSTART` (44–51 ms); `FocusChanged` only when opened via UIA, none on mouse click |
 | Edge `Settings and more` | 114 | 24 | 41 | 24 | no | same as above | WinEvent `MENUSTART`/`MENUPOPUPSTART` (52–83 ms); `FocusChanged` via UIA/Alt+F, none on mouse click |
+| Edge context menu: page (Shift+F10) | 98 | 15 | 34 | 15 | no | own popup HWND, items also in main tree | WinEvent popup `OBJECT_CREATE` (41 ms), `FocusChanged`→first item (49), `MENUSTART`/`MENUPOPUPSTART` (62–65) |
+| Edge context menu: page (right-click) | 98 | 15 | 21 | 15 | no | same | `OBJECT_CREATE` (23 ms), `MENUSTART`/`MENUPOPUPSTART` (33–36); **no** focus move |
+| Edge context menu: link (`MIT license`) | 93 | 10 | 26 | 10 | no | same | `OBJECT_CREATE` (22 ms), `MENUSTART`/`MENUPOPUPSTART` (40–45); no focus move |
+| Edge context menu: tab | 96 | 13 | 24 | 13 | no | same | `OBJECT_CREATE` (26 ms), `MENUSTART`/`MENUPOPUPSTART` (39–41); no focus move |
+| Edge context menu: address bar | 92 | 9 | 25 | 9 | no | same | `FocusChanged`→the omnibox, the *opener* (69 ms); `OBJECT_CREATE` (70), `MENUSTART`/`MENUPOPUPSTART` (81–89) |
+| Edge context menu: favorites item (`Coding`) | 97 | 14 | 23 | 14 | no | same | `OBJECT_CREATE` (44 ms), `MENUPOPUPSTART`/`MENUSTART` (67–68); no focus move |
 | Notepad File menu (WinUI MenuFlyout) | 43 | 13 | 0 (nothing hintable beneath) | 13 | yes | `PopupWindowSiteBridge` HWND, items also in main tree | WinEvent `MENUPOPUPSTART`, UIA `MenuOpened`, `FocusChanged`→`MenuFlyoutItem` (55–166 ms) |
 | Notepad context menu | 41 | 11 | 0 | 11 | yes | same as above | same three signals (52–183 ms) |
 | Notepad system menu (`#32768`) | 35 | 5 | 3 | 5 | yes | `#32768` HWND | all: `MENUSTART`, `MENUPOPUPSTART`, `#32768` `OBJECT_SHOW`, UIA `MenuOpened` with a real rect, `FocusChanged` (47–53 ms) |
@@ -564,7 +570,7 @@ The probe records:
 - a readiness poll that logs popup containers, on-screen MenuItems in the tree, and same-process popup
   HWNDs whenever they change.
 
-26 runs in total (§10 adds Watch, Code and Create new); raw timelines are in `occlusion-probe-trig-*.log` next to the exe.
+33 runs in total (§10 adds Watch, Code and Create new; §11 adds Edge context menus); raw timelines are in `occlusion-probe-trig-*.log` next to the exe.
 
 All times are ms after the trigger. "—" means the signal did not fire.
 
@@ -579,6 +585,7 @@ All times are ms after the trigger. "—" means the signal did not fire.
 | Edge favorites folder `Coding` (click, UIA) | 39–43 (+`MENUSTART`) | — | UIA 22; click 68 | — | ~90–110 |
 | Edge `Other favorites` (click, UIA) | 49–51 (+`MENUSTART`) | — | UIA 25; **click: none** | — | ~120 |
 | Edge `Settings and more` (click, UIA, Alt+F) | 54–83 (+`MENUSTART`) | — | UIA 32, Alt+F 62; **click: none** | — | ~125–150 |
+| Edge context menus: page, link, tab, address bar, favorites item (right-click; page also Shift+F10) | 36–89 (+`MENUSTART`, popup HWND `OBJECT_CREATE` 22–70) | — | **only Shift+F10** (49, first item); right-click: none (address bar: the omnibox opener only) | — | ~110–215 |
 | Notepad File menu (click, Alt+F) | 55–146 | 56–161 | 54–166 (`MenuFlyout`, then the first item) | — | ~250–375 (the poll itself was slow, 190–380 ms) |
 | Notepad context menu (right-click, Shift+F10) | 71–168 | 52–163 | 66–183 | — | ~170–300 |
 | Notepad system menu `#32768` (Alt+Space) | 51 (+`MENUSTART`, `#32768` `OBJECT_CREATE`/`SHOW`) | 52, with a real rect | 47 (`Restore`) | — | ≤170 |
@@ -718,3 +725,47 @@ Document
 
 **Residual (unchanged):** popovers that neither take focus nor flip an opener's `Expanded` state (for
 example, hover cards) stay invisible to every trigger channel probed here.
+
+
+---
+
+## 11. Edge context menus (2026-10-17)
+
+**Probe.** Same probe as §8 and §9. A new `--rclick` opener drives occlusion mode too. The probe
+right-clicked:
+- the page (body text);
+- a link (`MIT license`);
+- the active tab;
+- the address bar;
+- a favorites-bar item (`Coding`).
+
+It also opened the page's menu with **Shift+F10**. To target the tab, the probe matched on the tab's full
+name. The window's root view also starts with `B | knausj85…`, so a plain prefix match right-clicked the
+page centre instead. That run is kept as the page right-click row.
+
+**Findings.**
+
+1. **Every Edge context menu is a Chromium Views menu.** That includes the page and link menus, which are
+   browser UI, not web content.
+   - It lives in its own `Chrome_WidgetWin_1` popup HWND, yet its items sit in the **main window's** UIA
+     tree as a `ControlType.Menu` (`SubmenuView`).
+   - The chain above it is `MenuScrollView` → a `MenuScrollViewContainer` reported as **`MenuBar`**
+     (50010) → `MenuHostRootView` → the popup.
+   - So §8's detection works unchanged. The "skip MenuBar" rule still holds, because the item container
+     is the inner `Menu`.
+   - Menu-only hinting leaves 9–15 hints instead of 92–98.
+   - Occluded-only filtering hides 21–34 page hints under the menu.
+2. **The triggers are identical to the favorites and settings menus in §9.**
+   - The popup HWND's `OBJECT_CREATE`/`SHOW` arrives at 22–70 ms, then `SYSTEM_MENUSTART` +
+     `SYSTEM_MENUPOPUPSTART` at 33–89 ms.
+   - **No UIA `MenuOpened`** in any of the 7 runs.
+3. **A mouse-opened context menu never moves focus.** UIA focus stayed on the page element (or the
+   omnibox, for the address bar) in all 5 right-click runs. Only **Shift+F10** moved focus to the first
+   item (`Back`). This confirms §9 lesson 3: for Edge menus, `MENUPOPUPSTART` is the only dependable
+   trigger, and FocusChanged-only designs miss mouse opens entirely.
+4. **They are ready about 110–215 ms after the trigger**, complete on the first scan. That is consistent
+   with the other Views menus.
+5. **The opener isn't identifiable from the menu.**
+   - There is no `Expanded` state on anything and no `ControllerFor`.
+   - For chained hinting that is fine: the menu belongs to the foreground window, and it is the newest
+     `Menu` container whose popup HWND matches the `MENUPOPUPSTART` hwnd.

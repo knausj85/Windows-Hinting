@@ -139,9 +139,27 @@ namespace WindowsHinting
             // ---- drive the scenario ------------------------------------------------
             string? invoke = Arg(args, "--invoke");
             string? keys = Arg(args, "--keys");
+            string? rclick = Arg(args, "--rclick");
             if (invoke != null) RunMta(() => InvokeByName(target, invoke));
+            if (rclick != null)
+            {
+                Rectangle rr = Rectangle.Empty;
+                RunMta(() =>
+                {
+                    var a = (IUIAutomation)new CUIAutomation();
+                    if (FindByName(a, a.ElementFromHandle((HWND)target), rclick) is { } el)
+                        rr = ToRect(el.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_BoundingRectanglePropertyId));
+                });
+                if (rr.IsEmpty) Log($"!! --rclick: '{rclick}' not found");
+                else
+                {
+                    var rc = Centre(rr);
+                    Log($"--rclick '{rclick}' rect={rr} at {rc}");
+                    RClick(rc);
+                }
+            }
             if (keys != null) { Log($"SendKeys '{keys}'  fg before={Describe(N.GetForegroundWindow())}"); SendKeys.SendWait(keys); }
-            if (invoke != null || keys != null) { Log($"settling {settleMs}ms"); Thread.Sleep(settleMs); }
+            if (invoke != null || keys != null || rclick != null) { Log($"settling {settleMs}ms"); Thread.Sleep(settleMs); }
 
             IntPtr fg = N.GetForegroundWindow();
             Log($"foreground at measure: {Describe(fg)}{(fg == target ? "  (== target)" : "  (!= target)")}");
@@ -473,6 +491,16 @@ namespace WindowsHinting
                 if ((prefix ? nm.StartsWith(want, StringComparison.Ordinal) : nm == want) && --nth == 0) return e;
             }
             return null;
+        }
+
+        private static void RClick(Point c)
+        {
+            N.GetCursorPos(out var old);
+            SetCursorPos(c.X, c.Y);
+            mouse_event(0x0008, 0, 0, 0, UIntPtr.Zero);
+            mouse_event(0x0010, 0, 0, 0, UIntPtr.Zero);
+            Thread.Sleep(30);
+            SetCursorPos(old.X, old.Y);
         }
 
         private static void InvokeByName(IntPtr target, string name)
