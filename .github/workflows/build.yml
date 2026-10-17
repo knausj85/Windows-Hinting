@@ -590,6 +590,45 @@ jobs:
           fi
         shell: bash
 
+      # Stable only: one set of notes feeds both the GitHub release body and the
+      # in-app update dialog (embedded in the signed appcast via --change-log-path).
+      # Beta keeps GitHub's own generated notes and shows none in the app for now.
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cp .github/release-body-header.md release-body.md
+          [ "$IS_BETA" = "true" ] && exit 0
+
+          # The new release doesn't exist yet, so "latest" is the previous stable
+          # one (prereleases are never latest). Passing it explicitly stops GitHub
+          # guessing the start of the range.
+          prev=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null || true)
+          echo "PREV_STABLE_TAG=${prev}" >> "$GITHUB_ENV"
+          args=(-f tag_name="$RELEASE_TAG" -f target_commitish="$GITHUB_SHA")
+          [ -n "$prev" ] && args+=(-f previous_tag_name="$prev")
+          gh api -X POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" "${args[@]}" -q .body > notes-github.md
+
+          { echo; cat notes-github.md; } >> release-body.md
+
+          # In-app copy: drop the author/PR-link suffixes, New Contributors and the
+          # Full Changelog link (links don't open in the update dialog), then escape
+          # & < > so PR-title markup is shown as text and never flips NetSparkle's
+          # renderer from Markdown into raw-HTML mode.
+          mkdir -p changelog
+          notes="changelog/${BUILD_VERSION}.md"
+          sed -E -e 's/ by @[^ ]+ in https:\/\/github\.com\/[^ ]+$//' \
+                 -e '/^\*\*Full Changelog\*\*/d' notes-github.md \
+            | awk '/^## New Contributors/ { skip = 1; next } /^## / { skip = 0 } !skip' \
+            | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' \
+            | cat -s > "$notes"
+          if ! grep -q '^\* ' "$notes"; then
+            echo "Maintenance release with no user-facing changes." > "$notes"
+          fi
+          echo "In-app release notes:"; cat "$notes"
+        shell: bash
+
       - name: Download Debug build
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -652,6 +691,7 @@ jobs:
         if: env.APPCAST_SKIPPED != 'true'
         env:
           BUILD_VERSION: ${{ env.BUILD_VERSION }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # NetSparkle's AppCastGenerator is documented to read BOTH keys
           # (base64) from env vars SparklePrivateKey and SparklePublicKey.
           # In practice, on a clean Linux runner it still falls through to the
@@ -700,10 +740,39 @@ jobs:
               --ext "${ext}" \
               --base-url "${download_url}" \
               --output-file-name "${out_name}" \
-              --signature-file-extension signature
+              --signature-file-extension signature \
+              --change-log-path changelog \
+              "${reparse[@]}"
           }
 
           mkdir -p appcast-out
+
+          # Stable appcasts are cumulative: seed each with the previous stable
+          # release's appcast so the update dialog shows notes for every version
+          # newer than the installed one, not just the latest. Keep the newest
+          # 19 old items (plus the new one). Beta stays single-item for now.
+          reparse=()
+          if [ "$IS_BETA" = "false" ] && [ -n "${PREV_STABLE_TAG:-}" ]; then
+            reparse=(--reparse-existing)
+            for name in "${APPCAST_INSTALLER_NAME}" "${APPCAST_PORTABLE_X64_NAME}" "${APPCAST_PORTABLE_X86_NAME}"; do
+              gh release download "${PREV_STABLE_TAG}" --repo "$GITHUB_REPOSITORY" \
+                --pattern "${name}.xml" --dir appcast-out --clobber \
+                || echo "::warning::No ${name}.xml on ${PREV_STABLE_TAG}; that appcast starts fresh."
+            done
+            for f in appcast-out/*.xml; do
+              [ -e "$f" ] || continue
+              python3 - "$f" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          ET.register_namespace("sparkle", "http://www.andymatuschak.org/xml-namespaces/sparkle")
+          path = sys.argv[1]
+          tree = ET.parse(path)
+          channel = tree.getroot().find("channel")
+          for item in channel.findall("item")[19:]:  # items are newest-first
+              channel.remove(item)
+          tree.write(path, encoding="utf-8", xml_declaration=True)
+          PY
+            done
+          fi
 
           if [ -z "${SparklePrivateKey:-}" ] || [ -z "${SparklePublicKey:-}" ]; then
             echo "::error::SparklePrivateKey and/or SparklePublicKey env vars are empty; appcast signatures would not be generated. Set the NETSPARKLE_ED25519_PRIVATE_KEY and NETSPARKLE_ED25519_PUBLIC_KEY repo secrets (base64)."
@@ -758,20 +827,14 @@ jobs:
           tag: ${{ env.RELEASE_TAG }}
           commit: ${{ github.sha }}
           name: ${{ env.IS_BETA == 'true' && format('beta (build {0})', env.BUILD_VERSION) || format('v{0}', env.BUILD_VERSION) }}
-          generateReleaseNotes: true
+          # Stable: notes are already in release-body.md (Generate release notes).
+          # Beta: GitHub appends its generated notes after the Downloads header.
+          generateReleaseNotes: ${{ env.IS_BETA == 'true' }}
           prerelease: ${{ env.IS_BETA == 'true' || inputs.prerelease || false }}
           makeLatest: ${{ env.IS_BETA != 'true' && !(inputs.prerelease || false) }}
           allowUpdates: false
           removeArtifacts: false
-          body: |
-            ## Downloads
-
-              | Asset | Description |
-              |---|---|
-              | **Windows-Hinting-Portable-win-x64.exe** | Self-contained portable x64 build — signed single-file executable. No .NET runtime required. No UIAccess (hints won't appear above e.g. the start menu). Download and run. |
-              | **Windows-Hinting-Portable-win-x86.exe** | Self-contained portable x86 build — signed single-file executable. No .NET runtime required. No UIAccess (hints won't appear above e.g. the start menu). Download and run. |
-              | **Windows-Hinting-Debug.zip** | Debug build — **unsigned**, for diagnostics/testing only. Extract and run `Windows-Hinting.exe`. Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). |
-              | **Windows-Hinting.msi** | Installer — fully signed (installer, executable, and managed DLL). Provides UIAccess support so hints appear above e.g. the start menu. Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). |
+          bodyFile: release-body.md
           artifacts: |
             artifacts/Windows-Hinting-Debug.zip
             artifacts/Windows-Hinting-Portable-win-x64.exe
