@@ -44,8 +44,7 @@ Rules that are easy to break:
   jobs. The signing jobs check out no code and the release job builds nothing; never
   reference these secrets from a job that runs a build. Only manual runs sign or
   publish (pushes to main just build, so several PRs can go into one release), and
-  published releases are always signed: a manual run with `publish_release` but not
-  `sign_binaries` fails.
+  published releases are always signed: `publish_release` turns on signing itself.
 - Formatting is enforced by pre-commit (`.pre-commit-config.yaml`). Run
   `pre-commit install` once so hooks fix files at commit time, or
   `pre-commit run --all-files`. CI runs the same hooks first and only builds once they

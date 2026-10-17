@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       sign_binaries:
-        description: "Sign Release/Portable/MSI binaries with SSL.com eSigner"
+        description: "Sign Release/Portable/MSI binaries with SSL.com eSigner (implied by publish_release)"
         type: boolean
-        default: true
+        default: false
       publish_release:
-        description: "Publish a GitHub Release (main => stable 'v<ver>' tag; other branches => rolling 'beta' tag)"
+        description: "Sign and publish a GitHub Release (main => stable 'v<ver>' tag; other branches => rolling 'beta' tag)"
         type: boolean
         default: false
       prerelease:
@@ -169,16 +169,11 @@ jobs:
         env:
           REF_NAME: ${{ github.head_ref || github.ref_name }}
           # Only a manual run signs (and so only a manual run can publish): several PRs
-          # can land on main before one release is cut from it.
-          SIGN: ${{ github.event_name == 'workflow_dispatch' && inputs.sign_binaries == true }}
-          PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release == true }}
+          # can land on main before one release is cut from it. Publishing implies signing:
+          # the appcast pushes a release to every installed client, and an unsigned exe
+          # loses UIAccess.
+          SIGN: ${{ github.event_name == 'workflow_dispatch' && (inputs.sign_binaries == true || inputs.publish_release == true) }}
         run: |
-          # Releases are always signed: the appcast pushes them to every installed client,
-          # and an unsigned exe loses UIAccess. Fail now rather than build for nothing.
-          if [ "$PUBLISH" = "true" ] && [ "$SIGN" != "true" ]; then
-            echo "::error::publish_release requires sign_binaries; refusing to publish unsigned binaries."
-            exit 1
-          fi
           slug=$(printf '%s' "$REF_NAME" | tr -c 'a-zA-Z0-9' '-' | tr '[:upper:]' '[:lower:]' | cut -c1-20 | sed 's/-*$//')
           if [ "$REF_NAME" = "main" ]; then
             suffix=""; channel="Stable"; is_beta="false"
@@ -568,7 +563,7 @@ jobs:
     # included, never publish):
     #  - on main                                               => stable channel (tag v<ver>)
     #  - on any other branch                                   => beta channel (rolling 'beta' tag)
-    # Never from an unsigned build (metadata already fails a manual run that asks for that).
+    # Never from an unsigned build (publish_release turns signing on in metadata).
     # (Don't let other 'skipped' needs skip this job.)
     if: |
       !cancelled() && !failure() && needs.metadata.outputs.sign == 'true' &&
