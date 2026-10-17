@@ -1,8 +1,13 @@
 name: Build
 
+# Branches build through their pull request, not on push: a push to a PR branch would
+# otherwise start a second run of the same commit, and the pull_request run is the one
+# pre-commit.ci lite can autofix and that covers PRs from forks. A branch with no PR, or
+# whose PR has conflicts (GitHub then starts no pull_request run), isn't built until it
+# gets a mergeable PR; a manual run builds any branch.
 on:
   push:
-    branches: [ "**" ]
+    branches: [ main ]
   pull_request:
     branches: [ "**" ]
   workflow_dispatch:
@@ -42,49 +47,6 @@ defaults:
     shell: pwsh
 
 jobs:
-  # GitHub starts one workflow run per event, so a push to a branch with an open PR
-  # starts two runs (push and pull_request) for the same commit. Only one should work:
-  # the pull_request run, because it is the one pre-commit.ci lite can autofix and it
-  # also covers PRs from forks. This job ends the push run early when the branch has an
-  # open PR (draft or not) that can be merged; everything else needs it and is skipped. Pushes to main,
-  # pushes to branches without a PR, PR runs and manual runs all proceed.
-  gate:
-    name: Run gate
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      pull-requests: read
-    outputs:
-      run: ${{ steps.check.outputs.run }}
-    steps:
-      - name: Check for an open pull request
-        id: check
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OWNER: ${{ github.repository_owner }}
-        run: |
-          run=true
-          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" != "main" ]; then
-            for pr in $(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=$OWNER:$GITHUB_REF_NAME" --jq '.[].number'); do
-              # GitHub only starts a pull_request run when the PR can be merged (it builds
-              # the merge commit), so a PR with conflicts would leave this commit unbuilt.
-              # Mergeability is computed after the push; wait up to ~1 minute for it.
-              mergeable=null
-              for _ in $(seq 12); do
-                mergeable=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr" --jq '.mergeable')
-                [ "$mergeable" != "null" ] && break
-                sleep 5
-              done
-              if [ "$mergeable" = "true" ]; then
-                echo "Branch has open PR #$pr; its pull_request run lints and builds this commit."
-                run=false
-                break
-              fi
-              echo "PR #$pr isn't mergeable (mergeable=$mergeable), so it gets no pull_request run; building here."
-            done
-          fi
-          echo "run=$run" >> "$GITHUB_OUTPUT"
   # Runs first: the build jobs wait for it, so a commit that fails formatting or lint
   # doesn't spend ~10 runner-minutes building. On a pull request, the last step has
   # pre-commit.ci lite commit whatever the fixing hooks changed (whitespace, line endings,
@@ -100,8 +62,6 @@ jobs:
   # Hook revs are bumped by Dependabot (.github/dependabot.yml).
   pre-commit:
     name: pre-commit
-    needs: gate
-    if: needs.gate.outputs.run == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -155,8 +115,6 @@ jobs:
     name: Build metadata
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: gate
-    if: needs.gate.outputs.run == 'true'
     outputs:
       artifact_suffix: ${{ steps.meta.outputs.artifact_suffix }}
       update_channel: ${{ steps.meta.outputs.update_channel }}
@@ -413,7 +371,7 @@ jobs:
   #  - signed runs package the signed Release build (uiAccess="true"), then sign-msi signs
   #    the MSI; this is the only MSI that is ever released.
   #  - unsigned runs package the Debug build (uiAccess="false"), so the installer can be
-  #    tested from any push or PR without a signed publish. A Release exe can't be used
+  #    tested from any PR or push to main without a signed publish. A Release exe can't be used
   #    there: Windows refuses to start an unsigned exe that asks for UIAccess.
   build-msi:
     name: Build MSI
