@@ -151,7 +151,7 @@ namespace WindowsHinting
             if (rclick != null)
             {
                 Rectangle rr = Rectangle.Empty;
-                RunMta(() =>
+                if (!TryParseAt(rclick, out rr)) RunMta(() =>
                 {
                     var a = (IUIAutomation)new CUIAutomation();
                     if (FindByName(a, a.ElementFromHandle((HWND)target), rclick) is { } el)
@@ -288,7 +288,10 @@ namespace WindowsHinting
                 {
                     var sub = el.FindAllBuildCache(TreeScope.TreeScope_Descendants, trueCond, ridCache);
                     for (int j = 0; j < sub.Length; j++)
-                        members.Add(Rid(sub.GetElement(j).GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_RuntimeIdPropertyId)));
+                    {
+                        var rid = Rid(sub.GetElement(j).GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_RuntimeIdPropertyId));
+                        if (rid.Length > 0) members.Add(rid);
+                    }
                     containers.Add((desc, rect, members));
                 }
                 Log($"  [{(usable ? "USE" : "skip")}] {desc}  members={members.Count}");
@@ -323,10 +326,14 @@ namespace WindowsHinting
                 try
                 {
                     var pe = automation.ElementFromHandle((HWND)pw.hwnd);
-                    pw.members.Add(Rid(pe.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_RuntimeIdPropertyId)));
+                    var prid = Rid(pe.GetCurrentPropertyValue(UIA_PROPERTY_ID.UIA_RuntimeIdPropertyId));
+                    if (prid.Length > 0) pw.members.Add(prid);
                     var sub = pe.FindAllBuildCache(TreeScope.TreeScope_Descendants, trueCond, ridCache);
                     for (int j = 0; j < sub.Length; j++)
-                        pw.members.Add(Rid(sub.GetElement(j).GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_RuntimeIdPropertyId)));
+                    {
+                        var rid = Rid(sub.GetElement(j).GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_RuntimeIdPropertyId));
+                        if (rid.Length > 0) pw.members.Add(rid);
+                    }
                 }
                 catch (Exception ex) { Log($"  popup 0x{pw.hwnd:X} UIA error {ex.Message}"); }
                 Log($"  [popup HWND] {Describe(pw.hwnd)} rect={pw.rect} uiaMembers={pw.members.Count}");
@@ -479,6 +486,17 @@ namespace WindowsHinting
         }
 
         // spec: "Exact name", "Prefix*", either optionally suffixed "#N" (1-based Nth match).
+        // "@x,y" = a raw screen point (in this process's DPI coordinate space).
+        private static bool TryParseAt(string? spec, out Rectangle r)
+        {
+            r = Rectangle.Empty;
+            if (spec == null || !spec.StartsWith('@')) return false;
+            var xy = spec[1..].Split(',');
+            if (xy.Length != 2 || !int.TryParse(xy[0], out var x) || !int.TryParse(xy[1], out var y)) return false;
+            r = new Rectangle(x, y, 1, 1);
+            return true;
+        }
+
         private static IUIAutomationElement? FindByName(IUIAutomation a, IUIAutomationElement root, string spec)
         {
             int nth = 1;

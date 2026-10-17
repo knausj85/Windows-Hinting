@@ -907,3 +907,68 @@ Use a **hybrid settle**, keyed per surface:
 - **Surfaces that never burst** (Start, the jump list, Views menus) fall through to the confirming scan.
   A per-surface floor (Start about 400–1000 ms) can live on the `SurfaceRule` (#49/#47 already anticipate
   a per-surface redraw/settle field).
+
+---
+
+## 14. VS Code, Beyond Compare and Visual Studio menus (2026-10-17)
+
+**Probe.** Same occlusion and trigger modes as before, with `--sc` (StructureChanged scoped to the target
+window). A new `--rclick @x,y` opener right-clicks a raw screen point, for panes with no name. The menus
+probed:
+- **VS Code 1.142:** the custom title-bar menu bar (`File`, the `More` overflow) and the editor context
+  menu, opened by right-click and by Shift+F10.
+- **Beyond Compare 5** text compare: the `File` menu and the text-pane context menu.
+- **Visual Studio Insiders:** the `File` menu, a toolbar context menu and a Solution Explorer project
+  context menu.
+
+| Menu | Popup lives in | Items in the window's scan? | UIA `MenuOpened` (sender) | WinEvent `MENUPOPUPSTART` | `FocusChanged` into popup | Ready | `StructureChanged` | Occlusion |
+|---|---|---|---|---|---|---|---|---|
+| VS Code menu bar `File` / `More` | same HWND (in-DOM `role=menu` under the menubar button) | **only 1 of 20 / 1 of 5**: the rest report `IsOffscreen=true` (below) | 41–54 ms (the menu, real rect) | 43–60 | 32–49 (the menu) | ~70–90 | 9: hover-highlight churn | 23 / 9 hints under it |
+| VS Code editor context menu | same HWND, in a `shadow-root-host` group under the app node (portal-like) | yes, 8 of 8 | 33–72 (the menu) | 47–73 | 27–63 | ~75–100 | 10, same churn | menu-only leaves 8 of 98 |
+| Beyond Compare `File` | own `TTBPopupWindow` HWND (Toolbar2000) | **no** (the tree's Menu node reports offscreen) | 57 (bridged from MSAA; the popup) | 53 (+`MENUSTART` 38) | 36 (on the menubar item) | first scan | **none** | no hints under it |
+| Beyond Compare text-pane context | own `TTBPopupWindow` HWND | **no** | 72 (the popup) | 61 (+`MENUSTART` 43; popup `OBJECT_CREATE`/`SHOW` 39–43) | 76 (first item) | first scan | none | no hints under it |
+| Visual Studio `File` | own WPF `HwndWrapper` popup, UIA-parented to the VS window | yes (15 hints) | 69 (sender = **MenuBar**, not the submenu) | 57 (sender = MenuBar) | 25 (`File`) | first scan | 4 | 16 under it |
+| VS toolbar context (`Toolbar List`) | WPF popup, UIA-parented to the VS window | yes (22) | 53 **and again at 95** | 54 | 30 (the menu), 64 (first item) | first scan | 3 | menu-only leaves 22 of 173 |
+| VS Solution Explorer project context (`Project`) | WPF popup, UIA-parented to the **Desktop** | **no** | 72 **and again at 157** | 77 | 23 (the menu) | first scan | none in the window | 15 under it (popup-HWND rect) |
+
+The large "ready" times the poll reported for VS (~800 ms) and BC (~300 ms) are **the poll's own cost**:
+a whole-window FindAll over VS's tree takes ~800 ms, and the production scan of VS takes 1.2 s. Each menu
+was complete on the first scan after the signal.
+
+### Findings
+
+1. **All three apps raise both `MenuOpened` and `MENUPOPUPSTART`** for menu-bar and context menus.
+   - Beyond Compare's UIA event is bridged from its MSAA events.
+   - WPF and Chromium raise both natively.
+   - This also revises #45's note that in-DOM Electron menu bars had "no OS open event". VS Code 1.142
+     exposes `role=menu` and raises both events, as Chromium does for any web menu (§3.2).
+2. **Where the menu items live varies, even within one app.**
+   - VS's menu-bar and toolbar popups are UIA children of the VS window, so the window scan sees them.
+   - Its Solution Explorer context popup is a child of the **Desktop**, so the window scan never sees it.
+   - Beyond Compare's popups are always separate.
+   - So an auto-hint or chaining scan must **root itself at the popup**: the `MenuOpened` sender (or its
+     `Popup` ancestor), the `MENUPOPUPSTART` hwnd, or the focused element's popup ancestor. It must not
+     root at the foreground window.
+3. **The `MenuOpened` sender isn't always the menu.**
+   - VS's menu bar reports the **MenuBar** as sender, so the submenu has to be found via the popup HWND
+     or focus.
+   - VS also raises `MenuOpened` **twice** for context menus. Deduplicate by container or popup.
+4. **Bug, VS Code menu-bar items are dropped by the production scan.**
+   - Every item in VS Code's `File`/`More` menus except the first reports `IsOffscreen=true` while it is
+     visible.
+   - Our `IsOffscreen=false` condition therefore drops 19 of 20 (File) and 4 of 5 (More).
+   - The context menu's items, which are portaled into a shadow-root host, are unaffected.
+   - Likely cause: Chromium clips them against the menubar-button ancestor they are nested under (§2.1).
+   - **Worth its own ticket.** A popup-rooted scan could skip the offscreen filter inside a confirmed open
+     menu.
+5. **StructureChanged is no help here.**
+   - Beyond Compare raises none (MSAA-proxied).
+   - VS raises 3–4 coarse ones.
+   - VS Code raises hover-highlight churn.
+   - All of these menus arrive whole, so settle means "scan at the signal", plus §13's confirming
+     reconcile.
+6. **Probe hazards, which feed #124.**
+   - Beyond Compare **closes its compare window on Esc** when no menu is open. The probe's
+     Esc-to-tear-down closed it twice.
+   - BC's menu-bar items expose `ExpandCollapse`, but `Expand()` did not open the menu. A real click did.
+   - A probe harness needs per-app teardown, and should verify that the opener actually opened something.

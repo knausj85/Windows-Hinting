@@ -177,6 +177,7 @@ namespace WindowsHinting
                 tog = el.GetCurrentPattern(UIA_PATTERN_ID.UIA_TogglePatternId) as IUIAutomationTogglePattern;
             });
             if (keys != null) { triggerRect = new Rectangle(0, 0, 1, 1); }
+            else if (TryParseAt(click, out var at)) { triggerRect = at; }
             else if (triggerRect.IsEmpty) { Log($"!! trigger element '{click ?? invoke}' not found"); stop.Set(); return; }
             var pt = Centre(triggerRect);
             Log($"trigger element rect={triggerRect} centre={pt} mode={(keys != null ? "keys " + keys : rclick != null ? "right click" : click != null ? "mouse click" : "UIA")}");
