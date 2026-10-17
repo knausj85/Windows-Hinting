@@ -108,6 +108,7 @@ namespace WindowsHinting
             }
             Log($"target: {Describe(target)}  dpi={N.GetDpiForWindow(target)}");
             if (Array.Exists(args, a => a == "--trigger")) { RunTrigger(args, target); return; }
+            if (Array.Exists(args, a => a == "--verify")) { RunVerify(args, target, logPath); return; }
 
             // ---- MenuOpened subscription on an MTA thread (per #48/#77) ------------
             var menuOpened = new List<(long ms, string desc, int[]? rid, Rectangle rect)>();

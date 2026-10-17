@@ -972,3 +972,136 @@ was complete on the first scan after the signal.
      Esc-to-tear-down closed it twice.
    - BC's menu-bar items expose `ExpandCollapse`, but `Expand()` did not open the menu. A real click did.
    - A probe harness needs per-app teardown, and should verify that the opener actually opened something.
+
+
+---
+
+## 15. Are the exposed patterns real? Pattern honesty and submenu navigation (2026-10-17)
+
+**Question.** An app can *expose* `ExpandCollapse`, `IsOffscreen` and the rest without honouring them.
+Before an auto-hint profile trusts a pattern, we need to know: does acting on it do what it claims, and does
+it raise the events (state change, `StructureChanged`, menu events) a watcher would rely on? A second question
+comes from menu-aware chaining (#77): as the user moves through **submenus**, do those signals fire reliably
+for every open and close?
+
+**Probe.** Two new modes on `--probe-occlusion` (files `OcclusionProbe.Verify.cs`, `OcclusionProbe.Nav.cs`):
+
+- `--verify` runs a **static audit** of the window: a pattern matrix per control type plus consistency checks.
+  `--act SPEC | all-expand | all-toggle | all-select | all-scroll` adds an **action audit**:
+  1. perform the action;
+  2. record every UIA property, structure, automation and focus event and every WinEvent;
+  3. read the state back and measure the effect;
+  4. undo the action;
+  5. score the result against the expectation table below.
+
+  Each action also writes a JSON record to `<log>.verify.jsonl`, a first cut of a machine-readable profile.
+- `--verify --nav` opens a menu, then walks its **submenus**. The menu is opened with `--open` (UIA, menu bar),
+  `--open-click`, `--open-rclick` (context menu) or `--open-keys`. The walk mode is set by `--nav-mode`:
+  - `uia`: `Expand`/`Collapse`, or MSAA `DoDefaultAction` when `ExpandCollapse` claims `LeafNode`;
+  - `keys`: Down, then Right/Left on submenu parents, then Right/Left across the menu bar;
+  - `hover`: real mouse moves.
+
+  Each step records:
+  - the item's `ExpandCollapseState` event;
+  - `MenuOpened`/`MenuClosed`;
+  - `MENUPOPUPSTART`/`END`;
+  - `StructureChanged`;
+  - focus;
+  - whether menu items or Menu containers actually appeared or disappeared, tracked by RuntimeId.
+
+  Subscriptions are desktop-wide but filtered to the target pid, so popups in their own HWND are counted.
+  Results go to `<log>.nav.jsonl`.
+
+### Expectation table (what a real implementation does)
+
+| Action | Readback | Property event | Structure | Other events | Visible effect | Undo |
+|---|---|---|---|---|---|---|
+| `ExpandCollapse.Expand` | `ExpandCollapseState=Expanded` | `ExpandCollapseState→Expanded` on the element | `ChildAdded` / `ChildrenBulkAdded` / `ChildrenInvalidated` under the element or popup | `MenuOpened` + `MENUPOPUPSTART` (menus); `WindowOpened` (dialogs) | new actionable descendants, or a new popup container/HWND | `Collapse()` → `Collapsed`, popup gone |
+| `Toggle.Toggle` | `ToggleState` changes | `ToggleState` change | none expected | `OBJECT_STATECHANGE` | none (state only) | toggle back |
+| `SelectionItem.Select` | `IsSelected=true` | `IsSelected→true` | content swap for tabs | `ElementSelected`; `OBJECT_SELECTION` | tab content changes / none | select previous |
+| `Invoke.Invoke` | n/a | n/a | depends | `Invoke_Invoked` | something observable | Esc if a popup opened |
+| `Scroll.Scroll` | scroll percent changes | `ScrollPercent` change | `ChildAdded/Removed` when virtualized | `SCROLLINGSTART` / `VALUECHANGE` | children move | `SetScrollPercent(prev)` |
+
+**Verdicts.**
+
+| Verdict | Meaning |
+|---|---|
+| **REAL** | readback, event and effect all present |
+| **QUIET** | readback and effect present, but no state event, so it can't drive an event-based watcher |
+| **HOLLOW** | the state claims success, but nothing appeared |
+| **STALE-STATE** | something appeared, but the state didn't say so |
+| **EMPTY** | the item became `LeafNode` (honest: nothing to show) |
+| **NO-OP** | nothing happened |
+| **FAIL** | the action threw |
+
+A `no-SC` suffix means the action had an effect but raised no `StructureChanged` at all.
+
+### Action audit: `all-expand` sweep (5 elements each)
+
+| App | Results | Notes |
+|---|---|---|
+| Notepad (WinUI) | menu-bar `File`/`Edit`/`View`: **QUIET** ×3; toolbar `Headings`/`Lists` split buttons: **REAL** ×2 | Menu-bar items flip to `Expanded`, but raise **no** `ExpandCollapseState` event on themselves. `MenuOpened` + `MENUPOPUPSTART` + about 15–95 `ChildAdded` do fire. Undo was clean 5/5. |
+| VS Code | activity-bar tabs (`Search`, `Source Control`, `Extensions`…) and `More Actions`: **REAL** ×5 | Static audit flagged 13 `EC_LEAF` buttons and 19 `ListItem`s with no action pattern (legacy default action "Double Click"). It also flagged 41 nameless actionables. |
+| File Explorer | nav-pane TreeItems: **REAL** ×4, `Network`: **EMPTY** | `ExpandCollapseState` event plus `ChildAdded` bursts; settle took 400–1100 ms for OneDrive. |
+
+### Submenu navigation: which signal fires per step
+
+The cells count steps where the menu **visibly** opened or closed. "EC" is `ExpandCollapseState` on the submenu
+parent.
+
+| App · menu | Submenu **open** | Submenu **close** | Notes |
+|---|---|---|---|
+| **Notepad** (WinUI) menu bar `View`, and the text context menu | EC→Expanded **all**; `MenuOpened` **0**; `MENUPOPUPSTART` **0**; SC all; focus all | `UIA Collapse`: EC→Collapsed. **Keyboard Left / Esc: no EC event.** No menu events; SC and focus only. | Submenus are invisible to menu events. Only the root `MenuOpened`/`MenuClosed` fire. Hover swaps fire EC→Collapsed on the old parent and EC→Expanded on the new one. A Right arrow on a leaf switches top-level menus with `MenuClosed` + `MenuOpened`. |
+| **Visual Studio** menu bar `View`/`Tools`, and the Solution Explorer context menu | EC→Expanded **all**; no menu events; SC all (`ChildrenBulkAdded`) | EC→Collapsed for UIA and keyboard; **none** for Esc or hover swap on the item itself | **VS's `MenuOpened`/`MenuClosed` bracket menu *mode*, not dropdowns.** They fire only when menu mode starts, i.e. the first open after VS is activated or after a second Esc. Re-opening while still in menu mode, switching top-level menus, and submenus raise nothing but EC + SC. The top-level menu-bar item's EC (`other(1)`/`other(0)`) is the dependable signal. |
+| **Beyond Compare** (Delphi, `TTBPopupWindow`) `Edit`, and the text-pane context menu | `MenuOpened` + `MENUPOPUPSTART` **all**; EC none; SC only `ChildAdded`×2–3 | `MENUPOPUPEND` **all**; **`MenuClosed` never**; no SC | **`ExpandCollapse` lies:** every item, submenu parents included, reports `LeafNode`. The menu-bar item of the open menu reports `Expanded`. Submenu parents are identifiable only by **MSAA `STATE_SYSTEM_HASPOPUP`**. Items have **no RuntimeId**, so the probe keys them by name and rect. UIA **focus does not follow the keyboard highlight**, so keyboard-driven tracking by focus is impossible. `DoDefaultAction` on the shell's `Explorer` submenu opened it **silently**, with no events at all. |
+| **Edge** (Views) `Settings and more`, and the page context menu | EC→Expanded **all**; `MENUPOPUPSTART` all; **`MenuOpened` never**; SC all | EC→Collapsed (UIA/keys); **`MenuClosed` all**; `MENUPOPUPEND` all | Asymmetric UIA: `MenuClosed` fires and `MenuOpened` doesn't (matches §9). Otherwise the cleanest app: every step has EC + WinEvent + SC. |
+| **File Explorer** (XAML) file context menu | EC→Expanded, `MenuOpened`, `MENUPOPUPSTART`, SC, focus: **all** | `MenuClosed` + `MENUPOPUPEND` all; EC→Collapsed only for UIA `Collapse` | **A mouse-opened menu doesn't take keyboard focus.** Focus sits on `Popup` and arrow keys do nothing until the user clicks in. After Shift+F10 the keyboard walk works. Esc closing the root raises a spurious `MenuOpened`+`MenuClosed` pair. |
+| **VS Code** menu bar `File`, and the editor context menu | EC→Expanded, `MenuOpened`, `MENUPOPUPSTART`, SC, focus: **all** | keyboard Left: EC + `MenuClosed` + `MENUPOPUPEND`; **UIA `Collapse()` is a no-op** (submenu stays open) | `Collapse` isn't honoured, but `Expand` on a sibling swaps correctly. SC is only `ChildrenReordered`. Hover: the first hover sometimes failed (1 of 2 runs). |
+
+### Lessons for auto-hint profiles
+
+1. **Per-step submenu tracking needs `ExpandCollapseState` on the parent item, not menu events.**
+   - EC→Expanded fired on every visible submenu open in 5 of 6 apps, the exception being Beyond Compare.
+   - `MenuOpened` fired for submenus only in Explorer and VS Code. `MENUPOPUPSTART` fired in Explorer, VS Code,
+     Edge and Beyond Compare, but not in Notepad or VS.
+
+   So #77's MenuOpened-only chaining would **miss every submenu in Notepad and VS**. A watcher should subscribe
+   `ExpandCollapseState` property changes on the open menu's subtree, or the desktop root filtered by pid,
+   alongside the §9 union.
+2. **Closing is the weak direction.** No single signal caught every close:
+   - EC→Collapsed fires for UIA `Collapse` in most apps, but **not** for keyboard Left in Notepad, nor for Esc
+     or hover swaps in most apps;
+   - `MenuClosed` is missing in Notepad and VS (submenus), and entirely in BC.
+
+   The only universal close signal was **the item set shrinking**: `StructureChanged` `ChildRemoved` in 5
+   apps, and in BC just the `MENUPOPUPEND` WinEvent. A chaining watcher should treat "the container's items
+   left the tree" as the close truth, and re-scan on any SC/EC/menu signal from the menu's subtree.
+3. **The profile must record pattern honesty per app.** Behaviours found today:
+   - `ExpandCollapse` reports `LeafNode` for submenu parents (BC; fall back to MSAA `HASPOPUP`);
+   - `Collapse()` is a no-op (VS Code; close by Esc/Left or by expanding a sibling);
+   - Notepad menu-bar items expand but raise no state event (QUIET);
+   - VS menu events mean menu *mode*, not dropdowns;
+   - Edge never raises `MenuOpened`;
+   - no RuntimeIds (BC; key by name and rect);
+   - focus doesn't track the highlight (BC, and Explorer when the menu is mouse-opened);
+   - `IsOffscreen` lies (VS Code menu bar, §14).
+
+   Each is a field an auto-hint `SurfaceRule` / app profile needs: "submenu-open signal", "close strategy",
+   "item identity", "trust IsOffscreen".
+4. **The expectation table works as a profile generator.** The `.jsonl` output of `--act` and `--nav` already
+   holds, per app and per surface:
+   - which signals fire;
+   - their latency;
+   - settle time;
+   - whether undo works.
+
+   Turning those records into a draft profile is mechanical. The remaining human judgement is which
+   surfaces to probe, and safe openers and teardown (BC's Esc hazard).
+5. **Probe hazards found:**
+   - **minimized windows:** BC was minimized, so its menu items sat at about −32000 and the probe clicked into
+     nothing;
+   - **cursor parking:** a previous hover run's cursor position re-opened submenus;
+   - **SendKeys:** it didn't reach Explorer's XAML menu (raw `keybd_event` is used now);
+   - **Win32 menus:** `HASPOPUP` and missing RuntimeIds need the MSAA fallback.
+
+   Each is now handled in the probe. These go into #124's "safety and ergonomics" question.
