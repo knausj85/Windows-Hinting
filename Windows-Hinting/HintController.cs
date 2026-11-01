@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using Windows.Win32.UI.Accessibility;
 using Preferences;
 using WindowsHinting.Configuration;
 using WindowsHinting.Forms;
 using WindowsHinting.Logging;
 using WindowsHinting.Models;
+using WindowsHinting.NativeInterop;
 using WindowsHinting.Services;
 
 namespace WindowsHinting
@@ -26,7 +29,7 @@ namespace WindowsHinting
         private readonly HintInputHandler _inputHandler;
         private readonly TrayIconManager _trayIcon;
         private readonly ElementActivatorChain _activatorChain;
-        //private readonly NamedPipeService _namedPipeService;
+        private readonly PipeCommandService _pipeService;
         private readonly WindowRuleRegistry _ruleRegistry;
         private readonly MouseClickService _mouseClickService;
         private readonly StartupService _startupService;
@@ -55,7 +58,7 @@ namespace WindowsHinting
             HintStateManager stateManager,
             HintInputHandler inputHandler,
             ElementActivatorChain activatorChain,
-            //NamedPipeService namedPipeService,
+            PipeCommandService pipeService,
             MouseClickService mouseClickService,
             StartupService startupService,
             UpdateService updateService)
@@ -77,7 +80,7 @@ namespace WindowsHinting
                 _stateManager = stateManager ?? throw new ArgumentNullException(nameof(stateManager));
                 _inputHandler = inputHandler ?? throw new ArgumentNullException(nameof(inputHandler));
                 _activatorChain = activatorChain ?? throw new ArgumentNullException(nameof(activatorChain));
-                //_namedPipeService = namedPipeService ?? throw new ArgumentNullException(nameof(namedPipeService));
+                _pipeService = pipeService ?? throw new ArgumentNullException(nameof(pipeService));
                 _mouseClickService = mouseClickService ?? throw new ArgumentNullException(nameof(mouseClickService));
                 _startupService = startupService ?? throw new ArgumentNullException(nameof(startupService));
                 _updateService = updateService ?? throw new ArgumentNullException(nameof(updateService));
@@ -123,14 +126,14 @@ namespace WindowsHinting
                 _keyboardService.KeyPressed += OnKeyPressed;
                 _keyboardService.KeyReleased += OnKeyReleased;
 
-                //_namedPipeService.CommandReceived += OnNamedPipeCommandReceived;
-
-                // Start named pipe service
-                // _logger.Debug("Starting named pipe service");
-                //_namedPipeService.Start();
-
                 // Kick off the auto-update background loop (no-op if disabled in prefs).
                 _updateService.Initialize();
+
+                // Talon RPC pipe (docs/design/named-pipe-rpc.md).
+                if (_options.Rpc.Enabled)
+                    _pipeService.Start(OnPipeCommandAsync);
+                else
+                    _logger.Info("RPC pipe disabled in preferences");
 
                 _logger.Info("HintController initialized successfully");
             }
@@ -166,73 +169,175 @@ namespace WindowsHinting
             _overlay.RebuildOverlays();
         }
 
-        private void OnNamedPipeCommandReceived(object? sender, NamedPipeCommand command)
+        /// <summary>
+        /// Runs an RPC command on the UI thread. Called on the pipe thread; completes
+        /// once the command (including any hint scan it starts) has finished.
+        /// </summary>
+        private Task<PipeResponse> OnPipeCommandAsync(PipeCommand command, PipeCaller caller)
         {
-            _logger.Debug($"Processing named pipe command: {command.CommandType}");
-
-            switch (command.CommandType)
+            var tcs = new TaskCompletionSource<PipeResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+            bool posted;
+            try
             {
-                case CommandType.Toggle:
-                    Toggle();
-                    break;
-
-                case CommandType.ToggleTaskbar:
-                    ToggleTaskbar();
-                    break;
-
-                case CommandType.Select:
-                    if (!string.IsNullOrEmpty(command.HintLabel))
+                posted = _overlay.BeginInvoke(async () =>
+                {
+                    try
                     {
-                        SelectHintByLabel(command.HintLabel, command.Action);
+                        tcs.TrySetResult(await ExecutePipeCommandAsync(command, caller));
                     }
-                    break;
+                    catch (Exception ex)
+                    {
+                        _logger.Error($"RPC command '{command.Name}' failed", ex);
+                        tcs.TrySetResult(PipeResponse.Fail(PipeResultCode.Internal, ex.Message));
+                    }
+                });
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ObjectDisposedException)
+            {
+                posted = false;
+            }
 
-                case CommandType.Deactivate:
+            return posted
+                ? tcs.Task
+                : Task.FromResult(PipeResponse.Fail(PipeResultCode.Internal, "UI thread unavailable"));
+        }
+
+        private async Task<PipeResponse> ExecutePipeCommandAsync(PipeCommand command, PipeCaller caller)
+        {
+            if (_disposed)
+                return PipeResponse.Fail(PipeResultCode.Internal, "Shutting down");
+
+            switch (command.Kind)
+            {
+                case PipeCommandKind.Status:
+                    return PipeResponse.Success(data: _stateManager.Snapshot());
+
+                case PipeCommandKind.Deactivate:
                     _stateManager.Deactivate();
-                    break;
+                    return PipeResponse.Success();
+
+                case PipeCommandKind.Toggle:
+                case PipeCommandKind.ToggleTaskbar:
+                {
+                    bool taskbar = command.Kind == PipeCommandKind.ToggleTaskbar;
+                    // Only a toggle that starts a scan needs the elevated-target check;
+                    // one that just dismisses hints is always allowed.
+                    bool startsScan = _stateManager.CurrentMode == HintMode.Inactive ||
+                                      (_stateManager.CurrentSource == HintSource.Taskbar) != taskbar;
+                    if (startsScan &&
+                        CheckElevatedTarget(caller, ProcessSecurity.GetWindowProcessId(_windowManager.GetForegroundWindow())) is { } refused)
+                        return refused;
+
+                    bool applied = taskbar ? TryToggleTaskbar(out var scan) : TryToggle(out scan);
+                    if (!applied)
+                        return PipeResponse.Success("Debounced", _stateManager.Snapshot());
+
+                    await scan;
+                    return PipeResponse.Success(data: _stateManager.Snapshot());
+                }
+
+                case PipeCommandKind.Select:
+                {
+                    if (_stateManager.CurrentMode is not (HintMode.Active or HintMode.Selecting))
+                        return PipeResponse.Fail(PipeResultCode.NotActive, "No hints are showing");
+
+                    var hint = _stateManager.CurrentHints.FirstOrDefault(h =>
+                        h.Label.Equals(command.Label, StringComparison.OrdinalIgnoreCase));
+                    if (hint == null)
+                        return PipeResponse.Fail(PipeResultCode.LabelNotFound, $"No hint labelled '{command.Label}'");
+
+                    uint targetPid = GetElementProcessId(hint) ??
+                                     ProcessSecurity.GetWindowProcessId(_windowManager.GetForegroundWindow());
+                    if (CheckElevatedTarget(caller, targetPid) is { } refused)
+                        return refused;
+
+                    return await ActivateHintAsync(hint, command.Action)
+                        ? PipeResponse.Success()
+                        : PipeResponse.Fail(PipeResultCode.Internal, $"Activating '{hint.Label}' failed");
+                }
+
+                default:
+                    return PipeResponse.Fail(PipeResultCode.UnknownCommand, $"Unhandled command '{command.Name}'");
             }
         }
 
-        private void SelectHintByLabel(string label, ClickAction action = ClickAction.Default)
+        /// <summary>
+        /// The RPC caller policy for commands that act on a window: a target above medium
+        /// integrity is reachable only when both this process and the caller hold UIAccess,
+        /// so a medium caller can't use us to get past UIPI. An unreadable target integrity
+        /// counts as elevated. Returns the refusal, or null when allowed.
+        /// </summary>
+        private static PipeResponse? CheckElevatedTarget(PipeCaller caller, uint targetPid)
         {
-            _logger.Info($"Attempting to select hint with label: {label}, action: {action}");
+            int? targetRid = targetPid == 0 ? null : ProcessSecurity.GetIntegrityRid(targetPid);
+            if (targetRid is int rid && rid <= ProcessSecurity.MediumRid)
+                return null;
 
-            var hint = _stateManager.CurrentHints.FirstOrDefault(h =>
-                h.Label.Equals(label, StringComparison.OrdinalIgnoreCase));
+            string target = $"target pid={targetPid} integrity={ProcessSecurity.DescribeIntegrity(targetRid)}";
+            if (!ProcessSecurity.CurrentProcessHasUIAccess)
+                return PipeResponse.Fail(PipeResultCode.ElevatedTarget, $"{target}; this build has no UIAccess");
+            if (!caller.UIAccess)
+                return PipeResponse.Fail(PipeResultCode.ElevatedTarget, $"{target}; caller has no UIAccess");
+            return null;
+        }
 
-            if (hint == null)
+        private uint? GetElementProcessId(HintItem hint)
+        {
+            try
             {
-                _logger.Warning($"Hint with label '{label}' not found");
-                return;
+                return hint.Element.GetCachedPropertyValue(UIA_PROPERTY_ID.UIA_ProcessIdPropertyId) is int pid && pid > 0
+                    ? (uint)pid
+                    : null;
             }
+            catch (Exception ex)
+            {
+                _logger.Debug($"Could not read the process id of hint '{hint.Label}': {ex.Message}");
+                return null;
+            }
+        }
 
+        /// <summary>
+        /// Activates a hint for an RPC <c>select</c>. Mirrors the keyboard path in
+        /// <see cref="OnSelectionCommitted"/>: hide the hints, let the overlay update,
+        /// then activate.
+        /// </summary>
+        private async Task<bool> ActivateHintAsync(HintItem hint, ClickAction action)
+        {
             _logger.Info($"Activating hint: {hint.Label}, action: {action}");
+            var element = hint.Element;
+            var rect = hint.Rect;
+
+            _stateManager.Deactivate();
+            await Task.Yield();
 
             try
             {
                 if (action == ClickAction.Default)
-                {
-                    _activatorChain.TryActivate(hint.Element);
-                }
-                else
-                {
-                    _mouseClickService.PerformClick(hint.Rect, action);
-                }
+                    return _activatorChain.TryActivate(element);
+
+                _mouseClickService.PerformClick(rect, action);
+                return true;
             }
             catch (Exception ex)
             {
-                _logger.Error($"Error activating hint '{label}'", ex);
-            }
-            finally
-            {
-                // Hide hints after activation
-                _logger.Debug("Deactivating hints after direct selection");
-                _stateManager.Deactivate();
+                _logger.Error($"Error activating hint '{hint.Label}'", ex);
+                return false;
             }
         }
 
-        public void Toggle()
+        public async void Toggle()
         {
+            if (TryToggle(out var scan))
+                await scan;
+        }
+
+        /// <summary>
+        /// Toggles foreground-window hints. Returns false if debounced; otherwise
+        /// <paramref name="scan"/> completes when any scan it started has finished.
+        /// </summary>
+        private bool TryToggle(out Task scan)
+        {
+            scan = Task.CompletedTask;
             using (PerformanceMetrics.Start("Toggle", _logger, LogLevel.Debug))
             {
                 long now = Stopwatch.GetTimestamp();
@@ -241,7 +346,7 @@ namespace WindowsHinting
                 if (elapsedMs < ToggleDebounceMs)
                 {
                     _logger.Debug($"Toggle debounced - only {elapsedMs}ms since last toggle");
-                    return;
+                    return false;
                 }
 
                 _lastToggleTicks = now;
@@ -254,7 +359,7 @@ namespace WindowsHinting
                         _logger.Info("Switching from taskbar hints to foreground window hints");
                         _stateManager.Deactivate();
                         _stateManager.Activate(HintSource.ForegroundWindow);
-                        ScanForHints();
+                        scan = ScanForHintsAsync();
                     }
                     else
                     {
@@ -266,13 +371,22 @@ namespace WindowsHinting
                 {
                     _logger.Info("Activating hint mode (foreground window)");
                     _stateManager.Activate(HintSource.ForegroundWindow);
-                    ScanForHints();
+                    scan = ScanForHintsAsync();
                 }
+                return true;
             }
         }
 
-        public void ToggleTaskbar()
+        public async void ToggleTaskbar()
         {
+            if (TryToggleTaskbar(out var scan))
+                await scan;
+        }
+
+        /// <summary>Taskbar counterpart of <see cref="TryToggle"/>.</summary>
+        private bool TryToggleTaskbar(out Task scan)
+        {
+            scan = Task.CompletedTask;
             using (PerformanceMetrics.Start("ToggleTaskbar", _logger, LogLevel.Debug))
             {
                 long now = Stopwatch.GetTimestamp();
@@ -281,7 +395,7 @@ namespace WindowsHinting
                 if (elapsedMs < ToggleDebounceMs)
                 {
                     _logger.Debug($"ToggleTaskbar debounced - only {elapsedMs}ms since last toggle");
-                    return;
+                    return false;
                 }
 
                 _lastToggleTicks = now;
@@ -300,19 +414,20 @@ namespace WindowsHinting
                         _logger.Info("Switching from foreground window hints to taskbar hints");
                         _stateManager.Deactivate();
                         _stateManager.Activate(HintSource.Taskbar);
-                        ScanTaskbarForHints();
+                        scan = ScanTaskbarForHintsAsync();
                     }
                 }
                 else
                 {
                     _logger.Info("Activating taskbar hint mode");
                     _stateManager.Activate(HintSource.Taskbar);
-                    ScanTaskbarForHints();
+                    scan = ScanTaskbarForHintsAsync();
                 }
+                return true;
             }
         }
 
-        private async void ScanForHints()
+        private async Task ScanForHintsAsync()
         {
             using (PerformanceMetrics.Start("ScanForHints", _logger, LogLevel.Info))
             {
@@ -422,7 +537,7 @@ namespace WindowsHinting
             }
         }
 
-        private async void ScanTaskbarForHints()
+        private async Task ScanTaskbarForHintsAsync()
         {
             using (PerformanceMetrics.Start("ScanTaskbarForHints", _logger, LogLevel.Info))
             {
@@ -769,7 +884,7 @@ namespace WindowsHinting
 
             _logger.Info("Disposing HintController");
             _autoHideTimer.Dispose();
-            //_namedPipeService.Dispose();
+            _pipeService.Dispose();
             _keyboardService.Stop();
             _updateService.Dispose();
             _trayIcon.Dispose();

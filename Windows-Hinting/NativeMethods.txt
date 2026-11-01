@@ -97,3 +97,17 @@ TreeScope
 UIA_PROPERTY_ID
 UIA_PATTERN_ID
 UIA_CONTROLTYPE_ID
+
+// --- Wave 8: named-pipe RPC caller identification (PipeCommandService) ---
+GetNamedPipeClientProcessId
+OpenProcess
+QueryFullProcessImageName
+OpenProcessToken
+GetTokenInformation
+TOKEN_INFORMATION_CLASS
+TOKEN_MANDATORY_LABEL
+GetSidSubAuthority
+GetSidSubAuthorityCount
+PROCESS_ACCESS_RIGHTS
+TOKEN_ACCESS_MASK
+PROCESS_NAME_FORMAT

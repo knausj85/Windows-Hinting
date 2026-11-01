@@ -20,6 +20,9 @@ namespace WindowsHinting.Services
         Taskbar
     }
 
+    /// <summary>Read-only view of the hint session, reported by the RPC <c>status</c> command.</summary>
+    internal sealed record HintStateSnapshot(bool Active, HintSource Source, HintMode Mode, ClickAction PendingAction, int HintCount);
+
     internal sealed class HintStateManager
     {
         private HintMode _mode = HintMode.Inactive;
@@ -36,6 +39,9 @@ namespace WindowsHinting.Services
         public event EventHandler<IReadOnlyList<HintItem>>? HintsChanged;
         public event EventHandler<string>? FilterChanged;
         public event EventHandler<ClickAction>? ClickActionChanged;
+
+        public HintStateSnapshot Snapshot() =>
+            new(_mode != HintMode.Inactive, CurrentSource, _mode, PendingAction, _currentHints.Count);
 
         public void SetPendingAction(ClickAction action)
         {

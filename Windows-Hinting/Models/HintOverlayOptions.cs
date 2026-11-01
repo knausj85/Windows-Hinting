@@ -52,7 +52,19 @@ namespace WindowsHinting.Models
         /// </summary>
         public LoggingOptions Logging { get; set; } = new();
 
+        /// <summary>
+        /// Named-pipe RPC used by Talon. Only the on/off switch lives here: nothing that
+        /// loosens the caller policy is configurable (see docs/design/named-pipe-rpc.md).
+        /// </summary>
+        public RpcOptions Rpc { get; set; } = new();
+
         public List<WindowRule>? WindowRules { get; set; }
+    }
+
+    internal sealed class RpcOptions
+    {
+        /// <summary>When false, the RPC pipe is not created. Default: true.</summary>
+        public bool Enabled { get; set; } = true;
     }
 
     internal sealed class LoggingOptions
