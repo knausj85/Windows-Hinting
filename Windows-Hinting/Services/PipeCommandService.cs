@@ -222,6 +222,7 @@ namespace WindowsHinting.Services
 
             var buffer = new byte[4096];
             using var line = new MemoryStream();
+            bool tooLong = false;
             try
             {
                 while (true)
@@ -231,22 +232,30 @@ namespace WindowsHinting.Services
                         break;
 
                     int newline = Array.IndexOf(buffer, (byte)'\n', 0, read);
-                    line.Write(buffer, 0, newline >= 0 ? newline : read);
-                    if (line.Length > MaxRequestBytes)
-                        return (null, PipeResponse.Fail(PipeResultCode.InvalidInput, $"Request exceeds {MaxRequestBytes} bytes"));
+                    // Past the limit, keep reading but discard: a client blocked writing the
+                    // rest of its request can't read the error, and the response would be
+                    // cancelled by the write timeout.
+                    if (!tooLong)
+                    {
+                        line.Write(buffer, 0, newline >= 0 ? newline : read);
+                        tooLong = line.Length > MaxRequestBytes;
+                    }
                     if (newline >= 0)
                         break;
                 }
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
-                return (null, PipeResponse.Fail(PipeResultCode.InvalidInput, $"No request line within {ReadDeadline.TotalSeconds:0}s"));
+                if (!tooLong)
+                    return (null, PipeResponse.Fail(PipeResultCode.InvalidInput, $"No request line within {ReadDeadline.TotalSeconds:0}s"));
             }
             catch (IOException)
             {
                 return (null, PipeResponse.Fail(PipeResultCode.InvalidInput, "Client disconnected before sending a request"));
             }
 
+            if (tooLong)
+                return (null, PipeResponse.Fail(PipeResultCode.InvalidInput, $"Request exceeds {MaxRequestBytes} bytes"));
             if (line.Length == 0)
                 return (null, PipeResponse.Fail(PipeResultCode.InvalidInput, "Empty request"));
             return (line.ToArray(), null);
