@@ -111,3 +111,8 @@ GetSidSubAuthorityCount
 PROCESS_ACCESS_RIGHTS
 TOKEN_ACCESS_MASK
 PROCESS_NAME_FORMAT
+
+// --- Wave 9: RPC caller allow-list (CallerTrust: Authenticode check of talon.exe) ---
+WinVerifyTrust
+WINTRUST_DATA
+WINTRUST_FILE_INFO

@@ -32,6 +32,17 @@ namespace WindowsHinting.Services
         private static readonly TimeSpan ClientCloseTimeout = TimeSpan.FromSeconds(2);
         private const long StateChangeIntervalMs = 100;
 
+        /// <summary>
+        /// Debug builds only: set to 1 before launch to let any same-user process call the
+        /// pipe (PowerShell smoke tests). Release builds always restrict callers to Talon.
+        /// </summary>
+        private const string AnyCallerVariable = "WINDOWS_HINTING_RPC_ANY_CALLER";
+#if DEBUG
+        private static readonly bool AnyCallerForDevelopment = Environment.GetEnvironmentVariable(AnyCallerVariable) == "1";
+#else
+        private const bool AnyCallerForDevelopment = false;
+#endif
+
         private static readonly JsonSerializerOptions RequestJsonOptions = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -136,12 +147,23 @@ namespace WindowsHinting.Services
         private async Task HandleConnectionAsync(NamedPipeServerStream server, CancellationToken ct)
         {
             using var caller = PipeCaller.Identify(server.SafePipeHandle);
-            if (caller.Pid == 0)
+            string? refusal = caller.Pid == 0 ? "could not identify the client process" : CallerTrust.CheckImage(caller.ImagePath);
+            if (refusal != null && AnyCallerForDevelopment)
             {
-                _logger.Warning("RPC connection rejected: could not identify the client process");
+                _logger.Warning($"RPC caller pid={caller.Pid} not trusted ({refusal}); allowed by {AnyCallerVariable}");
+                refusal = null;
+            }
+            if (refusal != null)
+            {
+                _logger.Warning($"RPC connection rejected from pid={caller.Pid} image={caller.ImagePath ?? "?"}: {refusal}");
+                // Drain the request line without parsing it: the response doesn't get through
+                // while the client's request sits unread (a flushing client blocks until it
+                // has been read).
+                await ReadRequestLineAsync(server, ct).ConfigureAwait(false);
                 await WriteResponseAsync(server, null,
-                    PipeResponse.Fail(PipeResultCode.UnauthorizedCaller, "Could not identify the calling process"), ct)
+                    PipeResponse.Fail(PipeResultCode.UnauthorizedCaller, "Only Talon may use this pipe"), ct)
                     .ConfigureAwait(false);
+                await WaitForClientCloseAsync(server, ct).ConfigureAwait(false);
                 return;
             }
 
